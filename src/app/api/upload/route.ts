@@ -18,14 +18,26 @@ export async function POST(req: NextRequest) {
 
   const bytes = Buffer.from(await file.arrayBuffer());
 
-  // If SVG, strip script tags and event handlers
+  // If SVG, strip all known XSS vectors
   if (isDangerousExtension(validation.ext)) {
     const content = bytes.toString("utf8");
-    // Basic SVG sanitization: strip <script>, on* attributes, javascript: URIs
     const sanitized = content
+      // Remove script tags and their contents
       .replace(/<script[\s\S]*?<\/script>/gi, "")
+      // Remove event handler attributes (onclick, onload, etc.)
       .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "")
-      .replace(/javascript\s*:/gi, "removed:");
+      // Remove javascript: and vbscript: URIs
+      .replace(/(?:javascript|vbscript)\s*:/gi, "removed:")
+      // Remove <foreignObject> (can embed HTML/CSS with XSS)
+      .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
+      // Remove <use> with xlink:href to external resources
+      .replace(/<use\b[^>]*\bxlink:href\s*=\s*["'][^"']*["'][^>]*\/?>/gi, "")
+      // Remove inline <style> elements (can inject CSS-based attacks)
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      // Remove style attributes that import external resources
+      .replace(/\bstyle\s*=\s*["'][^"']*@import[^"']*["']/gi, "")
+      // Remove data: URIs in href/xlink:href (can encode scripts)
+      .replace(/(?:href|xlink:href)\s*=\s*["']data:[^"']*["']/gi, 'href="#"');
     const sanitizedBuf = Buffer.from(sanitized, "utf8");
     const base = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const filename = `${base}.${validation.ext}`;

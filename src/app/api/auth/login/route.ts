@@ -24,7 +24,7 @@ function isRateLimited(ip: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for") || req.ip || "unknown";
+  const ip = (req as any).ip || req.headers.get("x-forwarded-for") || "unknown";
   if (isRateLimited(ip)) {
     return NextResponse.json(
       { error: "Too many attempts. Try again later." },

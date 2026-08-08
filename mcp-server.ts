@@ -27,7 +27,35 @@ import { PrismaClient } from "@prisma/client";
 import { slugify } from "./src/lib/utils";
 import { getTemplate } from "./src/lib/templates";
 
+// ── Block structure validation ────────────────────────────────────
+
+const VALID_BLOCK_TYPES = [
+  "heading", "text", "image", "button", "divider", "spacer",
+  "section", "columns", "video", "quote", "list", "form", "html",
+] as const;
+
+const blockSchema: z.ZodTypeAny = z.lazy(() =>
+  z.object({
+    id: z.string().min(1),
+    type: z.enum(VALID_BLOCK_TYPES),
+    props: z.record(z.string(), z.unknown()),
+    children: z.array(blockSchema).optional(),
+  })
+);
+
+const blockTreeSchema = z.array(blockSchema);
+
+// ── DB ────────────────────────────────────────────────────────────
+
 const prisma = new PrismaClient();
+
+// Enable WAL mode + busy timeout so the MCP server and web app can share the DB
+async function initDb() {
+  await prisma.$connect();
+  await prisma.$queryRawUnsafe("PRAGMA journal_mode=WAL");
+  await prisma.$queryRawUnsafe("PRAGMA busy_timeout=5000");
+  await prisma.$queryRawUnsafe("PRAGMA foreign_keys=ON");
+}
 
 // ── MCP Server setup ──────────────────────────────────────────────
 
@@ -325,7 +353,17 @@ server.tool(
     }
     if (blocks !== undefined) {
       try {
-        JSON.parse(blocks);
+        const parsed = JSON.parse(blocks);
+        // Validate block structure with Zod
+        const result = blockTreeSchema.safeParse(parsed);
+        if (!result.success) {
+          return {
+            content: [{
+              type: "text",
+              text: `Invalid block structure: ${result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,
+            }],
+          };
+        }
         data.content = blocks;
       } catch {
         return { content: [{ type: "text", text: "Invalid JSON in blocks parameter." }] };
@@ -446,9 +484,9 @@ server.tool(
 // ── Start the server ───────────────────────────────────────────────
 
 async function main() {
+  await initDb();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  // Log to stderr so it doesn't interfere with stdio MCP protocol
   console.error("Neuravex MCP server running on stdio");
 }
 
