@@ -1,0 +1,85 @@
+// Prisma schema for the website builder CMS
+// SQLite — works fully offline on macOS / Linux / Windows.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Site {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  theme       String   @default("light")
+  accent      String   @default("#6366f1")
+  // Visual theme
+  fontFamily  String?  // e.g. "Inter, sans-serif"
+  headingFont String?  // e.g. "Georgia, serif"
+  borderRadius String? @default("0.5rem")
+  // Editable header / footer (plain text that replaces hardcoded defaults)
+  headerHtml  String?
+  footerHtml  String?
+  // Custom CSS injected on every public page
+  customCss   String?
+  headHtml    String?
+  // SEO defaults (per-page SEO overrides these)
+  metaTitle       String?
+  metaDescription String?
+  ogImage         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pages       Page[]
+}
+
+model Page {
+  id              String    @id @default(cuid())
+  siteId          String
+  site            Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  title           String
+  slug            String
+  content         String    @default("[]")
+  published       Boolean   @default(false)
+  isHome          Boolean   @default(false)
+  sortOrder       Int       @default(0)
+  // Per-page SEO (inherits from Site if not set)
+  metaTitle       String?
+  metaDescription String?
+  ogImage         String?
+  // Scheduled publishing
+  scheduledAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  revisions   Revision[]
+  submissions Submission[]
+
+  @@unique([siteId, slug])
+  @@index([siteId])
+}
+
+model Revision {
+  id        String   @id @default(cuid())
+  pageId    String
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([pageId])
+}
+
+model Submission {
+  id        String   @id @default(cuid())
+  pageId    String
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  data      String   // JSON payload
+  createdAt DateTime @default(now())
+
+  @@index([pageId])
+}

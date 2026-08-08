@@ -1,0 +1,189 @@
+import {
+  HeadingProps, TextProps, ImageProps, ButtonProps,
+  DividerProps, SpacerProps, SectionProps, ColumnsProps,
+  VideoProps, QuoteProps, ListProps, FormProps, HtmlProps,
+  BlockType,
+} from "@/types";
+
+export interface BlockDefinition {
+  type: BlockType;
+  label: string;
+  category: "layout" | "content" | "media" | "form";
+  icon: string;
+  description: string;
+  // eslint-disable-next-line
+  defaultProps: any;
+}
+
+export const BLOCKS: BlockDefinition[] = [
+  {
+    type: "heading",
+    label: "Heading",
+    category: "content",
+    icon: "H",
+    description: "A title or section header.",
+    defaultProps: {
+      text: "A great headline",
+      level: 2,
+      align: "left",
+      color: "#0f172a",
+      weight: "bold",
+    } satisfies HeadingProps,
+  },
+  {
+    type: "text",
+    label: "Text",
+    category: "content",
+    icon: "T",
+    description: "A paragraph of body copy.",
+    defaultProps: {
+      text: "Write something compelling about your business, your story, or this page. Click to edit.",
+      align: "left",
+      size: "base",
+      color: "#334155",
+    } satisfies TextProps,
+  },
+  {
+    type: "image",
+    label: "Image",
+    category: "media",
+    icon: "🖼",
+    description: "A picture from a URL.",
+    defaultProps: {
+      src: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1600&q=80",
+      alt: "",
+      rounded: "xl",
+      width: "large",
+      caption: "",
+    } satisfies ImageProps,
+  },
+  {
+    type: "button",
+    label: "Button",
+    category: "content",
+    icon: "▶",
+    description: "A clickable call to action.",
+    defaultProps: {
+      label: "Get started",
+      href: "#",
+      variant: "primary",
+      size: "md",
+      align: "left",
+      color: "#6366f1",
+      textColor: "#ffffff",
+    } satisfies ButtonProps,
+  },
+  {
+    type: "divider",
+    label: "Divider",
+    category: "layout",
+    icon: "—",
+    description: "A horizontal line.",
+    defaultProps: {
+      style: "solid",
+      color: "#e2e8f0",
+      thickness: 1,
+    } satisfies DividerProps,
+  },
+  {
+    type: "spacer",
+    label: "Spacer",
+    category: "layout",
+    icon: "↕",
+    description: "Vertical breathing room.",
+    defaultProps: {
+      height: 48,
+    } satisfies SpacerProps,
+  },
+  {
+    type: "section",
+    label: "Section",
+    category: "layout",
+    icon: "▭",
+    description: "A container with background and padding.",
+    defaultProps: {
+      background: "#f8fafc",
+      paddingY: 64,
+      paddingX: 24,
+      maxWidth: "6xl",
+      align: "center",
+    } satisfies SectionProps,
+  },
+  {
+    type: "columns",
+    label: "Columns",
+    category: "layout",
+    icon: "▤",
+    description: "A multi-column layout container.",
+    defaultProps: {
+      count: 3,
+      gap: 24,
+    } satisfies ColumnsProps,
+  },
+  {
+    type: "video",
+    label: "Video",
+    category: "media",
+    icon: "▶",
+    description: "An embedded video.",
+    defaultProps: {
+      src: "https://www.w3schools.com/html/mov_bbb.mp4",
+      poster: "",
+      ratio: "16/9",
+    } satisfies VideoProps,
+  },
+  {
+    type: "quote",
+    label: "Quote",
+    category: "content",
+    icon: "❝",
+    description: "A testimonial or pull quote.",
+    defaultProps: {
+      text: "This product changed the way we work — we can't imagine going back.",
+      author: "Jane Cooper",
+      role: "Head of Design, Northwind",
+      align: "center",
+    } satisfies QuoteProps,
+  },
+  {
+    type: "list",
+    label: "List",
+    category: "content",
+    icon: "•",
+    description: "A bulleted, numbered, or check list.",
+    defaultProps: {
+      style: "check",
+      items: ["Fast and easy to use", "Works on every device", "Free to get started"],
+    } satisfies ListProps,
+  },
+  {
+    type: "form",
+    label: "Form",
+    category: "content",
+    icon: "☰",
+    description: "A contact or signup form. Submissions are saved in the CMS.",
+    defaultProps: {
+      fields: [
+        { label: "Name", type: "text", required: true },
+        { label: "Email", type: "email", required: true },
+        { label: "Message", type: "textarea", required: false },
+      ],
+      submitLabel: "Submit",
+      successMessage: "Thanks! Your message has been received.",
+    } satisfies FormProps,
+  },
+  {
+    type: "html",
+    label: "Custom HTML",
+    category: "media",
+    icon: "‹›",
+    description: "Raw HTML embed. Useful for widgets, maps, or code snippets.",
+    defaultProps: {
+      html: '<div style="padding:32px;text-align:center;background:#f1f5f9;border-radius:8px">Your custom HTML here</div>',
+    } satisfies HtmlProps,
+  },
+];
+
+export function getBlockDefinition(type: BlockType): BlockDefinition | undefined {
+  return BLOCKS.find((b) => b.type === type);
+}

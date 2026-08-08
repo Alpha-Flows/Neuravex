@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  background: #0b0d12;
+  color: #e7e9ee;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Custom scrollbar that fits the dark UI */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #222735; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #2c3245; }
+
+/* Editor-only outline highlights */
+.editor-outline {
+  outline: 2px dashed transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.12s ease;
+}
+.editor-block:hover > .editor-outline,
+.editor-block.is-selected > .editor-outline {
+  outline-color: rgba(99, 102, 241, 0.55);
+}
+.editor-block.is-selected > .editor-outline {
+  outline-style: solid;
+}
+
+/* Inline contentEditable */
+.inline-editable {
+  outline: none;
+  cursor: text;
+}
+.inline-editable:focus {
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: 4px;
+}
+.editor-mode .inline-editable:hover {
+  background: rgba(99, 102, 241, 0.06);
+  border-radius: 4px;
+}
+
+/* Public site defaults — light, readable */
+.public-canvas {
+  background: #ffffff;
+  color: #0f172a;
+  min-height: 100vh;
+}
+.public-canvas a { color: inherit; }
