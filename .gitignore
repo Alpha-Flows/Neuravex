@@ -11,3 +11,5 @@ prisma/dev.db
 prisma/dev.db-journal
 public/uploads/
 test-results/
+prisma/dev.db-shm
+prisma/dev.db-wal
