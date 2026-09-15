@@ -169,3 +169,28 @@ export function validateUploadFile(
 export function isDangerousExtension(ext: string): boolean {
   return DANGEROUS_EXTENSIONS.has(ext.toLowerCase());
 }
+
+/**
+ * Strip known XSS vectors from an uploaded SVG file's contents.
+ * SVG can carry <script>, event handlers, and other HTML-equivalent
+ * attack surface — this removes it while leaving the markup intact.
+ */
+export function sanitizeSvg(content: string): string {
+  return content
+    // Remove script tags and their contents
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    // Remove event handler attributes (onclick, onload, etc.)
+    .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "")
+    // Remove javascript: and vbscript: URIs
+    .replace(/(?:javascript|vbscript)\s*:/gi, "removed:")
+    // Remove <foreignObject> (can embed HTML/CSS with XSS)
+    .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
+    // Remove <use> with xlink:href to external resources
+    .replace(/<use\b[^>]*\bxlink:href\s*=\s*["'][^"']*["'][^>]*\/?>/gi, "")
+    // Remove inline <style> elements (can inject CSS-based attacks)
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    // Remove style attributes that import external resources
+    .replace(/\bstyle\s*=\s*["'][^"']*@import[^"']*["']/gi, "")
+    // Remove data: URIs in href/xlink:href (can encode scripts)
+    .replace(/(?:href|xlink:href)\s*=\s*["']data:[^"']*["']/gi, 'href="#"');
+}
