@@ -1,10 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+import { PublicBlocks } from "@/components/public/PublicBlocks";
+import { BaseBlock } from "@/types";
 
 interface Rev {
   id: string;
   title: string;
+  content: string;
   createdAt: string;
 }
 
@@ -15,7 +19,7 @@ interface Props {
 
 export function RevisionsPanel({ pageId, onRestore }: Props) {
   const [revs, setRevs] = useState<Rev[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [previewing, setPreviewing] = useState<Rev | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,7 +30,6 @@ export function RevisionsPanel({ pageId, onRestore }: Props) {
   }, [pageId]);
 
   async function restore(revId: string) {
-    if (!confirm("Restore this revision? Current unsaved changes will be lost.")) return;
     setRestoring(revId);
     try {
       await fetch(`/api/pages/${pageId}/revisions`, {
@@ -34,9 +37,20 @@ export function RevisionsPanel({ pageId, onRestore }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ revisionId: revId }),
       });
+      setPreviewing(null);
       onRestore?.();
     } finally {
       setRestoring(null);
+    }
+  }
+
+  let previewBlocks: BaseBlock[] | null = null;
+  if (previewing) {
+    try {
+      const parsed = JSON.parse(previewing.content);
+      if (Array.isArray(parsed)) previewBlocks = parsed;
+    } catch {
+      previewBlocks = null;
     }
   }
 
@@ -49,17 +63,54 @@ export function RevisionsPanel({ pageId, onRestore }: Props) {
         <div className="space-y-2">
           {revs.map((r) => (
             <div key={r.id} className="flex items-center justify-between rounded-lg border border-bg-border bg-bg p-2 text-xs">
-              <div>
-                <div className="text-fg">{r.title}</div>
+              <div className="min-w-0">
+                <div className="text-fg truncate">{r.title}</div>
                 <div className="text-fg-subtle">{new Date(r.createdAt).toLocaleString()}</div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => restore(r.id)} loading={restoring === r.id}>
-                Restore
+              <Button size="sm" variant="outline" onClick={() => setPreviewing(r)} className="shrink-0">
+                Preview
               </Button>
             </div>
           ))}
         </div>
       )}
+
+      <Modal
+        open={!!previewing}
+        onClose={() => setPreviewing(null)}
+        title={previewing?.title || "Revision"}
+        subtitle={previewing ? new Date(previewing.createdAt).toLocaleString() : undefined}
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setPreviewing(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => previewing && restore(previewing.id)}
+              loading={restoring === previewing?.id}
+            >
+              Restore this revision
+            </Button>
+          </>
+        }
+      >
+        <div className="p-4 text-xs text-fg-muted border-b border-bg-border bg-bg-soft">
+          This is a read-only preview. Restoring will replace the page&apos;s current content — your unsaved changes, if any, will be lost.
+        </div>
+        <div className="public-canvas">
+          {previewBlocks ? (
+            previewBlocks.length > 0 ? (
+              <PublicBlocks blocks={previewBlocks} />
+            ) : (
+              <div className="p-6 text-sm text-fg-muted">This revision has no content.</div>
+            )
+          ) : (
+            <div className="p-6 text-sm text-fg-muted">Preview unavailable for this revision.</div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }
