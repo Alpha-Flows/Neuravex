@@ -3,6 +3,8 @@ import {
   createSessionToken,
   verifySessionToken,
   verifyPassword,
+  hashPassword,
+  verifyPasswordHash,
   sanitizeCss,
   sanitizeCssValue,
   safeRedirectUrl,
@@ -12,43 +14,77 @@ import {
 } from "@/lib/security";
 
 describe("createSessionToken / verifySessionToken", () => {
-  it("verifies a freshly created token", () => {
-    const token = createSessionToken();
-    expect(verifySessionToken(token)).toBe(true);
+  it("verifies a freshly created token and returns the bound userId", () => {
+    const token = createSessionToken("user-123");
+    expect(verifySessionToken(token)).toEqual({ valid: true, userId: "user-123" });
   });
 
   it("produces unique tokens on each call", () => {
-    expect(createSessionToken()).not.toBe(createSessionToken());
+    expect(createSessionToken("user-123")).not.toBe(createSessionToken("user-123"));
   });
 
   it("rejects a token with a tampered signature", () => {
-    const [nonce] = createSessionToken().split(".");
-    const forged = `${nonce}.${"0".repeat(64)}`;
-    expect(verifySessionToken(forged)).toBe(false);
+    const [userId, nonce] = createSessionToken("user-123").split(".");
+    const forged = `${userId}.${nonce}.${"0".repeat(64)}`;
+    expect(verifySessionToken(forged)).toEqual({ valid: false, userId: null });
   });
 
   it("rejects a token with a tampered nonce", () => {
-    const [, sig] = createSessionToken().split(".");
-    const forged = `${"a".repeat(64)}.${sig}`;
-    expect(verifySessionToken(forged)).toBe(false);
+    const [userId, , sig] = createSessionToken("user-123").split(".");
+    const forged = `${userId}.${"a".repeat(64)}.${sig}`;
+    expect(verifySessionToken(forged)).toEqual({ valid: false, userId: null });
+  });
+
+  it("rejects a token whose userId was swapped for another valid-looking one", () => {
+    const [, nonce, sig] = createSessionToken("user-123").split(".");
+    const forged = `user-456.${nonce}.${sig}`;
+    expect(verifySessionToken(forged)).toEqual({ valid: false, userId: null });
   });
 
   it("rejects malformed tokens", () => {
-    expect(verifySessionToken("")).toBe(false);
-    expect(verifySessionToken("no-dot-here")).toBe(false);
-    expect(verifySessionToken("a.b.c")).toBe(false);
-    expect(verifySessionToken(".")).toBe(false);
-    expect(verifySessionToken("abc.")).toBe(false);
-    expect(verifySessionToken(".xyz")).toBe(false);
+    expect(verifySessionToken("")).toEqual({ valid: false, userId: null });
+    expect(verifySessionToken("no-dots-here")).toEqual({ valid: false, userId: null });
+    expect(verifySessionToken("a.b")).toEqual({ valid: false, userId: null });
+    expect(verifySessionToken("a.b.c.d")).toEqual({ valid: false, userId: null });
+    expect(verifySessionToken("..")).toEqual({ valid: false, userId: null });
+    expect(verifySessionToken("abc..")).toEqual({ valid: false, userId: null });
+    expect(verifySessionToken("..xyz")).toEqual({ valid: false, userId: null });
   });
 
   it("rejects a signature that is not valid hex", () => {
-    const [nonce] = createSessionToken().split(".");
-    expect(verifySessionToken(`${nonce}.not-hex!!`)).toBe(false);
+    const [userId, nonce] = createSessionToken("user-123").split(".");
+    expect(verifySessionToken(`${userId}.${nonce}.not-hex!!`)).toEqual({ valid: false, userId: null });
   });
 
   it("does not throw on garbage input", () => {
-    expect(() => verifySessionToken("💥.💥")).not.toThrow();
+    expect(() => verifySessionToken("💥.💥.💥")).not.toThrow();
+  });
+});
+
+describe("hashPassword / verifyPasswordHash", () => {
+  it("verifies a password against its own hash", () => {
+    const hash = hashPassword("correct-horse-battery-staple");
+    expect(verifyPasswordHash("correct-horse-battery-staple", hash)).toBe(true);
+  });
+
+  it("rejects the wrong password", () => {
+    const hash = hashPassword("correct-horse-battery-staple");
+    expect(verifyPasswordHash("wrong-password", hash)).toBe(false);
+  });
+
+  it("produces a different hash each time (random salt)", () => {
+    expect(hashPassword("same-password")).not.toBe(hashPassword("same-password"));
+  });
+
+  it("stores salt and hash separated by a colon", () => {
+    const hash = hashPassword("x");
+    expect(hash.split(":")).toHaveLength(2);
+  });
+
+  it("rejects a malformed stored hash instead of throwing", () => {
+    expect(() => verifyPasswordHash("anything", "not-a-valid-hash")).not.toThrow();
+    expect(verifyPasswordHash("anything", "not-a-valid-hash")).toBe(false);
+    expect(verifyPasswordHash("anything", "")).toBe(false);
   });
 });
 

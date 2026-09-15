@@ -40,7 +40,7 @@ npm install
 
 # 2. Set up your environment
 cp .env.example .env
-# Edit .env and set a strong AUTH_PASSWORD
+# Optionally set SESSION_SECRET (recommended before exposing this to others)
 
 # 3. Create the database and apply the schema
 npm run db:push
@@ -52,17 +52,18 @@ npm run db:seed
 npm run dev
 ```
 
-Open **http://localhost:3000** in your browser. You'll be prompted to log in with the password you set in `.env`.
+Open **http://localhost:3000** in your browser. On first run you'll be asked to create an account (email + password) right there — no config needed.
 
 The seed creates a "Neuravex Demo" site at **http://localhost:3000/sites/demo** so you can see what a finished site looks like, and the same site is openable in the editor at **http://localhost:3000/**.
 
 ## Authentication
 
-Neuravex uses password-based authentication to protect the admin panel and API:
+Neuravex uses per-user, password-based accounts to protect the admin panel and API:
 
-- Set `AUTH_PASSWORD` in your `.env` file (required — the app won't start without it)
-- Optionally set `SESSION_SECRET` to a random 32+ char string for production (e.g. `openssl rand -hex 32`)
-- Sessions use HMAC-SHA256 signed cookies
+- The first visit to the admin panel lets you create an account (email + password) right in the app — no config needed
+- Invite teammates afterward from **Admin → Account**. Access is flat: every account can see and edit every site (no per-site permissions)
+- Set `SESSION_SECRET` to a random 32+ char string in your `.env` for production (e.g. `openssl rand -hex 32`) — otherwise a much weaker fallback key is used
+- Passwords are hashed with scrypt; sessions use HMAC-SHA256 signed cookies bound to a user id
 - Login is rate-limited to 10 attempts per IP per 15 minutes
 
 ## Using the editor
@@ -114,8 +115,7 @@ src/
 
 ## Data model
 
-Two tables:
-
+- **User** — a login account (`email`, `passwordHash`). Flat access: any account can manage every site.
 - **Site** — a website (`name`, `slug`, `accent`, theme).
 - **Page** — a single page in a site (`title`, `slug`, `content` JSON, `published`, `isHome`).
 
@@ -162,7 +162,7 @@ That's it — the palette, drag-and-drop, save, and public render all pick it up
 
 ## Known limitations (V1)
 
-- No multi-user support — the app uses a single shared password.
+- Multi-user accounts have flat access — everyone with an account can see and edit every site; there's no per-site ownership or roles.
 - No custom domains — published sites live under `/sites/:slug`.
 - No versioning / page history (revisions table exists but UI is not built).
 - Drag and drop is fully supported within a single container (the page, a section, or a column) and across containers via drop, but the live "drag into another container" hover preview is a V2 item.

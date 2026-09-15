@@ -5,11 +5,13 @@ const AUTH_COOKIE = "neuravex_auth";
 
 // Inline HMAC verification to avoid importing Node crypto in Edge middleware.
 // The full verifySessionToken lives in src/lib/security.ts for API routes.
+// Token format: `<userId>.<nonce>.<hmac-of-userId.nonce>` — middleware only
+// needs to confirm the signature is valid, not who the userId belongs to.
 async function verifyTokenEdge(token: string, secret: string): Promise<boolean> {
   const parts = token.split(".");
-  if (parts.length !== 2) return false;
-  const [nonce, sig] = parts;
-  if (!nonce || !sig) return false;
+  if (parts.length !== 3) return false;
+  const [userId, nonce, sig] = parts;
+  if (!userId || !nonce || !sig) return false;
   try {
     const enc = new TextEncoder();
     const key = await crypto.subtle.importKey(
@@ -19,7 +21,7 @@ async function verifyTokenEdge(token: string, secret: string): Promise<boolean> 
       false,
       ["sign"]
     );
-    const sigBytes = await crypto.subtle.sign("HMAC", key, enc.encode(nonce));
+    const sigBytes = await crypto.subtle.sign("HMAC", key, enc.encode(`${userId}.${nonce}`));
     const expected = Array.from(new Uint8Array(sigBytes))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");

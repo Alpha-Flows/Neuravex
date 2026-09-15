@@ -78,24 +78,23 @@ Then open `.env` in your editor and configure:
 # The default works for most setups — no need to change it.
 DATABASE_URL="file:./dev.db"
 
-# REQUIRED — The password for the admin panel.
-# Pick something strong. This is the only thing protecting your data.
-AUTH_PASSWORD=your-strong-password-here
-
-# OPTIONAL — A random string used to sign session cookies.
-# Recommended for production. Generate one with:
+# RECOMMENDED — A random string used to sign session cookies.
+# Generate one with:
 #   openssl rand -hex 32
-# If not set, a key is automatically derived from AUTH_PASSWORD.
+# If not set, a much weaker fallback key is used — fine for a quick local
+# trial, not for anything reachable by anyone else.
 # SESSION_SECRET=your-random-secret-here
 ```
+
+Logins themselves aren't configured here — the first time you open the admin panel you'll be asked to create an account (email + password), right in the app. See [Log In](#6-log-in) below.
 
 ### Variable Reference
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | Yes | `file:./dev.db` | SQLite database path (relative to `prisma/`) |
-| `AUTH_PASSWORD` | Yes | — | Password for the admin panel. The app will refuse to start without it. |
-| `SESSION_SECRET` | No | Derived from `AUTH_PASSWORD` | Random string to sign session cookies. Set this in production for better security. |
+| `SESSION_SECRET` | Recommended | A weak fallback key | Random string to sign session cookies. Set this in production. |
+| `AUTH_PASSWORD` | No | — | Legacy. Only used as fallback key material for `SESSION_SECRET` when that isn't set. Not a login password. |
 
 > **⚠️ Never commit your `.env` file.** It is already listed in `.gitignore`.
 
@@ -145,9 +144,11 @@ The app starts at **http://localhost:3000** with hot-reloading enabled.
 
 Navigate to **http://localhost:3000**. You'll be redirected to the login page.
 
-Enter the password you set as `AUTH_PASSWORD` in your `.env` file.
+On a brand-new instance (no accounts yet), the login page becomes a "Create your account" form — enter an email and a password (8+ characters) and that becomes your login. From then on it's a normal login page.
 
-Your session lasts 7 days. To log out, visit **http://localhost:3000** and click the logout button.
+Invite teammates afterward from **Admin → Account**. Everyone with an account has full access to every site — there are no per-site permissions.
+
+Your session lasts 7 days. To log out, go to **Admin → Account** and click **Sign out**.
 
 ---
 
@@ -177,8 +178,8 @@ PORT=8080 npm run start
 
 Before deploying to a server, make sure you:
 
-- [ ] Set a **strong `AUTH_PASSWORD`** (not `changeme`)
 - [ ] Set a **random `SESSION_SECRET`** — generate one with `openssl rand -hex 32`
+- [ ] Create your account with a **strong password** on first login
 - [ ] Place the app behind a **reverse proxy** (nginx, Caddy, etc.) with HTTPS
 - [ ] Set `NODE_ENV=production` in your environment
 - [ ] Back up `prisma/dev.db` regularly (it's a single SQLite file)
@@ -241,7 +242,6 @@ CMD ["npm", "run", "start"]
 docker build -t neuravex .
 docker run -d \
   -p 3000:3000 \
-  -e AUTH_PASSWORD=your-strong-password \
   -e SESSION_SECRET=$(openssl rand -hex 32) \
   -v neuravex-data:/app/prisma \
   -v neuravex-uploads:/app/public/uploads \
@@ -352,18 +352,12 @@ npm run build      # Rebuild for production (if using desktop/production mode)
 
 ## Troubleshooting
 
-### "AUTH_PASSWORD not configured"
+### Locked out / forgot your password
 
-You see this error when trying to log in.
+There's no self-service password reset yet. Options:
 
-**Fix:** Make sure your `.env` file exists and contains `AUTH_PASSWORD=...`. If you haven't created it yet:
-
-```bash
-cp .env.example .env
-# Edit .env and set AUTH_PASSWORD
-```
-
-Then restart the dev server.
+- Ask a teammate to remove your account from **Admin → Account** and re-add you with a new password.
+- If you're the only account, open `prisma/dev.db` with a SQLite client and delete your row from the `User` table, then restart the app — the next visit to the login page will offer to create a fresh first account.
 
 ---
 

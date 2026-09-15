@@ -22,7 +22,7 @@ export default async function AdminHome() {
             <span className="text-fg-muted text-sm ml-1">Website Builder</span>
           </div>
           <nav className="flex items-center gap-3 text-sm text-fg-muted">
-            <span>Admin</span>
+            <Link href="/admin/account" className="hover:text-fg">Account</Link>
           </nav>
         </div>
       </header>
