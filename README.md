@@ -11,6 +11,8 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 18+).
 - **Inline text editing** — click any text on the page to edit it directly
 - **11 block types** out of the box: Heading, Text, Image, Button, Video, Quote, List, Divider, Spacer, Section, and Columns
 - **Container blocks** (Section, Columns) with their own drag-and-droppable child lists
+- **Responsive columns** — published pages stack columns on phones and halve 3/4-column
+  layouts on tablets, and each block stays in the column you put it in
 - **5 starter templates** (SaaS landing, Personal portfolio, Restaurant, Journal, Blank) that you can use as-is or remix
 - **Multi-page sites** with home page routing
 - **Per-block inspector** for fine-grained control of every property (colors, sizes, alignment, spacing, etc.)
@@ -153,4 +155,5 @@ Neuravex has no sign-in and no access control — it's meant to run locally on y
 - No custom domains — published sites live under `/sites/:slug`.
 - No versioning / page history (revisions table exists but UI is not built).
 - Drag and drop is fully supported within a single container (the page, a section, or a column) and across containers via drop, but the live "drag into another container" hover preview is a V2 item.
+- Section padding is still a fixed pixel value at every screen size — only columns and the site nav respond to width so far.
 

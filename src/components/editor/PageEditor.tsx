@@ -15,7 +15,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { BaseBlock, BlockType } from "@/types";
 import { getBlockDefinition } from "@/lib/blocks";
 import { uid } from "@/lib/utils";
-import { mapBlocks, findInChildren, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop } from "@/lib/tree-utils";
+import { mapBlocks, findInChildren, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount } from "@/lib/tree-utils";
 import { BlockPalette } from "./BlockPalette";
 import { BlockInspector } from "./BlockInspector";
 import { RevisionsPanel } from "./RevisionsPanel";
@@ -101,21 +101,19 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
   saveRef.current = saveFn;
   const save = useCallback(() => saveRef.current(), []);
 
-  // Build container map using LEFT-TO-RIGHT column distribution
+  // Maps every block id to the container that holds it. Columns children are
+  // grouped by their own `column`, so these ids match what Columns renders.
   const parentMap = useMemo(() => {
     const m = new Map<string, string>();
     function walk(list: BaseBlock[], parent: string) {
       for (const b of list) {
         m.set(b.id, parent);
-        if (b.children?.length) walk(b.children, `section-${b.id}`);
         if (b.type === "columns" && b.children?.length) {
-          const cols = ((b.props).count ?? 2) as number;
-          const total = b.children.length;
-          const perCol = Math.ceil(total / cols);
-          b.children.forEach((c, i) => {
-            const colIdx = Math.min(Math.floor(i / perCol), cols - 1);
-            m.set(c.id, `col-${b.id}-${colIdx}`);
+          groupIntoColumns(b.children, columnCount(b)).forEach((bucket, colIdx) => {
+            walk(bucket, `col-${b.id}-${colIdx}`);
           });
+        } else if (b.children?.length) {
+          walk(b.children, `section-${b.id}`);
         }
       }
     }
@@ -134,12 +132,10 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
         get(parent).push(b);
         if (b.type === "section" && b.children?.length) walk(b.children, `section-${b.id}`);
         if (b.type === "columns" && b.children?.length) {
-          const cols = ((b.props).count ?? 2) as number;
-          const total = b.children.length;
-          const perCol = Math.ceil(total / cols);
-          b.children.forEach((c, i) => {
-            const colIdx = Math.min(Math.floor(i / perCol), cols - 1);
-            get(`col-${b.id}-${colIdx}`).push(c);
+          groupIntoColumns(b.children, columnCount(b)).forEach((bucket, colIdx) => {
+            // Register the column even when empty so it stays a drop target.
+            get(`col-${b.id}-${colIdx}`);
+            walk(bucket, `col-${b.id}-${colIdx}`);
           });
         }
       }
@@ -202,30 +198,40 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
     return inserted ? out.flat() : list;
   }
 
-  // Find insert position after selected block
+  // A selected block that lives in a columns block can be moved between its
+  // columns from the inspector. Placement is explicit now, so this is the
+  // deliberate way to say "put this card in column 3".
+  const selectedPlacement = useMemo(() => {
+    if (!selectedId) return null;
+    const container = parentMap.get(selectedId);
+    if (!container || !container.startsWith("col-")) return null;
+    const lastDash = container.lastIndexOf("-");
+    const columnsBlockId = container.slice("col-".length, lastDash);
+    const current = Number(container.slice(lastDash + 1));
+    const parent = findBlock(blocks, columnsBlockId);
+    if (!parent || !Number.isFinite(current)) return null;
+    return { columnsBlockId, current, count: columnCount(parent) };
+  }, [selectedId, parentMap, blocks]);
+
+  function moveSelectedToColumn(target: number) {
+    if (!selectedId || !selectedPlacement) return;
+    const from = parentMap.get(selectedId);
+    if (!from || target === selectedPlacement.current) return;
+    let moved: BaseBlock | undefined;
+    const removed = removeFromContainer(blocks, from, selectedId, (b) => (moved = b));
+    if (!moved) return;
+    pushHistory(insertIntoContainer(removed, `col-${selectedPlacement.columnsBlockId}-${target}`, moved, undefined));
+  }
+
+  // Where a palette click drops the new block: straight after the selection,
+  // in whichever container holds it — including the specific column.
   function findInsertAfterSelected(): { container: string; index: number } {
     if (!selectedId) return { container: "page", index: blocks.length };
-    for (let i = 0; i < blocks.length; i++) {
-      if (blocks[i].id === selectedId) return { container: "page", index: i + 1 };
-    }
-    function walk(list: BaseBlock[], parent: string): { container: string; index: number } | null {
-      for (let i = 0; i < list.length; i++) {
-        if (list[i].id === selectedId) {
-          if (parent === "page") return { container: parent, index: i + 1 };
-          const pid = parent.startsWith("section-") ? parent.slice("section-".length) : parent.startsWith("col-") ? parent.slice(4).split("-")[0] : null;
-          if (pid) {
-            return { container: parent, index: (containerMap.get(parent) ?? []).findIndex(b => b.id === selectedId) + 1 };
-          }
-          return { container: parent, index: i + 1 };
-        }
-        if (list[i].children?.length) {
-          const found = walk(list[i].children!, list[i].type === "section" ? `section-${list[i].id}` : `col-${list[i].id}-0`);
-          if (found) return found;
-        }
-      }
-      return null;
-    }
-    return walk(blocks, "page") ?? { container: "page", index: blocks.length };
+    const container = parentMap.get(selectedId);
+    if (!container) return { container: "page", index: blocks.length };
+    const siblings = containerMap.get(container) ?? [];
+    const idx = siblings.findIndex((b) => b.id === selectedId);
+    return { container, index: idx < 0 ? siblings.length : idx + 1 };
   }
 
   // Keyboard shortcuts
@@ -452,7 +458,16 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
 
           {!preview ? (
             selectedBlock ? (
-              <BlockInspector block={selectedBlock} onChange={replaceBlock} onClose={() => setSelectedId(null)} />
+              <BlockInspector
+                block={selectedBlock}
+                onChange={replaceBlock}
+                onClose={() => setSelectedId(null)}
+                placement={
+                  selectedPlacement && selectedPlacement.count > 1
+                    ? { current: selectedPlacement.current, count: selectedPlacement.count, onMove: moveSelectedToColumn }
+                    : undefined
+                }
+              />
             ) : (
               <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full overflow-y-auto p-4">
                 <RevisionsPanel pageId={pageId} onRestore={() => window.location.reload()} />

@@ -24,15 +24,16 @@ export function updateContainer(blocks: BaseBlock[], containerId: string, fn: (l
   return blocks.map((b) => {
     if (`section-${b.id}` === containerId && b.children) return { ...b, children: fn(b.children) };
     if (b.type === "columns" && b.children) {
-      const cols = ((b.props).count ?? 2) as number;
-      const total = b.children.length;
-      const perCol = Math.ceil(total / cols);
-      const sub: BaseBlock[][] = Array.from({ length: cols }, () => []);
-      b.children.forEach((c, i) => { const ci = Math.min(Math.floor(i / perCol), cols - 1); sub[ci].push(c); });
-      for (let i = 0; i < cols; i++) { if (`col-${b.id}-${i}` === containerId) sub[i] = fn(sub[i]); }
-      const merged: BaseBlock[] = [];
-      for (let k = 0; k < cols; k++) for (const it of sub[k]) merged.push(it);
-      return { ...b, children: merged };
+      const cols = columnCount(b);
+      const sub = groupIntoColumns(b.children, cols);
+      let touched = false;
+      for (let i = 0; i < cols; i++) {
+        if (`col-${b.id}-${i}` === containerId) { sub[i] = fn(sub[i]); touched = true; }
+      }
+      // Not one of this block's own columns — the target may be nested deeper
+      // (a section inside a column), so keep walking.
+      if (!touched) return { ...b, children: updateContainer(b.children, containerId, fn) };
+      return { ...b, children: flattenColumns(sub) };
     }
     if (b.children) return { ...b, children: updateContainer(b.children, containerId, fn) };
     return b;
@@ -78,13 +79,63 @@ export function resolveDrop(overId: string, _blocks: BaseBlock[], parentMap: Map
   return { container: parent, index: idx < 0 ? null : idx };
 }
 
-export function distributeLeftToRight(blocks: BaseBlock[], cols: number): BaseBlock[][] {
-  const buckets: BaseBlock[][] = Array.from({ length: cols }, () => []);
-  if (blocks.length === 0) return buckets;
-  const per = Math.ceil(blocks.length / cols);
-  blocks.forEach((c, i) => {
-    const ci = Math.min(Math.floor(i / per), cols - 1);
-    buckets[ci].push(c);
+export const MAX_COLUMNS = 4;
+
+/** The column count a columns block is configured for, clamped to what we render. */
+export function columnCount(block: BaseBlock): number {
+  const raw = Number((block.props as { count?: unknown })?.count ?? 2);
+  if (!Number.isFinite(raw)) return 2;
+  return Math.max(1, Math.min(Math.trunc(raw), MAX_COLUMNS));
+}
+
+export function clampColumn(index: number, cols: number): number {
+  if (!Number.isFinite(index)) return 0;
+  return Math.max(0, Math.min(Math.trunc(index), cols - 1));
+}
+
+/**
+ * Where a child lands when it carries no explicit `column`. This is the
+ * original index-based split, kept so pages and templates authored before
+ * columns were explicit keep the exact layout their author saw.
+ */
+function legacyColumnOf(index: number, total: number, cols: number): number {
+  const per = Math.max(1, Math.ceil(total / cols));
+  return Math.min(Math.floor(index / per), cols - 1);
+}
+
+/**
+ * Split a columns block's flat child list into one bucket per column.
+ *
+ * A child's own `column` wins. When no child has one, the whole block is
+ * still on the legacy index split and is laid out that way — the first edit
+ * flattens it back through `flattenColumns`, which stamps every child, so a
+ * block converts to explicit placement without moving anything on screen.
+ */
+export function groupIntoColumns(blocks: BaseBlock[], cols: number): BaseBlock[][] {
+  const count = Math.max(1, Math.trunc(cols) || 1);
+  const buckets: BaseBlock[][] = Array.from({ length: count }, () => []);
+  const hasExplicit = blocks.some((b) => typeof b.column === "number");
+  blocks.forEach((b, i) => {
+    const target =
+      typeof b.column === "number"
+        ? clampColumn(b.column, count)
+        : hasExplicit
+          ? 0
+          : legacyColumnOf(i, blocks.length, count);
+    buckets[target].push(b);
   });
   return buckets;
+}
+
+/**
+ * Merge column buckets back into the stored child list, stamping each child
+ * with the column it now lives in. Order is column-major so the flat list
+ * still reads left-to-right, top-to-bottom.
+ */
+export function flattenColumns(buckets: BaseBlock[][]): BaseBlock[] {
+  const out: BaseBlock[] = [];
+  buckets.forEach((bucket, col) => {
+    for (const b of bucket) out.push(b.column === col ? b : { ...b, column: col });
+  });
+  return out;
 }

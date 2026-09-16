@@ -7,6 +7,26 @@ Every problem below was reproduced, not inferred.
 
 ---
 
+## 0. Status update
+
+Since this review was written, three of its findings have been fixed on this branch:
+
+- **P0-2 (not mobile-responsive)** — columns now stack on phones and halve on tablets,
+  and the site nav collapses into a menu. Horizontal overflow on the SaaS template at
+  390px went from 55px to 0.
+- **P0-3 (columns scramble content)** — each child now records the column it belongs to,
+  so adding or removing a block no longer reshuffles its siblings. Existing pages and
+  templates keep their current layout and convert to explicit placement on first edit.
+- A bug this review missed: **no block inside a Section or Columns could be selected at
+  all** — `SortableBlock` never forwarded its container handlers to `BlockView`, so
+  clicking a nested block hit a no-op and the inspector never opened. Since every
+  template puts its content inside sections, the inspector was effectively unreachable
+  for almost every block on the page. Fixed.
+
+Everything else below still stands.
+
+---
+
 ## 1. What the app is today
 
 Neuravex is a **local-first visual website builder + CMS**. Next.js 14 + React + Tailwind

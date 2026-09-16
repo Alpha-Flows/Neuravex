@@ -1,7 +1,8 @@
 "use client";
 import { BaseBlock, ColumnsProps } from "@/types";
 import { SortableContainer } from "./Sortable";
-import { distributeLeftToRight } from "@/lib/tree-utils";
+import { flattenColumns, groupIntoColumns } from "@/lib/tree-utils";
+import { cn } from "@/lib/utils";
 
 interface Props {
   props: ColumnsProps;
@@ -27,28 +28,31 @@ export function Columns({
   blockId,
 }: Props) {
   const cols = props.count;
-  const buckets = distributeLeftToRight(childBlocks ?? [], cols);
+  const buckets = groupIntoColumns(childBlocks ?? [], cols);
 
   function bucketIndexOf(id: string): number {
     return buckets.findIndex((b) => b.some((x) => x.id === id));
   }
 
+  function commit(next: BaseBlock[][]) {
+    onChildrenChange?.(flattenColumns(next));
+  }
+
   function rebuild(bucketIdx: number, next: BaseBlock[]) {
-    buckets[bucketIdx] = next;
-    const merged: BaseBlock[] = [];
-    for (let k = 0; k < cols; k++) for (const item of buckets[k]) merged.push(item);
-    onChildrenChange?.(merged);
+    const copy = buckets.map((b) => b.slice());
+    copy[bucketIdx] = next;
+    commit(copy);
   }
 
   function deleteFromBuckets(id: string) {
     const idx = bucketIndexOf(id);
-    if (idx < 0) return;
+    if (idx < 0) { onChildDelete?.(id); return; }
     rebuild(idx, buckets[idx].filter((b) => b.id !== id));
   }
 
   function duplicateInBuckets(id: string) {
     const idx = bucketIndexOf(id);
-    if (idx < 0) return;
+    if (idx < 0) { onChildDuplicate?.(id); return; }
     const source = buckets[idx].find((b) => b.id === id);
     if (!source) return;
     const copy: BaseBlock = {
@@ -62,28 +66,28 @@ export function Columns({
   }
 
   return (
-    <div
-      className="grid"
-      style={{
-        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-        gap: props.gap,
-      }}
-    >
-      {buckets.map((bucket, i) => (
-        <div key={i} className="min-w-0">
-          <SortableContainer
-            containerId={`col-${blockId}-${i}`}
-            blocks={bucket}
-            onChange={(next) => rebuild(i, next)}
-            onSelect={onSelect ?? (() => {})}
-            onDelete={deleteFromBuckets}
-            onDuplicate={duplicateInBuckets}
-            selectedId={selectedId ?? null}
-            disabled={disabled}
-            emptyHint="Empty column"
-          />
-        </div>
-      ))}
+    <div className={cn("nvx-columns", disabled && "nvx-columns-responsive")}>
+      <div
+        className="nvx-columns-grid"
+        data-cols={cols}
+        style={{ ["--nvx-cols" as string]: String(cols), gap: props.gap }}
+      >
+        {buckets.map((bucket, i) => (
+          <div key={i} className="min-w-0">
+            <SortableContainer
+              containerId={`col-${blockId}-${i}`}
+              blocks={bucket}
+              onChange={(next) => rebuild(i, next)}
+              onSelect={onSelect ?? (() => {})}
+              onDelete={deleteFromBuckets}
+              onDuplicate={duplicateInBuckets}
+              selectedId={selectedId ?? null}
+              disabled={disabled}
+              emptyHint="Empty column"
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
