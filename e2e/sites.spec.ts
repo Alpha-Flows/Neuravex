@@ -2,10 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Sites", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="password"]', "admin");
-    await page.click('button[type="submit"]');
-    await page.waitForURL("/");
+    await page.goto("/");
   });
 
   test("home page lists demo site", async ({ page }) => {

@@ -21,9 +21,6 @@ export default async function AdminHome() {
             <span className="font-semibold">Neuravex</span>
             <span className="text-fg-muted text-sm ml-1">Website Builder</span>
           </div>
-          <nav className="flex items-center gap-3 text-sm text-fg-muted">
-            <Link href="/admin/account" className="hover:text-fg">Account</Link>
-          </nav>
         </div>
       </header>
 

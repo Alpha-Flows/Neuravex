@@ -17,7 +17,7 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 18+).
 - **Publish / unpublish** workflow — unpublished pages are drafts
 - **SQLite storage** in a single file, zero config
 - **Autosave** with `Cmd/Ctrl+S` shortcut
-- **No external services** — no network calls, no accounts, no analytics
+- **No external services** — no network calls, no accounts, no sign-in, no analytics
 
 ## Tech stack
 
@@ -40,7 +40,6 @@ npm install
 
 # 2. Set up your environment
 cp .env.example .env
-# Optionally set SESSION_SECRET (recommended before exposing this to others)
 
 # 3. Create the database and apply the schema
 npm run db:push
@@ -52,19 +51,9 @@ npm run db:seed
 npm run dev
 ```
 
-Open **http://localhost:3000** in your browser. On first run you'll be asked to create an account (email + password) right there — no config needed.
+Open **http://localhost:3000** in your browser — you're straight into the builder, no account or sign-in step.
 
 The seed creates a "Neuravex Demo" site at **http://localhost:3000/sites/demo** so you can see what a finished site looks like, and the same site is openable in the editor at **http://localhost:3000/**.
-
-## Authentication
-
-Neuravex uses per-user, password-based accounts to protect the admin panel and API:
-
-- The first visit to the admin panel lets you create an account (email + password) right in the app — no config needed
-- Invite teammates afterward from **Admin → Account**. Access is flat: every account can see and edit every site (no per-site permissions)
-- Set `SESSION_SECRET` to a random 32+ char string in your `.env` for production (e.g. `openssl rand -hex 32`) — otherwise a much weaker fallback key is used
-- Passwords are hashed with scrypt; sessions use HMAC-SHA256 signed cookies bound to a user id
-- Login is rate-limited to 10 attempts per IP per 15 minutes
 
 ## Using the editor
 
@@ -105,7 +94,7 @@ src/
     ui/                 # Shared UI primitives
   lib/
     prisma.ts           # Prisma client singleton
-    security.ts         # Auth, session tokens, sanitization
+    security.ts         # Sanitization + upload validation helpers
     sanitize.ts         # HTML sanitization (DOMPurify)
     blocks.ts           # Block type registry
     templates.ts        # Starter templates
@@ -115,7 +104,6 @@ src/
 
 ## Data model
 
-- **User** — a login account (`email`, `passwordHash`). Flat access: any account can manage every site.
 - **Site** — a website (`name`, `slug`, `accent`, theme).
 - **Page** — a single page in a site (`title`, `slug`, `content` JSON, `published`, `isHome`).
 
@@ -153,16 +141,15 @@ That's it — the palette, drag-and-drop, save, and public render all pick it up
 
 ## Security
 
-- All admin routes and API endpoints are protected by HMAC-signed session cookies
+Neuravex has no sign-in and no access control — it's meant to run locally on your own machine, reachable only from that machine's browser. Don't expose it to the network without adding your own auth layer (e.g. a reverse proxy with basic auth).
+
 - User-provided HTML (custom headers, footers, rich text, HTML blocks) is sanitized with [DOMPurify](https://github.com/cure53/DOMPurify)
 - Custom CSS is sanitized to strip `url()`, `@import`, `expression()`, and other exfiltration vectors
 - File uploads are restricted to a safe allowlist of extensions with a 10MB size limit
 - Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) are set on all responses
-- Open redirects are prevented on the login flow
 
 ## Known limitations (V1)
 
-- Multi-user accounts have flat access — everyone with an account can see and edit every site; there's no per-site ownership or roles.
 - No custom domains — published sites live under `/sites/:slug`.
 - No versioning / page history (revisions table exists but UI is not built).
 - Drag and drop is fully supported within a single container (the page, a section, or a column) and across containers via drop, but the live "drag into another container" hover preview is a V2 item.

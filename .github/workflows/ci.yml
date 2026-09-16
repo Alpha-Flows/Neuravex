@@ -6,8 +6,6 @@ on:
   pull_request:
 
 env:
-  AUTH_PASSWORD: ci-test-password
-  SESSION_SECRET: 0123456789abcdef0123456789abcdef01234567
   DATABASE_URL: file:./ci-test.db
 
 jobs:
