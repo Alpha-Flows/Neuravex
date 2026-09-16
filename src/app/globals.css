@@ -54,3 +54,38 @@ html, body {
   min-height: 100vh;
 }
 .public-canvas a { color: inherit; }
+
+/* ---------------------------------------------------------------------
+ * Reusable entrance/ambient animations for template content.
+ * Applied via className on custom-HTML block markup (see templates.ts) —
+ * kept here rather than inline <style> because the HTML sanitizer strips
+ * <style> tags from user content by design.
+ * ------------------------------------------------------------------- */
+@keyframes anim-float-kf {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+@keyframes anim-fade-up-kf {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes anim-marquee-kf {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes anim-pulse-glow-kf {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.9; }
+}
+
+.anim-float { animation: anim-float-kf 6s ease-in-out infinite; }
+.anim-float-slow { animation: anim-float-kf 9s ease-in-out infinite; }
+.anim-fade-up { animation: anim-fade-up-kf 0.8s ease-out both; }
+.anim-marquee { animation: anim-marquee-kf 28s linear infinite; }
+.anim-pulse-glow { animation: anim-pulse-glow-kf 5s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-float, .anim-float-slow, .anim-fade-up, .anim-marquee, .anim-pulse-glow {
+    animation: none !important;
+  }
+}
