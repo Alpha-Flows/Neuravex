@@ -1826,8 +1826,8 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "ai-upscaler",
-    name: "AI Upscaler",
-    description: "A dark, high-energy product page for an AI tool. Two-tone hero, tilted floating imagery, a scrolling marquee, and a bento feature grid.",
+    name: "AI Upscaler — Dark",
+    description: "A dark, high-energy product page for an AI tool. Two-tone hero, tilted floating imagery, a scrolling marquee, and a bento feature grid. Also available in Bright.",
     category: "landing",
     cover: "from-[#0a0e1a] via-indigo-950 to-fuchsia-950",
     pages: [{
@@ -1972,6 +1972,162 @@ export const TEMPLATES: Template[] = [
           t("Free to start. No credit card required.", "lg", "#94a3b8", "center"),
           s(28),
           btn("Get Started Free", "#818cf8", "primary", "lg", "center"),
+        ),
+      ],
+    }],
+  },
+
+  // ===================================================================
+  // 28. AI PHOTO UPSCALER — BRIGHT  (light counterpart of #27)
+  // ===================================================================
+  {
+    id: "ai-upscaler-light",
+    name: "AI Upscaler — Bright",
+    description: "The bright counterpart to AI Upscaler — the same energetic layout, tilted imagery, marquee, and bento grid in a clean, light palette. Also available in Dark.",
+    category: "landing",
+    cover: "from-white via-indigo-50 to-fuchsia-50",
+    pages: [{
+      title: "Home", slug: "index", isHome: true, published: true,
+      blocks: [
+        // ── HERO ──
+        sec("#ffffff", 112, "6xl", "center",
+          b("html", { html:
+            `<div style="display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:999px;border:1px solid rgba(15,23,42,0.12);background:rgba(15,23,42,0.03);font-size:13px;color:#334155;">
+              <span style="width:8px;height:8px;border-radius:999px;background:#10b981;display:inline-block;" class="anim-pulse-glow"></span>
+              NEW — Cloud upscaling is here
+            </div>`
+          } as any),
+          s(24),
+          b("html", { html:
+            `<h1 style="margin:0;font-size:56px;line-height:1.1;font-weight:800;letter-spacing:-0.02em;">
+              <span style="color:#94a3b8;font-weight:400;">From</span> <span style="color:#0f172a;">Pixelated</span> <span style="color:#94a3b8;font-weight:400;">to</span> <span style="color:#0f172a;">Perfect</span>
+            </h1>`
+          } as any),
+          s(20),
+          t("Supercharging your photos with AI — sharper, cleaner, larger. In seconds.", "xl", "#475569", "center"),
+          s(32),
+          b("columns", { count: 2, gap: 16 }, [
+            b("button", { label: "See how it works", href: "#", variant: "ghost", size: "lg", align: "center", color: "#6366f1", textColor: "#475569" } as any),
+            b("button", { label: "Get Started", href: "#", variant: "outline", size: "lg", align: "center", color: "#6366f1", textColor: "#6366f1" } as any),
+          ]),
+          s(56),
+          b("html", { html:
+            `<div style="position:relative;max-width:620px;margin:0 auto;">
+              <div class="anim-float-slow">
+                <div style="position:relative;border-radius:20px;overflow:hidden;box-shadow:0 20px 50px -15px rgba(15,23,42,0.12), 0 30px 80px -25px rgba(99,102,241,0.35);transform:rotate(-4deg);">
+                  <div style="background-image:linear-gradient(115deg, rgba(236,72,153,0.4), rgba(56,189,248,0.4)), url('${IMG.abstract}');background-size:cover;background-position:center;width:100%;aspect-ratio:16/10;"></div>
+                  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:999px;background:rgba(255,255,255,0.9);border:2px solid rgba(15,23,42,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;color:#0f172a;">↔</div>
+                </div>
+              </div>
+            </div>`
+          } as any),
+          s(40),
+          t("AS SEEN ON", "sm", "#94a3b8", "center"),
+          s(20),
+          cols(3, 32,
+            b("heading", { text: "The Pixel Times", level: 4, align: "center", color: "#94a3b8", weight: "semibold" } as any),
+            b("heading", { text: "Maker Weekly", level: 4, align: "center", color: "#94a3b8", weight: "semibold" } as any),
+            b("heading", { text: "Creator Daily", level: 4, align: "center", color: "#94a3b8", weight: "semibold" } as any),
+          ),
+        ),
+        // ── "LOW RES IS NO FUN" SPLIT ──
+        sec("#ffffff", 112, "6xl", "left",
+          cols(2, 56,
+            sec("#transparent", 0, "full", "left",
+              h("Low resolution is no fun.", 2, "#0f172a", "bold", "left"),
+              s(16),
+              t("Got a blurry photo or a pixelated mess? Love the memories but hate the quality?", "lg", "#475569", "left"),
+              s(16),
+              t("We've all been there.", "lg", "#64748b", "left"),
+              s(24),
+              btn("Fix my photos →", "#6366f1", "primary", "md", "left"),
+            ),
+            b("html", { html:
+              `<div style="position:relative;height:340px;">
+                <div class="anim-float" style="position:absolute;top:40px;right:40px;">
+                  <div style="width:220px;height:270px;border-radius:16px;transform:rotate(11deg);box-shadow:0 20px 45px -15px rgba(15,23,42,0.12), 0 25px 60px -20px rgba(236,72,153,0.3);background-image:linear-gradient(160deg, rgba(244,114,182,0.45), rgba(56,189,248,0.45)), url('${IMG.abstract}');background-size:cover;background-position:center;border:1px solid rgba(15,23,42,0.08);"></div>
+                </div>
+                <div class="anim-float-slow" style="position:absolute;top:20px;left:20px;width:52px;height:52px;border-radius:14px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);display:flex;align-items:center;justify-content:center;font-size:22px;">📷</div>
+                <div class="anim-float" style="position:absolute;bottom:30px;left:60px;width:48px;height:48px;border-radius:999px;background:rgba(236,72,153,0.1);border:1px solid rgba(236,72,153,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">☁️</div>
+                <div class="anim-float-slow" style="position:absolute;bottom:60px;right:10px;">
+                  <div style="width:44px;height:44px;border-radius:12px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;justify-content:center;font-size:18px;transform:rotate(-12deg);">💎</div>
+                </div>
+              </div>`
+            } as any),
+          ),
+        ),
+        // ── MARQUEE ──
+        b("html", { html:
+          `<div style="position:relative;background:#ffffff;padding:64px 0;overflow:hidden;">
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:480px;height:480px;border-radius:999px;background:radial-gradient(circle, rgba(99,102,241,0.16), rgba(236,72,153,0.08) 55%, transparent 75%);filter:blur(10px);" class="anim-pulse-glow"></div>
+            <div style="position:absolute;top:38%;left:0;white-space:nowrap;width:200%;display:flex;" class="anim-marquee">
+              <span style="font-size:96px;font-weight:800;color:rgba(15,23,42,0.06);letter-spacing:-0.02em;">PIXELFORGE&nbsp;PIXELFORGE&nbsp;PIXELFORGE&nbsp;PIXELFORGE&nbsp;</span>
+              <span style="font-size:96px;font-weight:800;color:rgba(15,23,42,0.06);letter-spacing:-0.02em;">PIXELFORGE&nbsp;PIXELFORGE&nbsp;PIXELFORGE&nbsp;PIXELFORGE&nbsp;</span>
+            </div>
+            <div style="position:relative;text-align:center;padding:40px 0;">
+              <div style="font-size:16px;color:#475569;">PixelForge is made for</div>
+              <div style="font-size:52px;font-weight:800;color:#0f172a;margin-top:8px;">Creators</div>
+            </div>
+          </div>`
+        } as any),
+        // ── MEET CLOUD ──
+        sec("#ffffff", 112, "6xl", "center",
+          h("Meet PixelForge Cloud.", 2, "#0f172a", "bold", "center"),
+          s(12),
+          t("The best gets even better.", "lg", "#475569", "center"),
+          s(48),
+          b("html", { html:
+            `<div style="max-width:900px;margin:0 auto;">
+              <div class="anim-float-slow">
+                <div style="transform:perspective(1400px) rotateX(8deg) rotate(-2deg);border-radius:16px;overflow:hidden;box-shadow:0 20px 50px -15px rgba(15,23,42,0.1), 0 40px 90px -30px rgba(99,102,241,0.3);background:#ffffff;border:1px solid rgba(15,23,42,0.08);">
+                  <div style="display:flex;align-items:center;gap:6px;padding:12px 16px;background:#f8fafc;border-bottom:1px solid rgba(15,23,42,0.08);">
+                    <span style="width:10px;height:10px;border-radius:999px;background:#f87171;display:inline-block;"></span>
+                    <span style="width:10px;height:10px;border-radius:999px;background:#fbbf24;display:inline-block;"></span>
+                    <span style="width:10px;height:10px;border-radius:999px;background:#34d399;display:inline-block;"></span>
+                  </div>
+                  <div style="display:flex;">
+                    <div style="flex:1;padding:10px 0;text-align:center;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(90deg,#f97316,#fb923c);">Generate</div>
+                    <div style="flex:1;padding:10px 0;text-align:center;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(90deg,#22c55e,#4ade80);">Edit</div>
+                    <div style="flex:1;padding:10px 0;text-align:center;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(90deg,#3b82f6,#22d3ee);">Upscale</div>
+                  </div>
+                  <div style="background-image:linear-gradient(180deg, rgba(255,255,255,0.25), rgba(255,255,255,0.8)), url('${IMG.graph}');background-size:cover;background-position:center;aspect-ratio:16/9;"></div>
+                </div>
+              </div>
+            </div>`
+          } as any),
+        ),
+        // ── BENTO FEATURE GRID ──
+        sec("#ffffff", 112, "6xl", "center",
+          t("EVERYTHING YOU NEED", "sm", "#6366f1", "center"),
+          s(8),
+          h("One app. Every fix your photos need.", 2, "#0f172a", "bold", "center"),
+          s(48),
+          b("html", { html: (() => {
+            const card = (icon: string, title: string, desc: string, bgImg: string, delay: number, tall = false) => `
+              <div class="anim-fade-up" style="animation-delay:${delay}ms;position:relative;border-radius:18px;overflow:hidden;border:1px solid rgba(15,23,42,0.08);background:#ffffff;box-shadow:0 4px 16px -8px rgba(15,23,42,0.08);${tall ? "grid-row:span 2;" : ""}min-height:${tall ? 380 : 180}px;padding:24px;display:flex;flex-direction:column;justify-content:flex-end;">
+                <div style="position:absolute;inset:0;background-image:linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0.92)), url('${bgImg}');background-size:cover;background-position:center;"></div>
+                <div style="position:relative;">
+                  <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:14px;">${icon}</div>
+                  <div style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:6px;">${title}</div>
+                  <div style="font-size:14px;color:#475569;line-height:1.5;">${desc}</div>
+                </div>
+              </div>`;
+            return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              ${card("🔍", "AI Upscaling", "Scale images up to 16x with multiple AI models tuned for crystal-clear results.", IMG.device, 0, true)}
+              ${card("🎨", "Color Accuracy", "Preserve every detail and color, ready for print.", IMG.abstract, 80)}
+              ${card("✏️", "Smart Editing", "AI face enhancement, detail recovery, and batch editing.", IMG.workspace, 160)}
+              ${card("☁️", "Unlimited Cloud Storage", "Access your files from anywhere, anytime.", IMG.graph, 240, true)}
+              ${card("⚡", "Batch Processing", "Queue hundreds of images and let it run in the background.", IMG.device, 320)}
+            </div>`;
+          })() } as any),
+        ),
+        // ── FOOTER CTA ──
+        sec("#f8fafc", 96, "4xl", "center",
+          h("Ready to breathe life into your photos?", 2, "#0f172a", "bold", "center"),
+          s(12),
+          t("Free to start. No credit card required.", "lg", "#475569", "center"),
+          s(28),
+          btn("Get Started Free", "#6366f1", "primary", "lg", "center"),
         ),
       ],
     }],
