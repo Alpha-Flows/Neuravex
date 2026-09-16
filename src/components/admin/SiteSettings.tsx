@@ -207,7 +207,11 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                         </button>
                       ))}
                     </div>
-                    <p className="text-xs text-fg-subtle mt-1">Text color switches automatically for light or dark backgrounds.</p>
+                    <p className="text-xs text-fg-subtle mt-1">
+                      Text color switches automatically for light or dark backgrounds. &quot;Fixed&quot; floats the header
+                      on top of your page — content starts at the very top behind it, so add a Spacer block at the top
+                      of the page if you want breathing room underneath.
+                    </p>
                   </div>
                   <div className="pt-3 border-t border-bg-border">
                     <Label>Custom header HTML (overrides the style controls above)</Label>

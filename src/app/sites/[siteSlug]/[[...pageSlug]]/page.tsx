@@ -62,7 +62,7 @@ export default async function PublicSitePage({ params }: Props) {
       {site.customCss ? <style dangerouslySetInnerHTML={{ __html: sanitizeCss(site.customCss) }} /> : null}
       <div className="public-canvas">
         <PublicSiteHeader site={site} pages={site.pages} activeSlug={page.slug} />
-        <main className={!site.headerHtml && site.headerPosition === "fixed" ? "pt-28" : undefined}>
+        <main>
           <PublicBlocks blocks={blocks} pageId={page.id} />
         </main>
         <PublicSiteFooter site={site} />
