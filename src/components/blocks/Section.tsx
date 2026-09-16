@@ -51,10 +51,20 @@ export function Section({
     />
   );
 
+  const bgStyle = props.backgroundImage
+    ? {
+        backgroundImage: props.backgroundOverlay
+          ? `linear-gradient(${props.backgroundOverlay}, ${props.backgroundOverlay}), url(${props.backgroundImage})`
+          : `url(${props.backgroundImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }
+    : { background: props.background };
+
   return (
     <div
       style={{
-        background: props.background,
+        ...bgStyle,
         paddingTop: props.paddingY,
         paddingBottom: props.paddingY,
         paddingLeft: props.paddingX,

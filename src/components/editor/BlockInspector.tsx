@@ -1,6 +1,9 @@
 "use client";
+import { useState } from "react";
 import { BaseBlock, HeadingProps, TextProps, ImageProps, ButtonProps, DividerProps, SpacerProps, SectionProps, ColumnsProps, VideoProps, QuoteProps, ListProps, FormProps, HtmlProps } from "@/types";
 import { Input, Label, Textarea } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { MediaPicker } from "./MediaPicker";
 
 interface Props {
   block: BaseBlock | null;
@@ -160,7 +163,20 @@ function InspectorBody({ block, onChange }: { block: BaseBlock; onChange: (next:
       const p = block.props as SectionProps;
       return (
         <>
-          <Field label="Background"><ColorInput value={p.background} allowTransparent onChange={(v) => set("background", v)} /></Field>
+          <Field label="Background image">
+            <BackgroundImageField value={p.backgroundImage} onChange={(v) => set("backgroundImage", v)} />
+          </Field>
+          {p.backgroundImage ? (
+            <Field label="Overlay">
+              <Select
+                value={p.backgroundOverlay || ""}
+                onChange={(v) => set("backgroundOverlay", v || undefined)}
+                options={OVERLAY_PRESETS}
+              />
+            </Field>
+          ) : (
+            <Field label="Background color"><ColorInput value={p.background} allowTransparent onChange={(v) => set("background", v)} /></Field>
+          )}
           <Field label="Max width">
             <Select value={p.maxWidth} onChange={(v) => set("maxWidth", v)} options={[
               { value: "full", label: "Full bleed" },
@@ -286,6 +302,37 @@ function InspectorBody({ block, onChange }: { block: BaseBlock; onChange: (next:
     default:
       return <div className="text-xs text-fg-muted">No inspector for this block type.</div>;
   }
+}
+
+const OVERLAY_PRESETS = [
+  { value: "", label: "None" },
+  { value: "rgba(0,0,0,0.25)", label: "Dark — light" },
+  { value: "rgba(0,0,0,0.45)", label: "Dark — medium" },
+  { value: "rgba(0,0,0,0.65)", label: "Dark — heavy" },
+  { value: "rgba(255,255,255,0.5)", label: "Light tint" },
+];
+
+function BackgroundImageField({ value, onChange }: { value?: string; onChange: (v: string | undefined) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      {value ? (
+        <div className="space-y-2">
+          <div className="rounded-md overflow-hidden border border-bg-border h-20">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={value} alt="" className="w-full h-full object-cover" />
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setOpen(true)} className="flex-1">Change</Button>
+            <Button size="sm" variant="ghost" onClick={() => onChange(undefined)}>Remove</Button>
+          </div>
+        </div>
+      ) : (
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)} className="w-full">Choose image</Button>
+      )}
+      <MediaPicker open={open} onClose={() => setOpen(false)} onSelect={(url) => { onChange(url); setOpen(false); }} />
+    </>
+  );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

@@ -26,7 +26,9 @@ export interface BaseBlock {
 }
 
 export interface SectionProps {
-  background: string; // hex / rgba / "transparent"
+  background: string; // hex / rgba / "transparent" — used when no backgroundImage is set
+  backgroundImage?: string; // optional image URL, takes priority over background
+  backgroundOverlay?: string; // optional rgba() tint layered over backgroundImage for legibility
   paddingY: number; // px
   paddingX: number; // px
   maxWidth: "full" | "7xl" | "6xl" | "5xl" | "4xl";
