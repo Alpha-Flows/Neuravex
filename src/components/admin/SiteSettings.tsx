@@ -36,6 +36,10 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
   const [headingFont, setHeadingFont] = useState("");
   const [borderRadius, setBorderRadius] = useState("0.5rem");
   // Layout
+  const [headerBackground, setHeaderBackground] = useState("#ffffff");
+  const [headerOpacity, setHeaderOpacity] = useState(80);
+  const [headerShape, setHeaderShape] = useState<"bar" | "rounded" | "pill">("bar");
+  const [headerPosition, setHeaderPosition] = useState<"static" | "sticky" | "fixed">("sticky");
   const [headerHtml, setHeaderHtml] = useState("");
   const [footerHtml, setFooterHtml] = useState("");
   // SEO
@@ -63,6 +67,10 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           setFontFamily(s.fontFamily ?? "");
           setHeadingFont(s.headingFont ?? "");
           setBorderRadius(s.borderRadius ?? "0.5rem");
+          setHeaderBackground(s.headerBackground ?? "#ffffff");
+          setHeaderOpacity(typeof s.headerOpacity === "number" ? s.headerOpacity : 80);
+          setHeaderShape(s.headerShape ?? "bar");
+          setHeaderPosition(s.headerPosition ?? "sticky");
           setHeaderHtml(s.headerHtml ?? "");
           setFooterHtml(s.footerHtml ?? "");
           setMetaTitle(s.metaTitle ?? "");
@@ -86,6 +94,7 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           fontFamily: fontFamily || null,
           headingFont: headingFont || null,
           borderRadius: borderRadius || null,
+          headerBackground, headerOpacity, headerShape, headerPosition,
           headerHtml: headerHtml || null,
           footerHtml: footerHtml || null,
           metaTitle: metaTitle || null,
@@ -159,10 +168,51 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
               )}
               {tab === "layout" && (
                 <div className="space-y-3">
+                  <div className="text-xs uppercase tracking-wide text-fg-subtle font-semibold">Header style</div>
                   <div>
-                    <Label>Header</Label>
-                    <Textarea rows={4} value={headerHtml} onChange={(e) => setHeaderHtml(e.target.value)} placeholder="Leave empty for the default header. Use HTML." />
-                    <p className="text-xs text-fg-subtle mt-1">Custom HTML that replaces the default site header. Use <code>{`{name}`}</code> for the site name, <code>{`{nav}`}</code> for the page navigation.</p>
+                    <Label>Background color</Label>
+                    <div className="flex items-center gap-2">
+                      <input type="color" value={headerBackground} onChange={(e) => setHeaderBackground(e.target.value)} className="w-9 h-9 rounded-md bg-transparent border border-bg-border" />
+                      <Input value={headerBackground} onChange={(e) => setHeaderBackground(e.target.value)} className="flex-1 font-mono text-xs" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Opacity — {headerOpacity}%</Label>
+                    <input type="range" min={0} max={100} value={headerOpacity} onChange={(e) => setHeaderOpacity(Number(e.target.value))} className="w-full accent-brand" />
+                  </div>
+                  <div>
+                    <Label>Shape</Label>
+                    <div className="inline-flex rounded-md border border-bg-border overflow-hidden w-full">
+                      {(["bar", "rounded", "pill"] as const).map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setHeaderShape(s)}
+                          className={`flex-1 h-8 text-xs capitalize ${headerShape === s ? "bg-brand text-white" : "text-fg-muted hover:text-fg hover:bg-bg-card"}`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Placement</Label>
+                    <div className="inline-flex rounded-md border border-bg-border overflow-hidden w-full">
+                      {(["static", "sticky", "fixed"] as const).map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => setHeaderPosition(p)}
+                          className={`flex-1 h-8 text-xs capitalize ${headerPosition === p ? "bg-brand text-white" : "text-fg-muted hover:text-fg hover:bg-bg-card"}`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-fg-subtle mt-1">Text color switches automatically for light or dark backgrounds.</p>
+                  </div>
+                  <div className="pt-3 border-t border-bg-border">
+                    <Label>Custom header HTML (overrides the style controls above)</Label>
+                    <Textarea rows={4} value={headerHtml} onChange={(e) => setHeaderHtml(e.target.value)} placeholder="Leave empty to use the header style controls above." />
+                    <p className="text-xs text-fg-subtle mt-1">Use <code>{`{name}`}</code> for the site name, <code>{`{nav}`}</code> for the page navigation.</p>
                   </div>
                   <div>
                     <Label>Footer</Label>

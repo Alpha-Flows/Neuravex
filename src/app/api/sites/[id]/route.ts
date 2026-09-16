@@ -4,6 +4,9 @@ import { slugify } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+const HEADER_SHAPES = new Set(["bar", "rounded", "pill"]);
+const HEADER_POSITIONS = new Set(["static", "sticky", "fixed"]);
+
 interface Params {
   params: { id: string };
 }
@@ -31,6 +34,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (typeof body.borderRadius === "string" || body.borderRadius === null) data.borderRadius = body.borderRadius;
   if (typeof body.headerHtml === "string" || body.headerHtml === null) data.headerHtml = body.headerHtml;
   if (typeof body.footerHtml === "string" || body.footerHtml === null) data.footerHtml = body.footerHtml;
+  if (typeof body.headerBackground === "string") data.headerBackground = body.headerBackground;
+  if (typeof body.headerOpacity === "number" && Number.isFinite(body.headerOpacity)) {
+    data.headerOpacity = Math.max(0, Math.min(100, Math.round(body.headerOpacity)));
+  }
+  if (typeof body.headerShape === "string" && HEADER_SHAPES.has(body.headerShape)) data.headerShape = body.headerShape;
+  if (typeof body.headerPosition === "string" && HEADER_POSITIONS.has(body.headerPosition)) data.headerPosition = body.headerPosition;
   if (typeof body.customCss === "string" || body.customCss === null) data.customCss = body.customCss;
   if (typeof body.metaTitle === "string" || body.metaTitle === null) data.metaTitle = body.metaTitle;
   if (typeof body.metaDescription === "string" || body.metaDescription === null) data.metaDescription = body.metaDescription;

@@ -28,6 +28,11 @@ model Site {
   fontFamily  String?  // e.g. "Inter, sans-serif"
   headingFont String?  // e.g. "Georgia, serif"
   borderRadius String? @default("0.5rem")
+  // Header style (used by the default header; ignored once headerHtml is set)
+  headerBackground String  @default("#ffffff")
+  headerOpacity    Int     @default(80)
+  headerShape      String  @default("bar")    // "bar" | "rounded" | "pill"
+  headerPosition   String  @default("sticky") // "static" | "sticky" | "fixed"
   // Editable header / footer (plain text that replaces hardcoded defaults)
   headerHtml  String?
   footerHtml  String?
