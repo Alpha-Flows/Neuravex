@@ -1,118 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
-  createSessionToken,
-  verifySessionToken,
-  verifyPassword,
-  hashPassword,
-  verifyPasswordHash,
   sanitizeCss,
   sanitizeCssValue,
-  safeRedirectUrl,
   validateUploadFile,
   isDangerousExtension,
   sanitizeSvg,
 } from "@/lib/security";
-
-describe("createSessionToken / verifySessionToken", () => {
-  it("verifies a freshly created token and returns the bound userId", () => {
-    const token = createSessionToken("user-123");
-    expect(verifySessionToken(token)).toEqual({ valid: true, userId: "user-123" });
-  });
-
-  it("produces unique tokens on each call", () => {
-    expect(createSessionToken("user-123")).not.toBe(createSessionToken("user-123"));
-  });
-
-  it("rejects a token with a tampered signature", () => {
-    const [userId, nonce] = createSessionToken("user-123").split(".");
-    const forged = `${userId}.${nonce}.${"0".repeat(64)}`;
-    expect(verifySessionToken(forged)).toEqual({ valid: false, userId: null });
-  });
-
-  it("rejects a token with a tampered nonce", () => {
-    const [userId, , sig] = createSessionToken("user-123").split(".");
-    const forged = `${userId}.${"a".repeat(64)}.${sig}`;
-    expect(verifySessionToken(forged)).toEqual({ valid: false, userId: null });
-  });
-
-  it("rejects a token whose userId was swapped for another valid-looking one", () => {
-    const [, nonce, sig] = createSessionToken("user-123").split(".");
-    const forged = `user-456.${nonce}.${sig}`;
-    expect(verifySessionToken(forged)).toEqual({ valid: false, userId: null });
-  });
-
-  it("rejects malformed tokens", () => {
-    expect(verifySessionToken("")).toEqual({ valid: false, userId: null });
-    expect(verifySessionToken("no-dots-here")).toEqual({ valid: false, userId: null });
-    expect(verifySessionToken("a.b")).toEqual({ valid: false, userId: null });
-    expect(verifySessionToken("a.b.c.d")).toEqual({ valid: false, userId: null });
-    expect(verifySessionToken("..")).toEqual({ valid: false, userId: null });
-    expect(verifySessionToken("abc..")).toEqual({ valid: false, userId: null });
-    expect(verifySessionToken("..xyz")).toEqual({ valid: false, userId: null });
-  });
-
-  it("rejects a signature that is not valid hex", () => {
-    const [userId, nonce] = createSessionToken("user-123").split(".");
-    expect(verifySessionToken(`${userId}.${nonce}.not-hex!!`)).toEqual({ valid: false, userId: null });
-  });
-
-  it("does not throw on garbage input", () => {
-    expect(() => verifySessionToken("💥.💥.💥")).not.toThrow();
-  });
-});
-
-describe("hashPassword / verifyPasswordHash", () => {
-  it("verifies a password against its own hash", () => {
-    const hash = hashPassword("correct-horse-battery-staple");
-    expect(verifyPasswordHash("correct-horse-battery-staple", hash)).toBe(true);
-  });
-
-  it("rejects the wrong password", () => {
-    const hash = hashPassword("correct-horse-battery-staple");
-    expect(verifyPasswordHash("wrong-password", hash)).toBe(false);
-  });
-
-  it("produces a different hash each time (random salt)", () => {
-    expect(hashPassword("same-password")).not.toBe(hashPassword("same-password"));
-  });
-
-  it("stores salt and hash separated by a colon", () => {
-    const hash = hashPassword("x");
-    expect(hash.split(":")).toHaveLength(2);
-  });
-
-  it("rejects a malformed stored hash instead of throwing", () => {
-    expect(() => verifyPasswordHash("anything", "not-a-valid-hash")).not.toThrow();
-    expect(verifyPasswordHash("anything", "not-a-valid-hash")).toBe(false);
-    expect(verifyPasswordHash("anything", "")).toBe(false);
-  });
-});
-
-describe("verifyPassword", () => {
-  it("accepts a matching password", () => {
-    expect(verifyPassword("correct-horse", "correct-horse")).toBe(true);
-  });
-
-  it("rejects a non-matching password", () => {
-    expect(verifyPassword("wrong", "correct-horse")).toBe(false);
-  });
-
-  it("rejects a password differing only in length", () => {
-    expect(verifyPassword("correct-horse-extra", "correct-horse")).toBe(false);
-  });
-
-  it("rejects empty input against a real password", () => {
-    expect(verifyPassword("", "correct-horse")).toBe(false);
-  });
-
-  it("treats two empty strings as equal", () => {
-    expect(verifyPassword("", "")).toBe(true);
-  });
-
-  it("is case sensitive", () => {
-    expect(verifyPassword("Password", "password")).toBe(false);
-  });
-});
 
 describe("sanitizeCss", () => {
   it("strips @import rules, neutralizing the exfiltration target", () => {
@@ -176,37 +69,6 @@ describe("sanitizeCssValue", () => {
   it("keeps a normal color/size value intact", () => {
     expect(sanitizeCssValue("#3b82f6")).toBe("#3b82f6");
     expect(sanitizeCssValue("1.5rem")).toBe("1.5rem");
-  });
-});
-
-describe("safeRedirectUrl", () => {
-  it("allows a relative path", () => {
-    expect(safeRedirectUrl("/admin/sites")).toBe("/admin/sites");
-  });
-
-  it("falls back for an empty url", () => {
-    expect(safeRedirectUrl("")).toBe("/");
-  });
-
-  it("rejects protocol-relative urls (open redirect)", () => {
-    expect(safeRedirectUrl("//evil.example")).toBe("/");
-  });
-
-  it("rejects absolute http(s) urls", () => {
-    expect(safeRedirectUrl("https://evil.example")).toBe("/");
-    expect(safeRedirectUrl("http://evil.example")).toBe("/");
-  });
-
-  it("rejects javascript: urls", () => {
-    expect(safeRedirectUrl("javascript:alert(1)")).toBe("/");
-  });
-
-  it("rejects a path not starting with /", () => {
-    expect(safeRedirectUrl("admin/sites")).toBe("/");
-  });
-
-  it("honors a custom fallback", () => {
-    expect(safeRedirectUrl("//evil.example", "/login")).toBe("/login");
   });
 });
 

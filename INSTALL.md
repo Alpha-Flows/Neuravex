@@ -12,7 +12,6 @@ Step-by-step instructions for setting up Neuravex on your machine. Covers local 
 - [3. Configure Environment Variables](#3-configure-environment-variables)
 - [4. Set Up the Database](#4-set-up-the-database)
 - [5. Start the Dev Server](#5-start-the-dev-server)
-- [6. Log In](#6-log-in)
 - [Production Deployment](#production-deployment)
 - [Desktop Mode](#desktop-mode)
 - [MCP Server (AI Integration)](#mcp-server-ai-integration)
@@ -77,24 +76,15 @@ Then open `.env` in your editor and configure:
 # Path to the SQLite database file (relative to the prisma/ directory).
 # The default works for most setups — no need to change it.
 DATABASE_URL="file:./dev.db"
-
-# RECOMMENDED — A random string used to sign session cookies.
-# Generate one with:
-#   openssl rand -hex 32
-# If not set, a much weaker fallback key is used — fine for a quick local
-# trial, not for anything reachable by anyone else.
-# SESSION_SECRET=your-random-secret-here
 ```
 
-Logins themselves aren't configured here — the first time you open the admin panel you'll be asked to create an account (email + password), right in the app. See [Log In](#6-log-in) below.
+Neuravex has no sign-in — it's meant to run locally on your own machine, so there's nothing else to configure here.
 
 ### Variable Reference
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | Yes | `file:./dev.db` | SQLite database path (relative to `prisma/`) |
-| `SESSION_SECRET` | Recommended | A weak fallback key | Random string to sign session cookies. Set this in production. |
-| `AUTH_PASSWORD` | No | — | Legacy. Only used as fallback key material for `SESSION_SECRET` when that isn't set. Not a login password. |
 
 > **⚠️ Never commit your `.env` file.** It is already listed in `.gitignore`.
 
@@ -135,20 +125,9 @@ The app starts at **http://localhost:3000** with hot-reloading enabled.
 | URL | Description |
 |-----|-------------|
 | `http://localhost:3000` | Admin panel — manage your sites |
-| `http://localhost:3000/login` | Login page |
 | `http://localhost:3000/sites/demo` | Public demo site (if seeded) |
 
----
-
-## 6. Log In
-
-Navigate to **http://localhost:3000**. You'll be redirected to the login page.
-
-On a brand-new instance (no accounts yet), the login page becomes a "Create your account" form — enter an email and a password (8+ characters) and that becomes your login. From then on it's a normal login page.
-
-Invite teammates afterward from **Admin → Account**. Everyone with an account has full access to every site — there are no per-site permissions.
-
-Your session lasts 7 days. To log out, go to **Admin → Account** and click **Sign out**.
+There's no login step — opening `http://localhost:3000` takes you straight into the builder.
 
 ---
 
@@ -178,9 +157,7 @@ PORT=8080 npm run start
 
 Before deploying to a server, make sure you:
 
-- [ ] Set a **random `SESSION_SECRET`** — generate one with `openssl rand -hex 32`
-- [ ] Create your account with a **strong password** on first login
-- [ ] Place the app behind a **reverse proxy** (nginx, Caddy, etc.) with HTTPS
+- [ ] Neuravex has no built-in sign-in — if this instance is reachable by anyone other than you, put it behind a **reverse proxy** (nginx, Caddy, etc.) with HTTPS and your own access control (e.g. basic auth or a VPN)
 - [ ] Set `NODE_ENV=production` in your environment
 - [ ] Back up `prisma/dev.db` regularly (it's a single SQLite file)
 
@@ -242,7 +219,6 @@ CMD ["npm", "run", "start"]
 docker build -t neuravex .
 docker run -d \
   -p 3000:3000 \
-  -e SESSION_SECRET=$(openssl rand -hex 32) \
   -v neuravex-data:/app/prisma \
   -v neuravex-uploads:/app/public/uploads \
   neuravex
@@ -351,15 +327,6 @@ npm run build      # Rebuild for production (if using desktop/production mode)
 ---
 
 ## Troubleshooting
-
-### Locked out / forgot your password
-
-There's no self-service password reset yet. Options:
-
-- Ask a teammate to remove your account from **Admin → Account** and re-add you with a new password.
-- If you're the only account, open `prisma/dev.db` with a SQLite client and delete your row from the `User` table, then restart the app — the next visit to the login page will offer to create a fresh first account.
-
----
 
 ### "Cannot find module '@prisma/client'"
 

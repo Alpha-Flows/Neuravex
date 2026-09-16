@@ -1,10 +1,5 @@
 import { test, expect } from "@playwright/test";
 
-async function login(request: any) {
-  const res = await request.post("/api/auth/login", { data: { password: "admin" } });
-  expect(res.status()).toBe(200);
-}
-
 test.describe("API", () => {
   test("templates endpoint returns all templates", async ({ request }) => {
     const res = await request.get("/api/templates");
@@ -17,9 +12,7 @@ test.describe("API", () => {
     expect(data[0]).toHaveProperty("category");
   });
 
-  test("sites CRUD with auth", async ({ request }) => {
-    await login(request);
-
+  test("sites CRUD", async ({ request }) => {
     // List sites
     const list = await request.get("/api/sites");
     expect(list.ok()).toBeTruthy();
@@ -88,8 +81,6 @@ test.describe("API", () => {
   });
 
   test("upload and media API", async ({ request }) => {
-    await login(request);
-
     // Upload a file using multipart
     const upload = await request.post("/api/upload", {
       multipart: {
@@ -113,8 +104,6 @@ test.describe("API", () => {
   });
 
   test("submissions API", async ({ request }) => {
-    await login(request);
-
     const sites = await request.get("/api/sites");
     const siteList = await sites.json();
     const siteId = siteList[0].id;
@@ -138,8 +127,6 @@ test.describe("API", () => {
   });
 
   test("isHome properly unsets other pages", async ({ request }) => {
-    await login(request);
-
     const site = await request.post("/api/sites", { data: { name: "Home Test" } });
     const s = await site.json();
 
@@ -162,8 +149,6 @@ test.describe("API", () => {
   });
 
   test("import site from export", async ({ request }) => {
-    await login(request);
-
     const sites = await request.get("/api/sites");
     const list = await sites.json();
     const exportRes = await request.get(`/api/sites/${list[0].id}/export`);
@@ -178,8 +163,6 @@ test.describe("API", () => {
   });
 
   test("site settings update theme fields", async ({ request }) => {
-    await login(request);
-
     const sites = await request.get("/api/sites");
     const list = await sites.json();
     const siteId = list[0].id;
