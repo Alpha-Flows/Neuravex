@@ -1,7 +1,7 @@
 "use client";
 import { BaseBlock, ColumnsProps } from "@/types";
 import { SortableContainer } from "./Sortable";
-import { cloneTree, flattenColumns, groupIntoColumns, withFreshIds } from "@/lib/tree-utils";
+import { clampColumnCount, cloneTree, flattenColumns, groupIntoColumns, withFreshIds } from "@/lib/tree-utils";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -27,7 +27,9 @@ export function Columns({
   disabled,
   blockId,
 }: Props) {
-  const cols = props.count;
+  // Imported or hand-edited content can carry a missing or out-of-range count;
+  // rendering `repeat(undefined, ...)` collapsed the whole block.
+  const cols = clampColumnCount(props.count);
   const buckets = groupIntoColumns(childBlocks ?? [], cols);
 
   function bucketIndexOf(id: string): number {

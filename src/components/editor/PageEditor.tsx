@@ -60,6 +60,7 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [preview, setPreview] = useState(false);
   const [viewport, setViewport] = useState<"full" | "lg" | "md" | "sm">("full");
   const [activeDrag, setActiveDrag] = useState<{ kind: "palette" | "block"; type?: BlockType; block?: BaseBlock } | null>(null);
@@ -96,10 +97,15 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, slug, isHome, published, content: blocks, ...seo, reason }),
       });
+      setSaveFailed(!res.ok);
       if (res.ok) {
         setDirty(false);
         setSavedAt(new Date());
       }
+    } catch {
+      // A save that never lands must not look like one that did — the status
+      // line is the only signal that the work is safe.
+      setSaveFailed(true);
     } finally {
       setSaving(false);
     }
@@ -395,8 +401,16 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-fg-muted shrink-0">
-              {saving ? "Saving…" : dirty ? "Unsaved changes" : savedAt ? `Saved ${savedAt.toLocaleTimeString()}` : "All saved"}
+            <span className={`text-xs shrink-0 ${saveFailed ? "text-red-400" : "text-fg-muted"}`}>
+              {saving
+                ? "Saving…"
+                : saveFailed
+                  ? "Couldn't save — press Save to retry"
+                  : dirty
+                    ? "Unsaved changes"
+                    : savedAt
+                      ? `Saved ${savedAt.toLocaleTimeString()}`
+                      : "All saved"}
             </span>
             <Button variant="ghost" size="sm" onClick={() => setPreview((p) => !p)}>
               {preview ? "Edit" : "Preview"}

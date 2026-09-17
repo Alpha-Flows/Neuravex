@@ -1,6 +1,6 @@
 # Neuravex — Website Builder
 
-A self-contained website builder with a working CMS. Design sites visually, drag and drop blocks, edit text inline, and publish instantly. Runs entirely on your machine — no cloud, no signup, no telemetry.
+A self-contained website builder with a working CMS. Design sites visually, drag and drop blocks, edit text inline, and publish instantly. Runs entirely on your machine — no cloud, no signup, and nothing phoning home from the sites you build.
 
 Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 18+).
 
@@ -9,17 +9,20 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 18+).
 - **Visual editor** with live preview of your changes
 - **Drag & drop** blocks from the palette onto the page, or reorder existing blocks
 - **Inline text editing** — click any text on the page to edit it directly
-- **11 block types** out of the box: Heading, Text, Image, Button, Video, Quote, List, Divider, Spacer, Section, and Columns
+- **13 block types** out of the box: Heading, Text, Image, Button, Video, Quote, List, Divider, Spacer, Section, Columns, Form, and Custom HTML
 - **Container blocks** (Section, Columns) with their own drag-and-droppable child lists
 - **Responsive columns** — published pages stack columns on phones and halve 3/4-column
   layouts on tablets, and each block stays in the column you put it in
-- **5 starter templates** (SaaS landing, Personal portfolio, Restaurant, Journal, Blank) that you can use as-is or remix
+- **28 starter templates** across landing, portfolio, business, blog, and minimal, filterable by category
 - **Multi-page sites** with home page routing
 - **Per-block inspector** for fine-grained control of every property (colors, sizes, alignment, spacing, etc.)
 - **Publish / unpublish** workflow — unpublished pages are drafts
 - **SQLite storage** in a single file, zero config
 - **Autosave** with `Cmd/Ctrl+S` shortcut
-- **No external services** — no network calls, no accounts, no sign-in, no analytics
+- **Page history** — revisions with preview and restore; autosaves within five minutes of each other share one entry, and Cmd/Ctrl+S saves are kept separately
+- **Form submissions** stored in the CMS, viewable per page
+- **Per-page and per-site SEO** — search title, description, and social image
+- **No external services** — no accounts, no sign-in, and no analytics in your published sites
 
 ## Tech stack
 
@@ -141,6 +144,20 @@ This deletes `prisma/dev.db` and re-seeds the demo site.
 
 That's it — the palette, drag-and-drop, save, and public render all pick it up automatically.
 
+## Telemetry
+
+Neuravex itself makes no network calls and the sites you publish contain no
+analytics. The Next.js CLI, however, collects anonymous usage telemetry by
+default while you run the dev server or a build. That is Next.js, not
+Neuravex, and you can turn it off once per machine:
+
+```bash
+npx next telemetry disable
+```
+
+The desktop launcher (`npm run desktop`) already starts the server with
+telemetry disabled.
+
 ## Security
 
 Neuravex has no sign-in and no access control — it's meant to run locally on your own machine, reachable only from that machine's browser. Don't expose it to the network without adding your own auth layer (e.g. a reverse proxy with basic auth).
@@ -153,7 +170,7 @@ Neuravex has no sign-in and no access control — it's meant to run locally on y
 ## Known limitations (V1)
 
 - No custom domains — published sites live under `/sites/:slug`.
-- No versioning / page history (revisions table exists but UI is not built).
+- Page history keeps the newest 50 revisions per page; older ones are dropped.
 - Drag and drop is fully supported within a single container (the page, a section, or a column) and across containers via drop, but the live "drag into another container" hover preview is a V2 item.
 - Section padding is still a fixed pixel value at every screen size — only columns and the site nav respond to width so far.
 

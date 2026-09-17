@@ -82,11 +82,16 @@ export function resolveDrop(overId: string, _blocks: BaseBlock[], parentMap: Map
 
 export const MAX_COLUMNS = 4;
 
-/** The column count a columns block is configured for, clamped to what we render. */
-export function columnCount(block: BaseBlock): number {
-  const raw = Number((block.props as { count?: unknown })?.count ?? 2);
+/** Clamp a configured column count to something we can actually render. */
+export function clampColumnCount(value: unknown): number {
+  const raw = Number(value ?? 2);
   if (!Number.isFinite(raw)) return 2;
   return Math.max(1, Math.min(Math.trunc(raw), MAX_COLUMNS));
+}
+
+/** The column count a columns block is configured for, clamped to what we render. */
+export function columnCount(block: BaseBlock): number {
+  return clampColumnCount((block.props as { count?: unknown })?.count);
 }
 
 export function clampColumn(index: number, cols: number): number {

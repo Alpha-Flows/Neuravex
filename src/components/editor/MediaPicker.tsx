@@ -21,7 +21,7 @@ interface StockPhoto {
 
 export function MediaPicker({ open, onClose, onSelect }: Props) {
   const [tab, setTab] = useState<"uploads" | "stock">("uploads");
-  const [files, setFiles] = useState<{ url: string; name: string }[]>([]);
+  const [files, setFiles] = useState<{ url: string; name: string; usedOn?: string[] }[]>([]);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -67,6 +67,18 @@ export function MediaPicker({ open, onClose, onSelect }: Props) {
   }
 
   async function handleDelete(url: string) {
+    // Deleting a file that pages point at leaves broken images behind, so say
+    // where it is used before it goes.
+    const used = files.find((f) => f.url === url)?.usedOn ?? [];
+    if (used.length > 0) {
+      const names = used.slice(0, 5).join(", ");
+      const more = used.length > 5 ? ` and ${used.length - 5} more` : "";
+      const ok = confirm(
+        `This image is used on ${used.length} page${used.length === 1 ? "" : "s"}: ${names}${more}.\n\n` +
+          "Deleting it will leave those pages with a broken image. Delete anyway?",
+      );
+      if (!ok) return;
+    }
     await fetch("/api/media", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
     setFiles((f) => f.filter((x) => x.url !== url));
   }
@@ -117,6 +129,14 @@ export function MediaPicker({ open, onClose, onSelect }: Props) {
                 <div key={f.url} className="group relative rounded-lg overflow-hidden border border-bg-border bg-bg cursor-pointer" onClick={() => { onSelect(f.url); onClose(); }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={f.url} alt={f.name} className="w-full h-24 object-cover" />
+                  {f.usedOn && f.usedOn.length > 0 ? (
+                    <span
+                      className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/65 text-[10px] text-white"
+                      title={`Used on: ${f.usedOn.join(", ")}`}
+                    >
+                      in use
+                    </span>
+                  ) : null}
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDelete(f.url); }}
                     className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 text-white text-xs opacity-0 group-hover:opacity-100 flex items-center justify-center"
