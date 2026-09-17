@@ -40,7 +40,11 @@ function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplic
       <div
         className={cn(
           "absolute -left-10 top-1.5 flex flex-col gap-1 z-10 transition-opacity",
-          isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+          // The rail keeps its box when hidden, so it has to stop taking
+          // clicks too — otherwise it shadows whatever sits beneath it.
+          isSelected
+            ? "opacity-100"
+            : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
         )}
         onClick={(e) => e.stopPropagation()}
       >
@@ -84,9 +88,15 @@ interface SortableBlockProps {
   selectedId: string | null;
   disabled?: boolean;
   pageId?: string;
+  // Forwarded into container blocks (section / columns) so the blocks *they*
+  // render can be selected, deleted and duplicated too. Without these a
+  // nested block's click reaches a no-op and the inspector never opens.
+  onSelectId?: (id: string | null) => void;
+  onChildDelete?: (id: string) => void;
+  onChildDuplicate?: (id: string) => void;
 }
 
-export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate, selectedId, disabled, pageId }: SortableBlockProps) {
+export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate, selectedId, disabled, pageId, onSelectId, onChildDelete, onChildDuplicate }: SortableBlockProps) {
   const sortable = useSortable({ id: block.id, disabled });
   const isSelected = selectedId === block.id;
 
@@ -103,7 +113,15 @@ export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate
       onDelete={onDelete}
       onDuplicate={onDuplicate}
     >
-      <BlockView block={block} onChange={onChange} pageId={pageId} />
+      <BlockView
+        block={block}
+        onChange={onChange}
+        pageId={pageId}
+        onSelect={onSelectId}
+        onChildDelete={onChildDelete}
+        onChildDuplicate={onChildDuplicate}
+        selectedId={selectedId}
+      />
     </BlockChrome>
   );
 }
@@ -161,6 +179,9 @@ export function SortableContainer({
               onSelect={() => onSelect(b.id)}
               onDelete={() => onDelete(b.id)}
               onDuplicate={() => onDuplicate(b.id)}
+              onSelectId={onSelect}
+              onChildDelete={onDelete}
+              onChildDuplicate={onDuplicate}
               selectedId={selectedId}
               disabled={disabled}
               pageId={pageId}

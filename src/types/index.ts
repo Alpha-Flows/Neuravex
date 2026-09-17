@@ -23,6 +23,12 @@ export interface BaseBlock {
   // eslint-disable-next-line
   props: any;
   children?: BaseBlock[];
+  /**
+   * Which column of the parent `columns` block this child sits in.
+   * Only meaningful for direct children of a columns block; absent on
+   * content authored before columns tracked placement explicitly.
+   */
+  column?: number;
 }
 
 export interface SectionProps {

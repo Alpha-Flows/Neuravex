@@ -137,6 +137,12 @@ function PublicSiteHeader({
     "border-b border-slate-200/70";
   const navActiveClass = dark ? "text-white bg-white/15" : "text-slate-900 bg-slate-100";
   const navInactiveClass = dark ? "text-slate-300 hover:text-white hover:bg-white/10" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100";
+  const navLinks = pages.map((p) => ({
+    slug: p.slug,
+    title: p.title,
+    href: p.isHome ? `/sites/${site.slug}` : `/sites/${site.slug}/${p.slug}`,
+    active: p.slug === activeSlug,
+  }));
 
   return (
     <header
@@ -148,17 +154,36 @@ function PublicSiteHeader({
           <span className="w-5 h-5 rounded" style={{ background: site.accent }} />
           {site.name}
         </Link>
-        <nav className="ml-auto flex items-center gap-1 text-sm">
-          {pages.map((p) => {
-            const href = p.isHome ? `/sites/${site.slug}` : `/sites/${site.slug}/${p.slug}`;
-            const active = p.slug === activeSlug;
-            return (
-              <Link key={p.slug} href={href} className={`px-3 py-1.5 rounded-md ${active ? navActiveClass : navInactiveClass}`}>
-                {p.title}
-              </Link>
-            );
-          })}
+        {/* Desktop: inline nav. Small screens: the same links behind a menu,
+            so a site with more than a couple of pages stops overflowing. */}
+        <nav data-nav="desktop" className="ml-auto hidden sm:flex items-center gap-1 text-sm">
+          {navLinks.map((l) => (
+            <Link key={l.slug} href={l.href} className={`px-3 py-1.5 rounded-md ${l.active ? navActiveClass : navInactiveClass}`}>
+              {l.title}
+            </Link>
+          ))}
         </nav>
+
+        <details className="nvx-nav-toggle ml-auto sm:hidden relative">
+          <summary
+            aria-label="Menu"
+            className={`w-9 h-9 rounded-md flex items-center justify-center text-lg ${dark ? "text-white hover:bg-white/10" : "text-slate-900 hover:bg-slate-100"}`}
+          >
+            <span className="nvx-nav-open-icon leading-none">☰</span>
+            <span className="nvx-nav-close-icon leading-none">✕</span>
+          </summary>
+          <nav
+            data-nav="mobile"
+            className={`absolute right-0 top-11 min-w-[11rem] rounded-xl border p-1.5 shadow-xl flex flex-col gap-0.5 text-sm ${dark ? "border-white/15" : "border-slate-200"}`}
+            style={{ background: hexToRgba(site.headerBackground, 100) }}
+          >
+            {navLinks.map((l) => (
+              <Link key={l.slug} href={l.href} className={`px-3 py-2 rounded-md ${l.active ? navActiveClass : navInactiveClass}`}>
+                {l.title}
+              </Link>
+            ))}
+          </nav>
+        </details>
       </div>
     </header>
   );

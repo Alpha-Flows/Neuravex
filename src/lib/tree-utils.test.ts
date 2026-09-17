@@ -9,7 +9,10 @@ import {
   insertIntoContainer,
   applyOrder,
   resolveDrop,
-  distributeLeftToRight,
+  groupIntoColumns,
+  flattenColumns,
+  columnCount,
+  clampColumn,
 } from "@/lib/tree-utils";
 import { BaseBlock, BlockType } from "@/types";
 
@@ -79,6 +82,53 @@ describe("updateContainer", () => {
     // col1 (0-indexed col index 1 = second column) should be [d, c]
     expect(result[0].children!.map((c) => c.id)).toEqual(["a", "b", "d", "c", "e", "f"]);
   });
+
+  it("stamps every child's column once a column is touched", () => {
+    const blocks = [b("col", "columns", { count: 2 }, [b("a"), b("b")])];
+    const result = updateContainer(blocks, "col-col-0", (list) => list);
+    expect(result[0].children!.map((c) => [c.id, c.column])).toEqual([
+      ["a", 0],
+      ["b", 1],
+    ]);
+  });
+
+  it("keeps explicit placement when another column is edited", () => {
+    const blocks = [b("col", "columns", { count: 3 }, [
+      { ...b("a"), column: 0 },
+      { ...b("b"), column: 2 },
+    ])];
+    const result = updateContainer(blocks, "col-col-0", (list) => [...list, b("new")]);
+    expect(result[0].children!.map((c) => [c.id, c.column])).toEqual([
+      ["a", 0],
+      ["new", 0],
+      ["b", 2],
+    ]);
+  });
+
+  it("reaches a container nested inside a column", () => {
+    // A section living in a column is not one of the column's own containers,
+    // so the walk has to keep going rather than stopping at the columns block.
+    const blocks = [b("col", "columns", { count: 2 }, [
+      b("sec", "section", {}, [b("x"), b("y")]),
+    ])];
+    const result = updateContainer(blocks, "section-sec", (list) => list.reverse());
+    expect(result[0].children![0].children!.map((c) => c.id)).toEqual(["y", "x"]);
+  });
+});
+
+describe("moving a block between columns", () => {
+  it("carries the new column through remove + insert", () => {
+    const blocks = [b("col", "columns", { count: 3 }, [b("a"), b("b"), b("c")])];
+    let moved: BaseBlock | undefined;
+    const removed = removeFromContainer(blocks, "col-col-2", "c", (x) => (moved = x));
+    expect(moved?.id).toBe("c");
+    const result = insertIntoContainer(removed, "col-col-0", moved!, undefined);
+    expect(result[0].children!.map((x) => [x.id, x.column])).toEqual([
+      ["a", 0],
+      ["c", 0],
+      ["b", 1],
+    ]);
+  });
 });
 
 describe("removeFromContainer / insertIntoContainer", () => {
@@ -138,10 +188,10 @@ describe("resolveDrop", () => {
   });
 });
 
-describe("distributeLeftToRight", () => {
+describe("groupIntoColumns — legacy content (no explicit column)", () => {
   it("distributes 6 items into 3 equal columns", () => {
     const blocks = [b("a"), b("b"), b("c"), b("d"), b("e"), b("f")];
-    const cols = distributeLeftToRight(blocks, 3);
+    const cols = groupIntoColumns(blocks, 3);
     expect(cols.map((c) => c.map((x) => x.id))).toEqual([
       ["a", "b"],
       ["c", "d"],
@@ -151,7 +201,7 @@ describe("distributeLeftToRight", () => {
 
   it("handles uneven distribution (7 items, 3 cols)", () => {
     const blocks = [b("a"), b("b"), b("c"), b("d"), b("e"), b("f"), b("g")];
-    const cols = distributeLeftToRight(blocks, 3);
+    const cols = groupIntoColumns(blocks, 3);
     // ceil(7/3)=3 per col: col1=[a,b,c], col2=[d,e,f], col3=[g]
     expect(cols.map((c) => c.map((x) => x.id))).toEqual([
       ["a", "b", "c"],
@@ -161,14 +211,104 @@ describe("distributeLeftToRight", () => {
   });
 
   it("handles empty array", () => {
-    const cols = distributeLeftToRight([], 3);
+    const cols = groupIntoColumns([], 3);
     expect(cols).toEqual([[], [], []]);
   });
 
   it("handles fewer items than columns", () => {
     const blocks = [b("a")];
-    const cols = distributeLeftToRight(blocks, 3);
+    const cols = groupIntoColumns(blocks, 3);
     expect(cols.map((c) => c.map((x) => x.id))).toEqual([["a"], [], []]);
+  });
+});
+
+describe("groupIntoColumns — explicit placement", () => {
+  const withColumn = (id: string, column: number): BaseBlock => ({ ...b(id), column });
+
+  it("honours each child's own column", () => {
+    const blocks = [withColumn("a", 2), withColumn("b", 0), withColumn("c", 2)];
+    expect(groupIntoColumns(blocks, 3).map((c) => c.map((x) => x.id))).toEqual([
+      ["b"],
+      [],
+      ["a", "c"],
+    ]);
+  });
+
+  it("keeps placement stable when a block is added", () => {
+    // The legacy split moved existing cards around when the count changed:
+    // 4 children across 3 columns became [2, 2, 0]. Explicit columns don't.
+    const blocks = [withColumn("a", 0), withColumn("b", 1), withColumn("c", 2), withColumn("d", 0)];
+    expect(groupIntoColumns(blocks, 3).map((c) => c.map((x) => x.id))).toEqual([
+      ["a", "d"],
+      ["b"],
+      ["c"],
+    ]);
+  });
+
+  it("clamps a column beyond the current count", () => {
+    // Dropping a 4-column block to 2 columns must not lose children.
+    const blocks = [withColumn("a", 3), withColumn("b", 0)];
+    expect(groupIntoColumns(blocks, 2).map((c) => c.map((x) => x.id))).toEqual([["b"], ["a"]]);
+  });
+
+  it("puts an unplaced child first when its siblings are placed", () => {
+    const blocks = [withColumn("a", 1), b("stray")];
+    expect(groupIntoColumns(blocks, 2).map((c) => c.map((x) => x.id))).toEqual([["stray"], ["a"]]);
+  });
+});
+
+describe("flattenColumns", () => {
+  it("stamps each child with the column it now lives in", () => {
+    const flat = flattenColumns([[b("a")], [b("b"), b("c")]]);
+    expect(flat.map((x) => [x.id, x.column])).toEqual([
+      ["a", 0],
+      ["b", 1],
+      ["c", 1],
+    ]);
+  });
+
+  it("round-trips through groupIntoColumns unchanged", () => {
+    const buckets = [[b("a"), b("d")], [b("b")], [b("c")]];
+    const flat = flattenColumns(buckets);
+    expect(groupIntoColumns(flat, 3).map((c) => c.map((x) => x.id))).toEqual([
+      ["a", "d"],
+      ["b"],
+      ["c"],
+    ]);
+  });
+
+  it("converts legacy content without moving anything on screen", () => {
+    const legacy = [b("a"), b("b"), b("c"), b("d")];
+    const before = groupIntoColumns(legacy, 3).map((c) => c.map((x) => x.id));
+    const after = groupIntoColumns(flattenColumns(groupIntoColumns(legacy, 3)), 3).map((c) =>
+      c.map((x) => x.id),
+    );
+    expect(after).toEqual(before);
+  });
+
+  it("leaves an already-correct child untouched", () => {
+    const placed: BaseBlock = { ...b("a"), column: 1 };
+    const flat = flattenColumns([[], [placed]]);
+    expect(flat[0]).toBe(placed);
+  });
+});
+
+describe("columnCount / clampColumn", () => {
+  it("reads the count off the block, defaulting to 2", () => {
+    expect(columnCount({ id: "x", type: "columns", props: { count: 3 } })).toBe(3);
+    expect(columnCount({ id: "x", type: "columns", props: {} })).toBe(2);
+    expect(columnCount({ id: "x", type: "columns", props: { count: "nope" } })).toBe(2);
+  });
+
+  it("clamps the count to what we can render", () => {
+    expect(columnCount({ id: "x", type: "columns", props: { count: 99 } })).toBe(4);
+    expect(columnCount({ id: "x", type: "columns", props: { count: 0 } })).toBe(1);
+  });
+
+  it("clamps a column index into range", () => {
+    expect(clampColumn(-3, 3)).toBe(0);
+    expect(clampColumn(7, 3)).toBe(2);
+    expect(clampColumn(Number.NaN, 3)).toBe(0);
   });
 });
 

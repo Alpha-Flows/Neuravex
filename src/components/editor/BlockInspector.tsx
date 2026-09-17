@@ -5,13 +5,22 @@ import { Input, Label, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { MediaPicker } from "./MediaPicker";
 
+interface Placement {
+  /** Zero-based column this block currently sits in. */
+  current: number;
+  count: number;
+  onMove: (column: number) => void;
+}
+
 interface Props {
   block: BaseBlock | null;
   onChange: (next: BaseBlock) => void;
   onClose: () => void;
+  /** Set when the block is a child of a columns block. */
+  placement?: Placement;
 }
 
-export function BlockInspector({ block, onChange, onClose }: Props) {
+export function BlockInspector({ block, onChange, onClose, placement }: Props) {
   if (!block) {
     return (
       <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full p-4 text-sm text-fg-muted">
@@ -34,9 +43,32 @@ export function BlockInspector({ block, onChange, onClose }: Props) {
         <button onClick={onClose} className="text-fg-muted hover:text-fg text-sm">×</button>
       </div>
       <div className="p-4 space-y-4">
+        {placement ? <ColumnPlacement placement={placement} /> : null}
         <InspectorBody block={block} onChange={onChange} />
       </div>
     </aside>
+  );
+}
+
+function ColumnPlacement({ placement }: { placement: Placement }) {
+  return (
+    <div className="pb-4 border-b border-bg-border">
+      <Label>Column</Label>
+      <div className="inline-flex rounded-md border border-bg-border overflow-hidden w-full">
+        {Array.from({ length: placement.count }, (_, i) => (
+          <button
+            key={i}
+            onClick={() => placement.onMove(i)}
+            className={`flex-1 h-8 text-xs ${i === placement.current ? "bg-brand text-white" : "text-fg-muted hover:text-fg hover:bg-bg-card"}`}
+          >
+            {i + 1}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-fg-subtle mt-1.5">
+        Blocks stay in the column you pick. On phones the columns stack in this order.
+      </p>
+    </div>
   );
 }
 
