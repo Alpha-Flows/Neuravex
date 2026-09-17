@@ -303,6 +303,23 @@ goes, the message says what happened, and the site and its pages come through.
 Tests fail if a template image loses its alt text, loses its size, or states a size that
 does not match the file.
 
+### Round 13 — reuse
+
+- **P2-13 (no reuse anywhere)** — a section built on one page had to be rebuilt by hand on
+  the next.
+  - **Copy, cut and paste**, including between pages and tabs: the block is kept in the
+    browser's own storage, so it outlives the editor being remounted. Every paste gets
+    fresh ids, so pasting twice — or pasting back into the page it came from — cannot
+    produce two blocks claiming one id. The palette offers a "Paste section" button when
+    something is on the clipboard, and the shortcuts stand aside while a caret is in text,
+    where the browser's own copy and paste is what was meant.
+  - **An outline of the page**, next to the palette. Once a Section is full of children,
+    clicking the Section itself is fiddly — every click lands on something inside it. Each
+    block is one row, indented, labelled with a few words of its own content and, inside a
+    Columns block, which column it sits in.
+  - **Saved blocks.** Name a block from the inspector and it is offered in the palette on
+    every page of every site, inserted with fresh ids.
+
 ### Still open from this review
 
 P0-1 is **closed**: **Download files** takes a site off the machine as plain HTML, CSS and
@@ -332,7 +349,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 215 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes) — all passing; 71 Playwright specs |
+| Quality | 225 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes, clipboard) — all passing; 77 Playwright specs |
 
 ---
 

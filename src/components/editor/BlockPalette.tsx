@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   onInsert: (type: BlockType) => void;
+  /** What is on the clipboard, if anything — "Section", say. */
+  pasteLabel?: string | null;
+  onPaste?: () => void;
 }
 
 const categories: { id: "layout" | "content" | "media"; label: string }[] = [
@@ -15,16 +18,15 @@ const categories: { id: "layout" | "content" | "media"; label: string }[] = [
   { id: "media", label: "Media" },
 ];
 
-export function BlockPalette({ onInsert }: Props) {
+export function BlockPalette({ onInsert, pasteLabel, onPaste }: Props) {
   const [query, setQuery] = useState("");
   const filtered = BLOCKS.filter(
     (b) => !query || b.label.toLowerCase().includes(query.toLowerCase()) || b.description.toLowerCase().includes(query.toLowerCase()),
   );
 
   return (
-    <aside className="w-64 shrink-0 border-r border-bg-border bg-bg-soft h-full overflow-y-auto">
+    <div>
       <div className="p-4 border-b border-bg-border sticky top-0 bg-bg-soft z-10">
-        <div className="text-xs uppercase tracking-wide text-fg-muted font-semibold mb-2">Blocks</div>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -56,10 +58,24 @@ export function BlockPalette({ onInsert }: Props) {
           <div className="text-xs text-fg-subtle text-center py-4">No blocks match &ldquo;{query}&rdquo;</div>
         ) : null}
       </div>
+      {pasteLabel && onPaste ? (
+        <div className="px-3 pb-2">
+          <button
+            onClick={onPaste}
+            className="w-full h-8 rounded-md border border-bg-border bg-bg text-xs text-fg-muted hover:text-fg hover:border-brand/60"
+          >
+            Paste {pasteLabel.toLowerCase()}
+          </button>
+          <p className="text-[11px] text-fg-subtle mt-1.5 leading-relaxed">
+            Copied from this or another page. Cmd/Ctrl+V does the same.
+          </p>
+        </div>
+      ) : null}
       <div className="p-3 text-[11px] text-fg-subtle leading-relaxed">
-        Drag a block onto the page, or click it to insert at the end.
+        Drag a block onto the page, or click it to insert at the end. Copy a block with
+        Cmd/Ctrl+C and paste it on any page.
       </div>
-    </aside>
+    </div>
   );
 }
 
