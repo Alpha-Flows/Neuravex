@@ -114,12 +114,40 @@ differently, so reordering pages did not show up consistently.
   video in the editor and renders nothing on a published page. A unit test fails if any
   block default or template ever names a remote address again.
 
+### Round 5 — the branding cascade
+
+- **P1-6 (branding does not cascade)** — a site's accent reached the admin card and the
+  header logo square and nothing else. Every button carried its own hex, so changing a
+  brand colour meant opening every button on every page. A site's accent, fonts and
+  corner radius are now emitted as CSS custom properties, and a block with no colour of
+  its own reads them. Changing the accent in Settings recolours the whole site in one go,
+  filled and outline buttons alike.
+  - **New blocks ship unset** — a heading, text, button or divider added today inherits
+    rather than pinning itself to a hex.
+  - **Templates declare their brand colour.** All 28 carry an `accent`, a new site starts
+    on it (a green restaurant no longer opens with indigo buttons), and 71 of the 75
+    template buttons read the site accent instead of repeating a hex. The four that do
+    not are deliberate — a light button on a dark hero — and keep their own.
+  - **There is a way back.** Each colour field in the inspector offers "Use site accent"
+    (or the page's text colour), so a block pinned to a hex can be handed back to the
+    site's branding. Without it, picking a colour once was permanent.
+  - **The editor canvas finally shows the site's branding**, scoped so it does not repaint
+    the builder's own chrome — a step towards P1-5, since the canvas and the published
+    page now agree on colour, font and radius.
+- A bug found while doing it: **every template button was given `textColor: "#ffffff"`
+  whatever its variant**, so the 9 outline and ghost buttons across the templates drew
+  white text on a white page. A button now works out a readable label from its own
+  colour, and an outline button draws its label in that colour rather than in white.
+- The header settings help text told people to add a Spacer block under a fixed header.
+  Round 3 made the page leave room for it, so the advice was stale.
+
 ### Still open from this review
 
 P0-1 (no way to publish off the machine) is answered in part by **Download files** — a
 site now leaves the machine as plain HTML, CSS and images — but there is still no
 hosting step.
-Also open: P1-5 (editor is not WYSIWYG), P1-6 (branding does not cascade), P1-8 (no
+Also open: P1-5 (editor is not WYSIWYG — closer now that the canvas carries the site
+theme), P1-8 (no
 sitemap/robots/favicon, images without dimensions — template images also carry no alt
 text), P2-13 (no reusable blocks), P2-15 (thin rails on destructive actions).
 
@@ -143,7 +171,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 146 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults) — all passing; 38 Playwright specs |
+| Quality | 160 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme) — all passing; 45 Playwright specs |
 
 ---
 

@@ -33,7 +33,7 @@ export function Text({ props, onChange, disabled }: Props) {
       placeholder="Write something…"
       multiline
       className={cn("leading-relaxed", sizeClass[props.size], alignClass[props.align])}
-      style={{ color: props.color, whiteSpace: "pre-wrap" }}
+      style={{ color: props.color || undefined, whiteSpace: "pre-wrap" }}
     />
   );
 }

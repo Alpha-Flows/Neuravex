@@ -3,6 +3,8 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { BLOCKS, getBlockDefinition } from "@/lib/blocks";
 import { TEMPLATES } from "@/lib/templates";
+import { parseHex } from "@/lib/site-theme";
+import { BaseBlock } from "@/types";
 
 /** Every string anywhere in a block tree, so nothing hides in a nested prop. */
 function strings(value: unknown, out: string[] = []): string[] {
@@ -58,5 +60,49 @@ describe("templates", () => {
       }
     }
     expect(missing).toEqual([]);
+  });
+});
+
+/** Every block in a template, containers flattened. */
+function allBlocks(list: BaseBlock[], out: BaseBlock[] = []): BaseBlock[] {
+  for (const b of list) {
+    out.push(b);
+    if (b.children?.length) allBlocks(b.children, out);
+  }
+  return out;
+}
+
+const templateButtons = TEMPLATES.flatMap((t) =>
+  t.pages.flatMap((p) => allBlocks(p.blocks).filter((b) => b.type === "button").map((b) => ({ t: t.id, b }))),
+);
+
+describe("site branding", () => {
+  it("gives every block that carries branding an empty default, so the site decides", () => {
+    expect(getBlockDefinition("button")!.defaultProps.color).toBe("");
+    expect(getBlockDefinition("button")!.defaultProps.textColor).toBe("");
+    expect(getBlockDefinition("heading")!.defaultProps.color).toBe("");
+    expect(getBlockDefinition("text")!.defaultProps.color).toBe("");
+    expect(getBlockDefinition("divider")!.defaultProps.color).toBe("");
+  });
+
+  it("declares a real accent colour for every template", () => {
+    for (const t of TEMPLATES) expect(parseHex(t.accent), `${t.id}: ${t.accent}`).not.toBeNull();
+  });
+
+  it("leaves most template buttons reading the site accent", () => {
+    const inheriting = templateButtons.filter(({ b }) => (b.props as { color?: string }).color === "");
+    // The rest are deliberate: a light button on a dark hero, say.
+    expect(inheriting.length).toBeGreaterThan(templateButtons.length * 0.8);
+  });
+
+  it("never paints an outline or ghost button's label white", () => {
+    // That was the old default for every template button whatever its variant,
+    // which on a light page is white text on white.
+    const invisible = templateButtons.filter(
+      ({ b }) =>
+        ["outline", "ghost"].includes((b.props as { variant?: string }).variant ?? "") &&
+        ["#ffffff", "#fff"].includes(((b.props as { textColor?: string }).textColor ?? "").toLowerCase()),
+    );
+    expect(invisible.map((x) => `${x.t}: ${(x.b.props as { label?: string }).label}`)).toEqual([]);
   });
 });

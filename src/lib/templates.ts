@@ -17,6 +17,13 @@ export interface Template {
   description: string;
   category: "business" | "portfolio" | "blog" | "landing" | "minimal";
   cover: string;
+  /**
+   * The template's brand colour. A site created from it starts here, and the
+   * buttons drawn in that colour carry none of their own — they read the site
+   * accent, so changing it in Settings recolours the site in one go. A button
+   * deliberately off-palette (the light button on a dark hero) keeps its own.
+   */
+  accent: string;
   pages: TemplatePage[];
 }
 
@@ -33,8 +40,11 @@ function h(text: string, level = 2, color = "#0f172a", weight = "bold", align = 
 function t(text: string, size = "lg", color = "#475569", align = "center"): TemplateBlock {
   return b("text", { text, align, size, color } as any);
 }
-function btn(label: string, color = "#6366f1", variant = "primary", size = "lg", align = "center"): TemplateBlock {
-  return b("button", { label, href: "#", variant, size, align, color, textColor: "#ffffff" } as any);
+// An empty colour means the site accent, and an empty text colour lets the
+// button work out a readable label for itself — it used to be handed #ffffff
+// whatever the variant, which on an outline button is white text on a white page.
+function btn(label: string, color = "", variant = "primary", size = "lg", align = "center"): TemplateBlock {
+  return b("button", { label, href: "#", variant, size, align, color, textColor: "" } as any);
 }
 function s(hPx: number): TemplateBlock { return b("spacer", { height: hPx }); }
 function img(url: string, caption = ""): TemplateBlock {
@@ -96,6 +106,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "saas-landing",
+    accent: "#6366f1",
     name: "SaaS Landing",
     description: "A premium product landing page. Dark hero, feature grids, social proof, pricing, and a bold CTA.",
     category: "landing",
@@ -112,8 +123,8 @@ export const TEMPLATES: Template[] = [
           b("text", { text: "Plan, build, and ship products your customers love. Polaris connects your roadmap, issues, docs, and releases in one fast, beautiful workspace.", align: "center", size: "xl", color: "#94a3b8" } as any),
           s(32),
           b("columns", { count: 2, gap: 16 }, [
-            btn("Start building free", "#6366f1", "primary", "lg", "center"),
-            b("button", { label: "Watch a demo →", href: "#", variant: "outline", size: "lg", align: "center", color: "#6366f1", textColor: "#e2e8f0" } as any),
+            btn("Start building free", "", "primary", "lg", "center"),
+            b("button", { label: "Watch a demo →", href: "#", variant: "outline", size: "lg", align: "center", color: "", textColor: "#e2e8f0" } as any),
           ]),
           s(16),
           b("text", { text: "No credit card required · 2-minute setup", align: "center", size: "sm", color: "#64748b" } as any),
@@ -271,7 +282,7 @@ export const TEMPLATES: Template[] = [
               s(16),
               lst(["Unlimited users", "Unlimited projects", "All integrations", "Priority support", "50 GB storage", "Advanced analytics", "SSO / SAML"], "check"),
               s(16),
-              btn("Start free trial", "#6366f1", "primary", "md", "center"),
+              btn("Start free trial", "", "primary", "md", "center"),
             ),
             sec("#ffffff", 48, "full", "center",
               b("heading", { text: "Enterprise", level: 3, align: "center", color: "#0f172a", weight: "semibold" } as any),
@@ -302,8 +313,8 @@ export const TEMPLATES: Template[] = [
           div("#e2e8f0"),
           s(32),
           cols(2, 16,
-            btn("Start building free", "#6366f1", "primary", "lg", "center"),
-            b("button", { label: "Talk to sales →", href: "#", variant: "outline", size: "lg", align: "center", color: "#6366f1", textColor: "#0f172a" } as any),
+            btn("Start building free", "", "primary", "lg", "center"),
+            b("button", { label: "Talk to sales →", href: "#", variant: "outline", size: "lg", align: "center", color: "", textColor: "#0f172a" } as any),
           ),
         ),
         // ── FOOTER CTA ──
@@ -312,7 +323,7 @@ export const TEMPLATES: Template[] = [
           s(12),
           t("Join 120,000+ teams already using Polaris. Free forever for up to 5 people.", "lg", "#94a3b8", "center"),
           s(32),
-          btn("Get started — it's free", "#6366f1", "primary", "lg", "center"),
+          btn("Get started — it's free", "", "primary", "lg", "center"),
         ),
       ],
     }],
@@ -323,6 +334,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "agency",
+    accent: "#171717",
     name: "Agency Studio",
     description: "A bold creative agency site. Full-bleed dark hero, case studies, services, clients, and a strong contact section.",
     category: "portfolio",
@@ -412,7 +424,7 @@ export const TEMPLATES: Template[] = [
           s(12),
           t("We take on 3–4 new projects per quarter. Tell us about yours.", "lg", "#525252", "center"),
           s(24),
-          btn("hello@the.studio →", "#171717", "primary", "lg", "center"),
+          btn("hello@the.studio →", "", "primary", "lg", "center"),
         ),
       ],
     }],
@@ -423,6 +435,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "portfolio",
+    accent: "#171717",
     name: "Personal Portfolio",
     description: "A polished personal site for designers, developers, and writers. With project cards, timeline, and contact.",
     category: "portfolio",
@@ -437,8 +450,8 @@ export const TEMPLATES: Template[] = [
           t("Product designer at Stripe, previously at Figma. I design tools that help people do their best work. Based in New York City.", "xl", "#525252", "left"),
           s(32),
           b("columns", { count: 2, gap: 16 }, [
-            btn("View my work ↓", "#171717", "primary", "md", "left"),
-            b("button", { label: "Get in touch →", href: "#", variant: "outline", size: "md", align: "left", color: "#171717", textColor: "#171717" } as any),
+            btn("View my work ↓", "", "primary", "md", "left"),
+            b("button", { label: "Get in touch →", href: "#", variant: "outline", size: "md", align: "left", color: "", textColor: "#171717" } as any),
           ]),
         ),
         // PROJECTS
@@ -479,7 +492,7 @@ export const TEMPLATES: Template[] = [
           s(12),
           t("I'm always open to chatting about design, technology, and interesting projects.", "lg", "#525252", "center"),
           s(24),
-          btn("sofia@example.com →", "#171717", "primary", "lg", "center"),
+          btn("sofia@example.com →", "", "primary", "lg", "center"),
         ),
       ],
     }, {
@@ -505,6 +518,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "restaurant",
+    accent: "#facc15",
     name: "Restaurant",
     description: "An elegant site for fine dining. Full hero image, tasting menu, gallery, reviews, and reservation.",
     category: "business",
@@ -524,8 +538,8 @@ export const TEMPLATES: Template[] = [
           t("A neighborhood kitchen in Brooklyn's Cobble Hill. Seasonal plates, natural wine, and warm hospitality since 2019.", "xl", "#a7f3d0", "center"),
           s(32),
           b("columns", { count: 2, gap: 16 }, [
-            btn("Reserve a table", "#facc15", "primary", "lg", "center"),
-            b("button", { label: "View the menu ↓", href: "#menu", variant: "outline", size: "lg", align: "center", color: "#facc15", textColor: "#facc15" } as any),
+            btn("Reserve a table", "", "primary", "lg", "center"),
+            b("button", { label: "View the menu ↓", href: "#menu", variant: "outline", size: "lg", align: "center", color: "", textColor: "#facc15" } as any),
           ]),
           s(8),
           t("Dinner Wed–Sun  ·  5:30 PM – 10:00 PM  ·  242 Court St, Brooklyn", "sm", "#6ee7b7", "center"),
@@ -588,7 +602,7 @@ export const TEMPLATES: Template[] = [
           s(12),
           t("Reservations open two weeks in advance. Walk-ins always welcome at the bar.", "lg", "#a7f3d0", "center"),
           s(24),
-          btn("Reserve a table", "#facc15", "primary", "lg", "center"),
+          btn("Reserve a table", "", "primary", "lg", "center"),
           s(8),
           t("242 Court Street  ·  Brooklyn, NY 11201  ·  (718) 555-0182", "sm", "#6ee7b7", "center"),
         ),
@@ -601,6 +615,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "blog",
+    accent: "#7c3aed",
     name: "Journal",
     description: "A beautiful blog with a featured hero post, article grid, newsletter, and author section.",
     category: "blog",
@@ -624,7 +639,7 @@ export const TEMPLATES: Template[] = [
           s(12),
           b("text", { text: "May 12, 2026  ·  14 min read  ·  Design Systems", align: "left", size: "sm", color: "#a3a3a3" } as any),
           s(16),
-          btn("Read essay →", "#7c3aed", "outline", "md", "left"),
+          btn("Read essay →", "", "outline", "md", "left"),
           s(40),
           div("#e5e5e5"),
           s(40),
@@ -688,7 +703,7 @@ export const TEMPLATES: Template[] = [
           s(8),
           t("One email every Tuesday. No spam, no ads — just thoughtful writing about design and engineering.", "lg", "#525252", "center"),
           s(24),
-          b("button", { label: "Subscribe — it's free", href: "#", variant: "primary", size: "lg", align: "center", color: "#7c3aed", textColor: "#ffffff" } as any),
+          b("button", { label: "Subscribe — it's free", href: "#", variant: "primary", size: "lg", align: "center", color: "", textColor: "#ffffff" } as any),
           s(8),
           t("Join 12,000+ readers", "sm", "#a3a3a3", "center"),
         ),
@@ -701,6 +716,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "product",
+    accent: "#0284c7",
     name: "Product",
     description: "An Apple-inspired product page with hero device mockups, feature breakdowns, and tech specs.",
     category: "landing",
@@ -718,9 +734,9 @@ export const TEMPLATES: Template[] = [
           b("heading", { text: "From $1,599", level: 3, align: "center", color: "#0f172a", weight: "semibold" } as any),
           s(16),
           b("columns", { count: 3, gap: 16 }, [
-            btn("Pre-order", "#0284c7", "primary", "lg", "center"),
-            b("button", { label: "Watch the film →", href: "#", variant: "outline", size: "lg", align: "center", color: "#0284c7", textColor: "#0284c7" } as any),
-            b("button", { label: "Compare models →", href: "#", variant: "ghost", size: "lg", align: "center", color: "#0284c7", textColor: "#475569" } as any),
+            btn("Pre-order", "", "primary", "lg", "center"),
+            b("button", { label: "Watch the film →", href: "#", variant: "outline", size: "lg", align: "center", color: "", textColor: "#0284c7" } as any),
+            b("button", { label: "Compare models →", href: "#", variant: "ghost", size: "lg", align: "center", color: "", textColor: "#475569" } as any),
           ]),
           s(48),
           img(IMG.device, ""),
@@ -742,7 +758,7 @@ export const TEMPLATES: Template[] = [
             h("Built-in calibration. Always accurate.", 2, "#0f172a", "bold", "left"),
             t("A built-in spectrophotometer calibrates your display every time you turn it on. No external hardware, no monthly ritual — just perfect color, always. Factory-calibrated to Delta E < 1.", "lg", "#475569", "left"),
             s(16),
-            btn("Learn more about color →", "#0284c7", "ghost", "md", "left"),
+            btn("Learn more about color →", "", "ghost", "md", "left"),
           ),
           s(32),
           img(IMG.workspace, ""),
@@ -769,7 +785,7 @@ export const TEMPLATES: Template[] = [
           s(8),
           t("Pre-orders start at $1,599. Ships in 3–4 weeks.", "lg", "#475569", "center"),
           s(24),
-          btn("Pre-order now", "#0284c7", "primary", "lg", "center"),
+          btn("Pre-order now", "", "primary", "lg", "center"),
         ),
       ],
     }],
@@ -780,6 +796,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "creative",
+    accent: "#c084fc",
     name: "Creative Studio",
     description: "A bold, artistic studio site. Video hero, case studies, process, and a dramatic contact section.",
     category: "portfolio",
@@ -795,7 +812,7 @@ export const TEMPLATES: Template[] = [
           s(20),
           t("A creative studio specializing in bold brand identities, motion design, and interactive experiences for forward-thinking companies.", "xl", "#a78bfa", "center"),
           s(32),
-          btn("See our work ↓", "#c084fc", "primary", "lg", "center"),
+          btn("See our work ↓", "", "primary", "lg", "center"),
           s(64),
           img(IMG.abstract, ""),
         ),
@@ -854,7 +871,7 @@ export const TEMPLATES: Template[] = [
           s(12),
           t("We take on a limited number of projects each year. Tell us about yours — we'd love to hear it.", "lg", "#525252", "center"),
           s(24),
-          btn("Start the conversation →", "#c084fc", "primary", "lg", "center"),
+          btn("Start the conversation →", "", "primary", "lg", "center"),
         ),
       ],
     }],
@@ -865,6 +882,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "blank",
+    accent: "#6366f1",
     name: "Blank",
     description: "A clean starting point. One heading, one paragraph — build anything from here.",
     category: "minimal",
@@ -877,7 +895,7 @@ export const TEMPLATES: Template[] = [
           s(12),
           t("Start by dragging blocks from the palette on the left, or click any text to edit it inline. Build anything.", "xl", "#525252", "center"),
           s(32),
-          btn("Get started ↓", "#6366f1", "primary", "md", "center"),
+          btn("Get started ↓", "", "primary", "md", "center"),
         ),
       ],
     }],
@@ -888,6 +906,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "app-launch",
+    accent: "#a78bfa",
     name: "App Launch",
     description: "A mobile app landing page. Dark hero with phone mockups, feature highlights, screenshots, and download CTAs.",
     category: "landing",
@@ -903,9 +922,9 @@ export const TEMPLATES: Template[] = [
           t("Streak makes habit building feel like a game. Set goals, track progress, and build routines that stick — in just 2 minutes a day.", "xl", "#a78bfa", "center"),
           s(32),
           b("columns", { count: 3, gap: 16 }, [
-            btn("Download on iOS", "#a78bfa", "primary", "lg", "center"),
-            b("button", { label: "Get it on Android", href: "#", variant: "outline", size: "lg", align: "center", color: "#a78bfa", textColor: "#c4b5fd" } as any),
-            b("button", { label: "Try the web app →", href: "#", variant: "ghost", size: "lg", align: "center", color: "#a78bfa", textColor: "#8b5cf6" } as any),
+            btn("Download on iOS", "", "primary", "lg", "center"),
+            b("button", { label: "Get it on Android", href: "#", variant: "outline", size: "lg", align: "center", color: "", textColor: "#c4b5fd" } as any),
+            b("button", { label: "Try the web app →", href: "#", variant: "ghost", size: "lg", align: "center", color: "", textColor: "#8b5cf6" } as any),
           ]),
           s(8),
           t("Free for up to 5 habits. Pro unlocks unlimited.", "sm", "#7c3aed", "center"),
@@ -950,6 +969,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "conference",
+    accent: "#38bdf8",
     name: "Conference",
     description: "An event landing page with date, speaker lineup, schedule, venue, and ticket registration.",
     category: "landing",
@@ -965,8 +985,8 @@ export const TEMPLATES: Template[] = [
           t("Three days of talks, workshops, and connection with the people shaping design systems at the world's top companies.", "xl", "#7dd3fc", "center"),
           s(32),
           b("columns", { count: 2, gap: 16 }, [
-            btn("Get tickets →", "#38bdf8", "primary", "lg", "center"),
-            b("button", { label: "Become a sponsor", href: "#", variant: "outline", size: "lg", align: "center", color: "#38bdf8", textColor: "#bae6fd" } as any),
+            btn("Get tickets →", "", "primary", "lg", "center"),
+            b("button", { label: "Become a sponsor", href: "#", variant: "outline", size: "lg", align: "center", color: "", textColor: "#bae6fd" } as any),
           ]),
           s(48),
           img(IMG.stage, ""),
@@ -1018,6 +1038,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "ebook",
+    accent: "#ea580c",
     name: "eBook",
     description: "A lead magnet landing page with a book mockup, chapter preview, author bio, and email capture.",
     category: "landing",
@@ -1032,7 +1053,7 @@ export const TEMPLATES: Template[] = [
             s(24),
             lst(["120 pages of practical advice", "Code examples in React & SwiftUI", "Real-world case studies from 12 companies", "Free forever — no email tricks"], "check"),
             s(24),
-            b("button", { label: "Download the PDF →", href: "#", variant: "primary", size: "lg", align: "left", color: "#ea580c", textColor: "#ffffff" } as any),
+            b("button", { label: "Download the PDF →", href: "#", variant: "primary", size: "lg", align: "left", color: "", textColor: "#ffffff" } as any),
             s(8),
             t("12,000+ downloads. Updated for 2026.", "sm", "#9a3412", "left"),
           ),
@@ -1046,7 +1067,7 @@ export const TEMPLATES: Template[] = [
         sec("#fff7ed", 80, "4xl", "center",
           q("This handbook single-handedly changed how our design and engineering teams work together. I've made it required reading for every new hire.", "Alex Rivera", "Director of Product, Notion"),
           s(24),
-          b("button", { label: "Get the free ebook →", href: "#", variant: "primary", size: "lg", align: "center", color: "#ea580c", textColor: "#ffffff" } as any),
+          b("button", { label: "Get the free ebook →", href: "#", variant: "primary", size: "lg", align: "center", color: "", textColor: "#ffffff" } as any),
         ),
       ],
     }],
@@ -1057,6 +1078,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "corporate",
+    accent: "#3b82f6",
     name: "Corporate",
     description: "A polished corporate site with an about section, services, team, client logos, and a contact form.",
     category: "business",
@@ -1111,7 +1133,7 @@ export const TEMPLATES: Template[] = [
           s(16),
           t("We start every engagement with a free discovery session. No pitch, no pressure — just smart people thinking about your business.", "lg", "#94a3b8", "center"),
           s(24),
-          btn("Schedule a call →", "#3b82f6", "primary", "lg", "center"),
+          btn("Schedule a call →", "", "primary", "lg", "center"),
         ),
       ],
     }],
@@ -1122,6 +1144,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "real-estate",
+    accent: "#059669",
     name: "Real Estate",
     description: "A real estate site with featured properties, listing grid, agent profile, and contact section.",
     category: "business",
@@ -1136,7 +1159,7 @@ export const TEMPLATES: Template[] = [
               s(16),
               t("We specialize in luxury residential properties in San Francisco, Marin, and the Peninsula. Every listing is hand-selected.", "xl", "#525252", "left"),
               s(24),
-              btn("Browse listings →", "#059669", "primary", "lg", "left"),
+              btn("Browse listings →", "", "primary", "lg", "left"),
             ),
             img(IMG.property, ""),
           ),
@@ -1150,7 +1173,7 @@ export const TEMPLATES: Template[] = [
             img(IMG.interior, "Russian Hill Penthouse · $6.1M · 3 bed / 4 bath"),
           ),
           s(32),
-          btn("View all 24 listings →", "#059669", "outline", "md", "center"),
+          btn("View all 24 listings →", "", "outline", "md", "center"),
         ),
         sec("#f8fafc", 80, "5xl", "left",
           h("Work with Amanda", 2, "#171717", "bold", "left"),
@@ -1160,7 +1183,7 @@ export const TEMPLATES: Template[] = [
             lst(["15 years experience", "$200M+ in closed deals", "Top 1% Bay Area agent", "Stanford GSB alum"], "check"),
           ),
           s(32),
-          btn("Contact Amanda →", "#059669", "primary", "md", "left"),
+          btn("Contact Amanda →", "", "primary", "md", "left"),
         ),
       ],
     }],
@@ -1171,6 +1194,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "consulting",
+    accent: "#d97706",
     name: "Consulting",
     description: "A consulting firm site built around case studies, a clear process, and results.",
     category: "business",
@@ -1185,7 +1209,7 @@ export const TEMPLATES: Template[] = [
           s(16),
           t("Revenue operations, pricing strategy, and go-to-market execution for B2B SaaS companies between $2M–$50M ARR.", "xl", "#525252", "left"),
           s(24),
-          btn("See our results ↓", "#d97706", "primary", "lg", "left"),
+          btn("See our results ↓", "", "primary", "lg", "left"),
         ),
         sec("#ffffff", 96, "6xl", "center",
           h("Case studies", 2, "#171717", "bold"),
@@ -1208,7 +1232,7 @@ export const TEMPLATES: Template[] = [
             t("We don't leave when the engagement ends. Ongoing advisory with quarterly reviews to keep momentum building.", "base", "#525252", "left"),
           ),
           s(40),
-          btn("Book a free assessment →", "#d97706", "primary", "lg", "center"),
+          btn("Book a free assessment →", "", "primary", "lg", "center"),
         ),
       ],
     }],
@@ -1219,6 +1243,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "nonprofit",
+    accent: "#16a34a",
     name: "Nonprofit",
     description: "A warm nonprofit site with mission statement, impact numbers, donation CTA, and volunteer stories.",
     category: "business",
@@ -1232,9 +1257,9 @@ export const TEMPLATES: Template[] = [
           t("Project Aqua has brought sustainable water infrastructure to 340 villages across 12 countries. Every dollar funds local construction — not overhead.", "xl", "#166534", "center"),
           s(32),
           b("columns", { count: 3, gap: 16 }, [
-            btn("Donate now", "#16a34a", "primary", "lg", "center"),
-            b("button", { label: "Volunteer →", href: "#", variant: "outline", size: "lg", align: "center", color: "#16a34a", textColor: "#16a34a" } as any),
-            b("button", { label: "Partner with us →", href: "#", variant: "ghost", size: "lg", align: "center", color: "#16a34a", textColor: "#166534" } as any),
+            btn("Donate now", "", "primary", "lg", "center"),
+            b("button", { label: "Volunteer →", href: "#", variant: "outline", size: "lg", align: "center", color: "", textColor: "#16a34a" } as any),
+            b("button", { label: "Partner with us →", href: "#", variant: "ghost", size: "lg", align: "center", color: "", textColor: "#166534" } as any),
           ]),
           s(48),
           img(IMG.charity, "A new water well being installed in rural Guatemala — Project Aqua, 2025"),
@@ -1256,15 +1281,15 @@ export const TEMPLATES: Template[] = [
             b("heading", { text: "Donate", level: 3, align: "left", color: "#14532d", weight: "semibold" } as any),
             t("$50 provides clean water for one family. $5,000 funds an entire village well. Monthly giving sustains our long-term projects.", "base", "#166534", "left"),
             s(8),
-            btn("Give now →", "#16a34a", "primary", "md", "left"),
+            btn("Give now →", "", "primary", "md", "left"),
             b("heading", { text: "Volunteer", level: 3, align: "left", color: "#14532d", weight: "semibold" } as any),
             t("Join one of our build trips or contribute your skills remotely — engineering, design, fundraising, and more.", "base", "#166534", "left"),
             s(8),
-            b("button", { label: "Join a trip →", href: "#", variant: "outline", size: "md", align: "left", color: "#16a34a", textColor: "#16a34a" } as any),
+            b("button", { label: "Join a trip →", href: "#", variant: "outline", size: "md", align: "left", color: "", textColor: "#16a34a" } as any),
             b("heading", { text: "Partner", level: 3, align: "left", color: "#14532d", weight: "semibold" } as any),
             t("Corporate sponsorships and foundation grants help us scale. We'll work with your team on a custom partnership.", "base", "#166534", "left"),
             s(8),
-            b("button", { label: "Partner with us →", href: "#", variant: "outline", size: "md", align: "left", color: "#16a34a", textColor: "#16a34a" } as any),
+            b("button", { label: "Partner with us →", href: "#", variant: "outline", size: "md", align: "left", color: "", textColor: "#16a34a" } as any),
           ),
         ),
       ],
@@ -1276,6 +1301,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "law-firm",
+    accent: "#3b82f6",
     name: "Law Firm",
     description: "A professional law firm site with practice areas, attorney profiles, testimonials, and a contact section.",
     category: "business",
@@ -1288,7 +1314,7 @@ export const TEMPLATES: Template[] = [
           s(16),
           t("Harrington & Walsh is a full-service law firm with offices in New York, Washington DC, and London. We represent Fortune 500 companies, startups, and individuals in their most consequential matters.", "xl", "#94a3b8", "left"),
           s(24),
-          btn("Schedule a consultation →", "#3b82f6", "primary", "md", "left"),
+          btn("Schedule a consultation →", "", "primary", "md", "left"),
           s(48),
           cols(4, 24,
             b("heading", { text: "Corporate", level: 4, align: "center", color: "#cbd5e1", weight: "semibold" } as any),
@@ -1326,7 +1352,7 @@ export const TEMPLATES: Template[] = [
           s(16),
           t("All consultations are confidential. We'll tell you honestly whether we can help — and what it will take.", "lg", "#94a3b8", "center"),
           s(24),
-          btn("Contact us →", "#3b82f6", "primary", "lg", "center"),
+          btn("Contact us →", "", "primary", "lg", "center"),
         ),
       ],
     }],
@@ -1337,6 +1363,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "fintech",
+    accent: "#14b8a6",
     name: "Fintech",
     description: "A fintech product page with a security-forward design, feature cards, compliance badges, and clear CTAs.",
     category: "business",
@@ -1352,7 +1379,7 @@ export const TEMPLATES: Template[] = [
           t("NexPay is the payments infrastructure for modern platforms. Accept payments, send payouts, and manage compliance — all from one API.", "xl", "#99f6e4", "center"),
           s(32),
           b("columns", { count: 2, gap: 16 }, [
-            btn("Start building →", "#14b8a6", "primary", "lg", "center"),
+            btn("Start building →", "", "primary", "lg", "center"),
             b("button", { label: "Talk to sales", href: "#", variant: "outline", size: "lg", align: "center", color: "#5eead4", textColor: "#5eead4" } as any),
           ]),
         ),
@@ -1385,7 +1412,7 @@ export const TEMPLATES: Template[] = [
           s(12),
           t("Integrate in days, not months. Our docs are the best in fintech — and our support team responds in under 5 minutes.", "lg", "#99f6e4", "center"),
           s(24),
-          btn("Read the docs →", "#14b8a6", "primary", "lg", "center"),
+          btn("Read the docs →", "", "primary", "lg", "center"),
         ),
       ],
     }],
@@ -1396,6 +1423,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "photographer",
+    accent: "#1c1917",
     name: "Photographer",
     description: "A photographer's portfolio with a hero image, gallery, services, about, and booking section.",
     category: "portfolio",
@@ -1430,7 +1458,7 @@ export const TEMPLATES: Template[] = [
             lst(["Editorial / Fashion", "Advertising / Commercial", "Portrait / Headshot", "Product / Still Life"], "check"),
           ),
           s(32),
-          btn("Get in touch →", "#1c1917", "primary", "md", "left"),
+          btn("Get in touch →", "", "primary", "md", "left"),
         ),
       ],
     }],
@@ -1441,6 +1469,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "architect",
+    accent: "#292524",
     name: "Architect",
     description: "An architecture portfolio with full-bleed project photos, process description, and awards.",
     category: "portfolio",
@@ -1453,7 +1482,7 @@ export const TEMPLATES: Template[] = [
           s(12),
           t("We design spaces that improve how people live, work, and gather. Based in Copenhagen, working worldwide.", "xl", "#78716c", "left"),
           s(24),
-          btn("See our projects ↓", "#292524", "primary", "md", "left"),
+          btn("See our projects ↓", "", "primary", "md", "left"),
         ),
         sec("#ffffff", 64, "6xl", "center",
           img(IMG.building, "Nordhavn Residence · Copenhagen, 2025 — A minimalist family home on the waterfront."),
@@ -1485,6 +1514,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "videographer",
+    accent: "#ef4444",
     name: "Videographer",
     description: "A videographer's reel site with showreel hero, project categories, client list, and booking CTA.",
     category: "portfolio",
@@ -1498,8 +1528,8 @@ export const TEMPLATES: Template[] = [
           t("I'm Kai Jensen — a director and cinematographer specializing in brand films, documentaries, and music videos. Every frame has a purpose.", "xl", "#fca5a5", "center"),
           s(24),
           b("columns", { count: 2, gap: 16 }, [
-            btn("Watch showreel ↓", "#ef4444", "primary", "lg", "center"),
-            b("button", { label: "Hire me →", href: "#", variant: "outline", size: "lg", align: "center", color: "#ef4444", textColor: "#fca5a5" } as any),
+            btn("Watch showreel ↓", "", "primary", "lg", "center"),
+            b("button", { label: "Hire me →", href: "#", variant: "outline", size: "lg", align: "center", color: "", textColor: "#fca5a5" } as any),
           ]),
           s(40),
           img(IMG.event, "Frame from Nike — Run the City (2025)"),
@@ -1526,7 +1556,7 @@ export const TEMPLATES: Template[] = [
             b("heading", { text: "Google", level: 4, align: "center", color: "#d4d4d4", weight: "semibold" } as any),
           ),
           s(32),
-          btn("Let's make something →", "#ef4444", "primary", "lg", "center"),
+          btn("Let's make something →", "", "primary", "lg", "center"),
         ),
       ],
     }],
@@ -1537,6 +1567,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "newsletter",
+    accent: "#ca8a04",
     name: "Newsletter",
     description: "A newsletter landing page with past issues, subscriber count, and a clean email signup.",
     category: "blog",
@@ -1551,7 +1582,7 @@ export const TEMPLATES: Template[] = [
           s(16),
           t("One essay every Sunday about technology, culture, and the ideas shaping the next decade. No ads, no sponsors — just writing worth your Sunday morning.", "xl", "#525252", "center"),
           s(32),
-          b("button", { label: "Subscribe — it's free", href: "#", variant: "primary", size: "lg", align: "center", color: "#ca8a04", textColor: "#ffffff" } as any),
+          b("button", { label: "Subscribe — it's free", href: "#", variant: "primary", size: "lg", align: "center", color: "", textColor: "#ffffff" } as any),
           s(8),
           t("Join 28,000+ readers", "sm", "#a16207", "center"),
         ),
@@ -1575,7 +1606,7 @@ export const TEMPLATES: Template[] = [
           s(8),
           t("July 13, 2026", "sm", "#a3a3a3", "left"),
           s(32),
-          btn("Read the archive →", "#ca8a04", "outline", "md", "left"),
+          btn("Read the archive →", "", "outline", "md", "left"),
         ),
       ],
     }],
@@ -1586,6 +1617,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "docs",
+    accent: "#0284c7",
     name: "Documentation",
     description: "A clean documentation site layout with structured content, code examples, and clear hierarchy.",
     category: "blog",
@@ -1598,7 +1630,7 @@ export const TEMPLATES: Template[] = [
           s(16),
           t("Everything you need to integrate Orbit into your product. REST APIs, WebSocket streams, webhooks, and SDKs for every major language.", "xl", "#475569", "left"),
           s(24),
-          b("button", { label: "Get started →", href: "#", variant: "primary", size: "md", align: "left", color: "#0284c7", textColor: "#ffffff" } as any),
+          b("button", { label: "Get started →", href: "#", variant: "primary", size: "md", align: "left", color: "", textColor: "#ffffff" } as any),
         ),
         sec("#ffffff", 64, "5xl", "left",
           b("heading", { text: "Quick start", level: 2, align: "left", color: "#171717", weight: "bold" } as any),
@@ -1628,6 +1660,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "storefront",
+    accent: "#db2777",
     name: "Storefront",
     description: "An e-commerce storefront with a hero banner, featured products grid, category pills, and email signup.",
     category: "business",
@@ -1643,8 +1676,8 @@ export const TEMPLATES: Template[] = [
           t("Thoughtfully crafted essentials for your everyday life. Ethically made, designed to last.", "xl", "#475569", "center"),
           s(32),
           b("columns", { count: 2, gap: 16 }, [
-            btn("Shop now →", "#db2777", "primary", "lg", "center"),
-            b("button", { label: "New arrivals", href: "#", variant: "outline", size: "lg", align: "center", color: "#db2777", textColor: "#be185d" } as any),
+            btn("Shop now →", "", "primary", "lg", "center"),
+            b("button", { label: "New arrivals", href: "#", variant: "outline", size: "lg", align: "center", color: "", textColor: "#be185d" } as any),
           ]),
           s(48),
           img(IMG.food1, "The Linen Edit — our bestselling summer collection in three new colors."),
@@ -1664,7 +1697,7 @@ export const TEMPLATES: Template[] = [
           s(8),
           t("New collections, restocks, and 10% off your first order.", "lg", "#475569", "center"),
           s(24),
-          b("button", { label: "Subscribe →", href: "#", variant: "primary", size: "lg", align: "center", color: "#db2777", textColor: "#ffffff" } as any),
+          b("button", { label: "Subscribe →", href: "#", variant: "primary", size: "lg", align: "center", color: "", textColor: "#ffffff" } as any),
         ),
       ],
     }],
@@ -1675,6 +1708,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "resume",
+    accent: "#0891b2",
     name: "Résumé",
     description: "A personal brand and CV site with experience timeline, skills, portfolio links, and contact.",
     category: "portfolio",
@@ -1688,8 +1722,8 @@ export const TEMPLATES: Template[] = [
           t("Senior software engineer specializing in developer tools and infrastructure. 8 years building at Stripe, GitHub, and Palantir.", "lg", "#525252", "left"),
           s(16),
           b("columns", { count: 2, gap: 16 }, [
-            btn("taylor@example.com →", "#0891b2", "outline", "md", "left"),
-            b("button", { label: "github.com/taylorbrooks →", href: "#", variant: "ghost", size: "md", align: "left", color: "#0891b2", textColor: "#0891b2" } as any),
+            btn("taylor@example.com →", "", "outline", "md", "left"),
+            b("button", { label: "github.com/taylorbrooks →", href: "#", variant: "ghost", size: "md", align: "left", color: "", textColor: "#0891b2" } as any),
           ]),
           s(24),
           div("#e2e8f0"),
@@ -1731,6 +1765,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "coming-soon",
+    accent: "#6366f1",
     name: "Coming Soon",
     description: "A waitlist landing page with a countdown-style layout, feature teasers, and email capture.",
     category: "landing",
@@ -1745,7 +1780,7 @@ export const TEMPLATES: Template[] = [
           s(20),
           t("A new kind of messenger that's fast, private, and designed for deep work. No notifications, no distractions — just the conversations that matter.", "xl", "#a5b4fc", "center"),
           s(40),
-          b("button", { label: "Join the waitlist →", href: "#", variant: "primary", size: "lg", align: "center", color: "#6366f1", textColor: "#ffffff" } as any),
+          b("button", { label: "Join the waitlist →", href: "#", variant: "primary", size: "lg", align: "center", color: "", textColor: "#ffffff" } as any),
           s(8),
           t("Be the first to know when we launch. No spam.", "sm", "#6366f1", "center"),
           s(64),
@@ -1773,6 +1808,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "podcast",
+    accent: "#dc2626",
     name: "Podcast",
     description: "A podcast site with a featured episode, episode list, host bios, and subscribe links.",
     category: "blog",
@@ -1790,8 +1826,8 @@ export const TEMPLATES: Template[] = [
               t("Every week, host Mira Patel interviews the people who build the hidden infrastructure of modern life — from undersea cables to supply chains to the internet's DNS system.", "lg", "#525252", "left"),
               s(24),
               b("columns", { count: 2, gap: 16 }, [
-                b("button", { label: "Apple Podcasts →", href: "#", variant: "primary", size: "md", align: "left", color: "#dc2626", textColor: "#ffffff" } as any),
-                b("button", { label: "Spotify →", href: "#", variant: "outline", size: "md", align: "left", color: "#dc2626", textColor: "#dc2626" } as any),
+                b("button", { label: "Apple Podcasts →", href: "#", variant: "primary", size: "md", align: "left", color: "", textColor: "#ffffff" } as any),
+                b("button", { label: "Spotify →", href: "#", variant: "outline", size: "md", align: "left", color: "", textColor: "#dc2626" } as any),
               ]),
             ),
             img(IMG.podcast, ""),
@@ -1820,7 +1856,7 @@ export const TEMPLATES: Template[] = [
           s(12),
           t("Available wherever you listen to podcasts. New episodes every Monday.", "lg", "#525252", "center"),
           s(24),
-          b("button", { label: "Subscribe now →", href: "#", variant: "primary", size: "lg", align: "center", color: "#dc2626", textColor: "#ffffff" } as any),
+          b("button", { label: "Subscribe now →", href: "#", variant: "primary", size: "lg", align: "center", color: "", textColor: "#ffffff" } as any),
         ),
       ],
     }],
@@ -1831,6 +1867,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "ai-upscaler",
+    accent: "#818cf8",
     name: "AI Upscaler — Dark",
     description: "A dark, high-energy product page for an AI tool. Two-tone hero, tilted floating imagery, a scrolling marquee, and a bento feature grid. Also available in Bright.",
     category: "landing",
@@ -1856,8 +1893,8 @@ export const TEMPLATES: Template[] = [
           t("Supercharging your photos with AI — sharper, cleaner, larger. In seconds.", "xl", "#94a3b8", "center"),
           s(32),
           b("columns", { count: 2, gap: 16 }, [
-            b("button", { label: "See how it works", href: "#", variant: "ghost", size: "lg", align: "center", color: "#818cf8", textColor: "#cbd5e1" } as any),
-            btn("Get Started", "#818cf8", "outline", "lg", "center"),
+            b("button", { label: "See how it works", href: "#", variant: "ghost", size: "lg", align: "center", color: "", textColor: "#cbd5e1" } as any),
+            btn("Get Started", "", "outline", "lg", "center"),
           ]),
           s(56),
           b("html", { html:
@@ -1889,7 +1926,7 @@ export const TEMPLATES: Template[] = [
               s(16),
               t("We've all been there.", "lg", "#64748b", "left"),
               s(24),
-              btn("Fix my photos →", "#818cf8", "primary", "md", "left"),
+              btn("Fix my photos →", "", "primary", "md", "left"),
             ),
             b("html", { html:
               `<div style="position:relative;height:340px;">
@@ -1976,7 +2013,7 @@ export const TEMPLATES: Template[] = [
           s(12),
           t("Free to start. No credit card required.", "lg", "#94a3b8", "center"),
           s(28),
-          btn("Get Started Free", "#818cf8", "primary", "lg", "center"),
+          btn("Get Started Free", "", "primary", "lg", "center"),
         ),
       ],
     }],
@@ -1987,6 +2024,7 @@ export const TEMPLATES: Template[] = [
   // ===================================================================
   {
     id: "ai-upscaler-light",
+    accent: "#6366f1",
     name: "AI Upscaler — Bright",
     description: "The bright counterpart to AI Upscaler — the same energetic layout, tilted imagery, marquee, and bento grid in a clean, light palette. Also available in Dark.",
     category: "landing",
@@ -2012,8 +2050,8 @@ export const TEMPLATES: Template[] = [
           t("Supercharging your photos with AI — sharper, cleaner, larger. In seconds.", "xl", "#475569", "center"),
           s(32),
           b("columns", { count: 2, gap: 16 }, [
-            b("button", { label: "See how it works", href: "#", variant: "ghost", size: "lg", align: "center", color: "#6366f1", textColor: "#475569" } as any),
-            b("button", { label: "Get Started", href: "#", variant: "outline", size: "lg", align: "center", color: "#6366f1", textColor: "#6366f1" } as any),
+            b("button", { label: "See how it works", href: "#", variant: "ghost", size: "lg", align: "center", color: "", textColor: "#475569" } as any),
+            b("button", { label: "Get Started", href: "#", variant: "outline", size: "lg", align: "center", color: "", textColor: "#6366f1" } as any),
           ]),
           s(56),
           b("html", { html:
@@ -2045,7 +2083,7 @@ export const TEMPLATES: Template[] = [
               s(16),
               t("We've all been there.", "lg", "#64748b", "left"),
               s(24),
-              btn("Fix my photos →", "#6366f1", "primary", "md", "left"),
+              btn("Fix my photos →", "", "primary", "md", "left"),
             ),
             b("html", { html:
               `<div style="position:relative;height:340px;">
@@ -2132,7 +2170,7 @@ export const TEMPLATES: Template[] = [
           s(12),
           t("Free to start. No credit card required.", "lg", "#475569", "center"),
           s(28),
-          btn("Get Started Free", "#6366f1", "primary", "lg", "center"),
+          btn("Get Started Free", "", "primary", "lg", "center"),
         ),
       ],
     }],

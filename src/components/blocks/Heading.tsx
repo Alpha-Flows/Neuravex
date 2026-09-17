@@ -35,7 +35,9 @@ export function Heading({ props, onChange, disabled }: Props) {
       onChange={(text) => onChange?.({ ...props, text })}
       placeholder="Heading"
       className={cn(sizeClass[props.level], weightClass[props.weight], alignClass[props.align])}
-      style={{ color: props.color }}
+      // An empty colour is deliberate: the heading then inherits the page's
+      // own text colour instead of pinning itself to a hex.
+      style={{ color: props.color || undefined }}
     />
   );
 }

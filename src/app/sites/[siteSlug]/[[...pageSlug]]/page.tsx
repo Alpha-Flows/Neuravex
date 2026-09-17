@@ -5,7 +5,8 @@ import { PublicBlocks } from "@/components/public/PublicBlocks";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { sanitizeHtml } from "@/lib/sanitize";
-import { sanitizeCss, sanitizeCssValue } from "@/lib/security";
+import { sanitizeCss } from "@/lib/security";
+import { siteThemeCss, isDarkColor } from "@/lib/site-theme";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -52,18 +53,11 @@ export default async function PublicSitePage({ params }: Props) {
     blocks = [];
   }
 
-  // Theme CSS variables
-  const themeVars: string[] = [];
-  if (site.fontFamily) themeVars.push(`--site-font: ${sanitizeCssValue(site.fontFamily)}`);
-  if (site.headingFont) themeVars.push(`--site-heading-font: ${sanitizeCssValue(site.headingFont)}`);
-  if (site.borderRadius) themeVars.push(`--site-radius: ${sanitizeCssValue(site.borderRadius)}`);
-  if (site.accent) themeVars.push(`--site-accent: ${sanitizeCssValue(site.accent)}`);
-
   return (
     <>
-      {themeVars.length > 0 ? (
-        <style dangerouslySetInnerHTML={{ __html: `:root { ${themeVars.join("; ")} } body { font-family: var(--site-font, inherit); } h1,h2,h3,h4,h5,h6 { font-family: var(--site-heading-font, inherit); }` }} />
-      ) : null}
+      {/* The site's branding, which every block without a colour of its own
+          reads. Always emitted: a block's fallback is the accent, not a hex. */}
+      <style dangerouslySetInnerHTML={{ __html: siteThemeCss(site) }} />
       {site.customCss ? <style dangerouslySetInnerHTML={{ __html: sanitizeCss(site.customCss) }} /> : null}
       {/* A fixed header leaves the flow, so without this the first block on
           every page starts underneath it and its top is unreadable. The pill
@@ -92,19 +86,6 @@ function hexToRgba(hex: string, opacityPercent: number): string {
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${opacityPercent / 100})`;
-}
-
-// Simple relative-luminance check to decide whether header text/nav should
-// render light or dark, so any background color choice stays readable.
-function isDarkColor(hex: string): boolean {
-  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return false;
-  let h = m[1];
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return 0.299 * r + 0.587 * g + 0.114 * b < 140;
 }
 
 function PublicSiteHeader({

@@ -27,6 +27,12 @@ export default async function PageEditorRoute({
       pageId={page.id}
       siteId={site.id}
       siteSlug={site.slug}
+      theme={{
+        accent: site.accent,
+        fontFamily: site.fontFamily,
+        headingFont: site.headingFont,
+        borderRadius: site.borderRadius,
+      }}
       initial={{
         title: page.title,
         slug: page.slug,

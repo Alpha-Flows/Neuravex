@@ -4,6 +4,7 @@ import { Editable } from "./Editable";
 import { InlineEdit } from "@/components/ui/InlineEdit";
 import { ButtonProps } from "@/types";
 import { cn } from "@/lib/utils";
+import { TOKEN, readableTextOn } from "@/lib/site-theme";
 
 interface Props {
   props: ButtonProps;
@@ -19,15 +20,34 @@ const variantClass: Record<ButtonProps["variant"], string> = {
 };
 
 const sizeClass: Record<ButtonProps["size"], string> = {
-  sm: "h-9 px-4 text-sm rounded-md",
-  md: "h-11 px-5 text-sm rounded-md",
-  lg: "h-12 px-6 text-base rounded-lg",
+  sm: "h-9 px-4 text-sm",
+  md: "h-11 px-5 text-sm",
+  lg: "h-12 px-6 text-base",
+};
+
+// What a size rounds to when the site has not set a radius of its own.
+const sizeRadius: Record<ButtonProps["size"], string> = {
+  sm: "0.375rem",
+  md: "0.375rem",
+  lg: "0.5rem",
 };
 
 const alignClass = { left: "text-left", center: "text-center", right: "text-right" } as const;
 
 export function ButtonBlock({ props, onChange, disabled }: Props) {
   const [editingLink, setEditingLink] = useState(false);
+
+  // No colour of its own means the site's accent. A filled button takes its
+  // text colour from the accent's contrast; an outline or ghost button draws
+  // its label in the accent itself — it used to be handed the same #ffffff as
+  // a filled one, which on a light page is white text on white.
+  const filled = props.variant === "primary" || props.variant === "secondary";
+  const accent = props.color || TOKEN.accent;
+  // A button with its own colour works out its own readable label; only one
+  // riding the site accent defers to the accent's contrast token.
+  const labelColor =
+    props.textColor ||
+    (filled ? (props.color ? readableTextOn(props.color) : TOKEN.accentContrast) : accent);
 
   const inner = (
     <Editable
@@ -43,9 +63,10 @@ export function ButtonBlock({ props, onChange, disabled }: Props) {
         !disabled && "cursor-text",
       )}
       style={{
-        background: props.variant === "primary" || props.variant === "secondary" ? props.color : "transparent",
-        color: props.textColor,
-        borderColor: props.variant === "outline" || props.variant === "secondary" ? props.color : undefined,
+        background: filled ? accent : "transparent",
+        color: labelColor,
+        borderColor: props.variant === "outline" || props.variant === "secondary" ? accent : undefined,
+        borderRadius: TOKEN.radius(sizeRadius[props.size]),
       }}
     />
   );

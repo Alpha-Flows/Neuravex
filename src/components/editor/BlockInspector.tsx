@@ -94,7 +94,7 @@ function InspectorBody({ block, onChange }: { block: BaseBlock; onChange: (next:
           <Field label="Align">
             <SegBtns value={p.align} options={["left", "center", "right"]} onChange={(v) => set("align", v)} />
           </Field>
-          <Field label="Color"><ColorInput value={p.color} onChange={(v) => set("color", v)} /></Field>
+          <Field label="Color"><ColorInput value={p.color} onChange={(v) => set("color", v)} inherit="Page text colour" /></Field>
         </>
       );
     }
@@ -116,7 +116,7 @@ function InspectorBody({ block, onChange }: { block: BaseBlock; onChange: (next:
           <Field label="Align">
             <SegBtns value={p.align} options={["left", "center", "right", "justify"]} onChange={(v) => set("align", v)} />
           </Field>
-          <Field label="Color"><ColorInput value={p.color} onChange={(v) => set("color", v)} /></Field>
+          <Field label="Color"><ColorInput value={p.color} onChange={(v) => set("color", v)} inherit="Page text colour" /></Field>
         </>
       );
     }
@@ -170,8 +170,8 @@ function InspectorBody({ block, onChange }: { block: BaseBlock; onChange: (next:
           <Field label="Align">
             <SegBtns value={p.align} options={["left", "center", "right"]} onChange={(v) => set("align", v)} />
           </Field>
-          <Field label="Background"><ColorInput value={p.color} onChange={(v) => set("color", v)} /></Field>
-          <Field label="Text color"><ColorInput value={p.textColor} onChange={(v) => set("textColor", v)} /></Field>
+          <Field label="Background"><ColorInput value={p.color} onChange={(v) => set("color", v)} inherit="Site accent" /></Field>
+          <Field label="Text color"><ColorInput value={p.textColor} onChange={(v) => set("textColor", v)} inherit="Automatic" /></Field>
         </>
       );
     }
@@ -182,7 +182,7 @@ function InspectorBody({ block, onChange }: { block: BaseBlock; onChange: (next:
           <Field label="Style">
             <SegBtns value={p.style} options={["solid", "dashed", "dotted"]} onChange={(v) => set("style", v)} />
           </Field>
-          <Field label="Color"><ColorInput value={p.color} onChange={(v) => set("color", v)} /></Field>
+          <Field label="Color"><ColorInput value={p.color} onChange={(v) => set("color", v)} inherit="Site default" /></Field>
           <Field label="Thickness (px)"><Input type="number" value={p.thickness} onChange={(e) => set("thickness", Number(e.target.value))} /></Field>
         </>
       );
@@ -406,23 +406,60 @@ function SegBtns<T extends string>({ value, options, onChange }: { value: T; opt
   );
 }
 
-function ColorInput({ value, onChange, allowTransparent }: { value: string; onChange: (v: string) => void; allowTransparent?: boolean }) {
+function ColorInput({
+  value,
+  onChange,
+  allowTransparent,
+  inherit,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  allowTransparent?: boolean;
+  /**
+   * What an empty value means — "Site accent", say. Shown as a button that
+   * hands the colour back to the site's branding. Without this there is no way
+   * back: pick a colour once and the block is pinned to that hex forever, which
+   * is how a brand colour ends up needing a visit to every button on every page.
+   */
+  inherit?: string;
+}) {
   const isTransparent = value === "transparent" || value === "rgba(0,0,0,0)";
+  const inheriting = inherit != null && value === "";
   return (
-    <div className="flex items-center gap-2">
-      <input
-        type="color"
-        value={isTransparent ? "#ffffff" : value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-9 h-9 rounded-md bg-transparent border border-bg-border"
-      />
-      <Input value={value} onChange={(e) => onChange(e.target.value)} className="flex-1 font-mono text-xs" />
-      {allowTransparent ? (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={isTransparent || inheriting ? "#ffffff" : value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-9 h-9 rounded-md bg-transparent border border-bg-border"
+        />
+        <Input
+          value={value}
+          placeholder={inherit}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 font-mono text-xs"
+        />
+        {allowTransparent ? (
+          <button
+            onClick={() => onChange("transparent")}
+            className={`h-9 px-2 rounded-md text-xs border ${isTransparent ? "bg-brand text-white border-brand" : "border-bg-border text-fg-muted hover:text-fg"}`}
+          >
+            None
+          </button>
+        ) : null}
+      </div>
+      {inherit ? (
         <button
-          onClick={() => onChange("transparent")}
-          className={`h-9 px-2 rounded-md text-xs border ${isTransparent ? "bg-brand text-white border-brand" : "border-bg-border text-fg-muted hover:text-fg"}`}
+          onClick={() => onChange("")}
+          aria-pressed={inheriting}
+          className={`h-7 w-full rounded-md text-xs border ${
+            inheriting
+              ? "bg-brand/15 text-brand border-brand/40"
+              : "border-bg-border text-fg-muted hover:text-fg hover:bg-bg-card"
+          }`}
         >
-          None
+          {inheriting ? `Using ${inherit.toLowerCase()}` : `Use ${inherit.toLowerCase()}`}
         </button>
       ) : null}
     </div>

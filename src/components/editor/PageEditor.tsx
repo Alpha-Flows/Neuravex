@@ -15,6 +15,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { BaseBlock, BlockType } from "@/types";
 import { getBlockDefinition } from "@/lib/blocks";
 import { uid, slugify } from "@/lib/utils";
+import { siteThemeCss, SiteThemeInput } from "@/lib/site-theme";
 import { mapBlocks, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount, removeBlock, withFreshIds } from "@/lib/tree-utils";
 import { BlockPalette } from "./BlockPalette";
 import { BlockInspector } from "./BlockInspector";
@@ -30,6 +31,8 @@ interface Props {
   pageId: string;
   siteId: string;
   siteSlug: string;
+  /** The site's branding, so the canvas shows the colours the page will ship with. */
+  theme: SiteThemeInput;
   initial: {
     title: string;
     slug: string;
@@ -59,7 +62,7 @@ export function isTextEntry(el: Element | null): boolean {
   return (el as HTMLElement).isContentEditable === true;
 }
 
-export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
+export function PageEditor({ pageId, siteId, siteSlug, theme, initial }: Props) {
   const [blocks, setBlocks] = useState<BaseBlock[]>(initial.blocks);
   const [title, setTitle] = useState(initial.title);
   const [slug, setSlug] = useState(initial.slug);
@@ -453,6 +456,10 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
 
   const selectedBlock = selectedId ? findBlock(blocks, selectedId) : null;
 
+  // Scoped to the canvas: on a published page this branding owns the document,
+  // but here it must not repaint the palette and the inspector around it.
+  const themeCss = useMemo(() => siteThemeCss(theme, ".public-canvas"), [theme]);
+
   return (
     <DndContext
       sensors={sensors}
@@ -462,6 +469,7 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
       onDragEnd={onDragEnd}
     >
       <div className="h-screen flex flex-col bg-bg text-fg editor-mode">
+        <style dangerouslySetInnerHTML={{ __html: themeCss }} />
         {/* Top bar */}
         <header className="h-14 px-4 border-b border-bg-border flex items-center gap-3 bg-bg-soft">
           <a href={`/admin/sites/${siteId}`} className="text-fg-muted hover:text-fg text-sm shrink-0">← Pages</a>

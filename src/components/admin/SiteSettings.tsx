@@ -155,6 +155,10 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                       ))}
                       <input type="color" value={accent} onChange={(e) => setAccent(e.target.value)} className="w-7 h-7 rounded-md bg-transparent border border-bg-border" />
                     </div>
+                    <p className="text-xs text-fg-subtle mt-1.5">
+                      Used by every button that has not been given a colour of its own. A block keeps any colour you set
+                      on it — the inspector&apos;s &quot;Use site accent&quot; hands it back.
+                    </p>
                   </div>
                 </div>
               )}
@@ -208,9 +212,8 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                       ))}
                     </div>
                     <p className="text-xs text-fg-subtle mt-1">
-                      Text color switches automatically for light or dark backgrounds. &quot;Fixed&quot; floats the header
-                      on top of your page — content starts at the very top behind it, so add a Spacer block at the top
-                      of the page if you want breathing room underneath.
+                      Text color switches automatically for light or dark backgrounds. &quot;Sticky&quot; keeps the header
+                      in view as the page scrolls; &quot;Fixed&quot; floats it on top, and the page leaves room for it.
                     </p>
                   </div>
                   <div className="pt-3 border-t border-bg-border">
