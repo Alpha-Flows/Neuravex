@@ -7,7 +7,7 @@ interface Props {
   props: SectionProps;
   onChange?: (next: SectionProps) => void;
   childBlocks?: BaseBlock[];
-  onChildrenChange?: (next: BaseBlock[]) => void;
+  onChildrenChange?: (next: BaseBlock[], editKey?: string) => void;
   onSelect?: (id: string | null) => void;
   onChildDelete?: (id: string) => void;
   onChildDuplicate?: (id: string) => void;

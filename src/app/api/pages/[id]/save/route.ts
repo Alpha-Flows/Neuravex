@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { slugify } from "@/lib/utils";
 import { snapshotRevision } from "@/lib/revisions";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,26 @@ export async function PUT(req: NextRequest, { params }: Params) {
         where: { siteId: page.siteId, id: { not: page.id }, isHome: true },
         data: { isHome: false },
       });
+    }
+  }
+  // The editor sends the slug on every save. It used to be declared here and
+  // then dropped on the floor, so renaming a page's URL in the editor did
+  // nothing at all — the status line said "Saved" and the address reverted on
+  // the next load, with "View live" pointing at a page that was not there.
+  if (typeof body.slug === "string" && body.slug.trim()) {
+    let newSlug = slugify(body.slug);
+    if (newSlug && newSlug !== page.slug) {
+      let suffix = 0;
+      const base = newSlug;
+      while (true) {
+        const existing = await prisma.page.findUnique({
+          where: { siteId_slug: { siteId: page.siteId, slug: newSlug } },
+        });
+        if (!existing || existing.id === page.id) break;
+        suffix += 1;
+        newSlug = `${base}-${suffix}`;
+      }
+      data.slug = newSlug;
     }
   }
   if (body.content !== undefined) data.content = JSON.stringify(body.content);

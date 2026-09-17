@@ -39,6 +39,11 @@ export default async function PublicSitePage({ params }: Props) {
     : site.pages.find((p) => p.isHome) ?? site.pages[0];
   if (!page) notFound();
 
+  // The header is 4rem tall; the bar shape adds a 1px bottom border and the
+  // pill floats on a 1rem margin.
+  const headerPosition = site.headerPosition;
+  const headerOffset = site.headerShape === "pill" ? 80 : site.headerShape === "rounded" ? 64 : 65;
+
   let blocks: BaseBlock[] = [];
   try {
     const parsed = JSON.parse(page.content || "[]");
@@ -60,7 +65,10 @@ export default async function PublicSitePage({ params }: Props) {
         <style dangerouslySetInnerHTML={{ __html: `:root { ${themeVars.join("; ")} } body { font-family: var(--site-font, inherit); } h1,h2,h3,h4,h5,h6 { font-family: var(--site-heading-font, inherit); }` }} />
       ) : null}
       {site.customCss ? <style dangerouslySetInnerHTML={{ __html: sanitizeCss(site.customCss) }} /> : null}
-      <div className="public-canvas">
+      {/* A fixed header leaves the flow, so without this the first block on
+          every page starts underneath it and its top is unreadable. The pill
+          shape floats on a 1rem margin, so it needs that much more. */}
+      <div className="public-canvas" style={headerPosition === "fixed" ? { paddingTop: headerOffset } : undefined}>
         <PublicSiteHeader site={site} pages={site.pages} activeSlug={page.slug} />
         <main>
           <PublicBlocks blocks={blocks} pageId={page.id} />

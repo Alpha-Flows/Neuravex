@@ -93,7 +93,12 @@ function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplic
 
 interface SortableBlockProps {
   block: BaseBlock;
-  onChange: (next: BaseBlock) => void;
+  /**
+   * `editKey` names the edit so the editor can fold a run of them into one
+   * undo step. It is the id of the innermost block that actually changed, so
+   * typing in one block never merges with typing in its neighbour.
+   */
+  onChange: (next: BaseBlock, editKey?: string) => void;
   onSelect: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
@@ -117,6 +122,10 @@ export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate
     return <BlockView block={block} onChange={onChange} disabled pageId={pageId} />;
   }
 
+  // A change coming out of this block is keyed by this block, unless it
+  // bubbled up from a nested one that named itself.
+  const report = (next: BaseBlock, editKey?: string) => onChange(next, editKey ?? `edit:${block.id}`);
+
   return (
     <BlockChrome
       block={block}
@@ -129,7 +138,7 @@ export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate
     >
       <BlockView
         block={block}
-        onChange={onChange}
+        onChange={report}
         pageId={pageId}
         onSelect={onSelectId}
         onChildDelete={onChildDelete}
@@ -143,7 +152,7 @@ export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate
 interface ContainerProps {
   containerId: string;
   blocks: BaseBlock[];
-  onChange: (next: BaseBlock[]) => void;
+  onChange: (next: BaseBlock[], editKey?: string) => void;
   onSelect: (id: string | null) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
@@ -175,8 +184,8 @@ export function SortableContainer({
   const drop = useDroppable({ id: `${containerId}::drop-end`, disabled });
   const ids = blocks.map((b) => b.id);
 
-  function updateChild(updated: BaseBlock) {
-    onChange(blocks.map((b) => (b.id === updated.id ? updated : b)));
+  function updateChild(updated: BaseBlock, editKey?: string) {
+    onChange(blocks.map((b) => (b.id === updated.id ? updated : b)), editKey);
   }
 
   const list = (

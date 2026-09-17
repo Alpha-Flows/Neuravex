@@ -23,7 +23,7 @@ interface ContainerHandlers {
 
 interface Props extends ContainerHandlers {
   block: BaseBlock;
-  onChange?: (next: BaseBlock) => void;
+  onChange?: (next: BaseBlock, editKey?: string) => void;
   disabled?: boolean;
   pageId?: string;
 }
@@ -46,14 +46,14 @@ export function BlockView({ block, onChange, disabled, onSelect, onChildDelete, 
     case "section":
       return (
         <Section blockId={block.id} props={block.props} childBlocks={block.children}
-          onChildrenChange={onChange ? (c) => onChange({ ...block, children: c }) : undefined}
+          onChildrenChange={onChange ? (c, editKey) => onChange({ ...block, children: c }, editKey) : undefined}
           onSelect={onSelect} onChildDelete={onChildDelete} onChildDuplicate={onChildDuplicate}
           selectedId={selectedId} disabled={disabled} />
       );
     case "columns":
       return (
         <Columns blockId={block.id} props={block.props} childBlocks={block.children}
-          onChildrenChange={onChange ? (c) => onChange({ ...block, children: c }) : undefined}
+          onChildrenChange={onChange ? (c, editKey) => onChange({ ...block, children: c }, editKey) : undefined}
           onSelect={onSelect} onChildDelete={onChildDelete} onChildDuplicate={onChildDuplicate}
           selectedId={selectedId} disabled={disabled} />
       );

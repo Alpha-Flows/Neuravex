@@ -3,27 +3,22 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 
 interface Props {
-  pageId: string;
   isHome: boolean;
   published: boolean;
   siteSlug: string;
   pageSlug: string;
-  onPublished: (next: boolean) => void;
+  /** Saves the page with the new published flag. Resolves false if it failed. */
+  onToggle: (next: boolean) => Promise<boolean>;
 }
 
-export function PublishButton({ pageId, isHome, published, siteSlug, pageSlug, onPublished }: Props) {
+export function PublishButton({ isHome, published, siteSlug, pageSlug, onToggle }: Props) {
   const [loading, setLoading] = useState(false);
   const url = isHome ? `/sites/${siteSlug}` : `/sites/${siteSlug}/${pageSlug}`;
 
   async function toggle() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/pages/${pageId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ published: !published }),
-      });
-      if (res.ok) onPublished(!published);
+      await onToggle(!published);
     } finally {
       setLoading(false);
     }

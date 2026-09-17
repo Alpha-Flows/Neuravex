@@ -8,9 +8,11 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const { searchParams } = new URL(req.url);
   const includeUnpublished = searchParams.get("all") === "1";
+  // Same order the site admin and the published nav use, so a page sits in
+  // the same place everywhere it is listed.
   const pages = await prisma.page.findMany({
     where: { siteId: params.id, ...(includeUnpublished ? {} : { published: true }) },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ sortOrder: "asc" }, { isHome: "desc" }, { updatedAt: "desc" }],
   });
   return NextResponse.json(pages);
 }
