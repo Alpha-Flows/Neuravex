@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 interface Props {
   props: ColumnsProps;
   childBlocks?: BaseBlock[];
-  onChildrenChange?: (next: BaseBlock[]) => void;
+  onChildrenChange?: (next: BaseBlock[], editKey?: string) => void;
   onSelect?: (id: string | null) => void;
   onChildDelete?: (id: string) => void;
   onChildDuplicate?: (id: string) => void;
@@ -36,14 +36,14 @@ export function Columns({
     return buckets.findIndex((b) => b.some((x) => x.id === id));
   }
 
-  function commit(next: BaseBlock[][]) {
-    onChildrenChange?.(flattenColumns(next));
+  function commit(next: BaseBlock[][], editKey?: string) {
+    onChildrenChange?.(flattenColumns(next), editKey);
   }
 
-  function rebuild(bucketIdx: number, next: BaseBlock[]) {
+  function rebuild(bucketIdx: number, next: BaseBlock[], editKey?: string) {
     const copy = buckets.map((b) => b.slice());
     copy[bucketIdx] = next;
-    commit(copy);
+    commit(copy, editKey);
   }
 
   function deleteFromBuckets(id: string) {
@@ -79,7 +79,7 @@ export function Columns({
             <SortableContainer
               containerId={`col-${blockId}-${i}`}
               blocks={bucket}
-              onChange={(next) => rebuild(i, next)}
+              onChange={(next, editKey) => rebuild(i, next, editKey)}
               onSelect={onSelect ?? (() => {})}
               onDelete={deleteFromBuckets}
               onDuplicate={duplicateInBuckets}

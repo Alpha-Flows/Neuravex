@@ -14,7 +14,7 @@ interface Params {
 export async function GET(_req: NextRequest, { params }: Params) {
   const site = await prisma.site.findUnique({
     where: { id: params.id },
-    include: { pages: { orderBy: { updatedAt: "desc" } } },
+    include: { pages: { orderBy: [{ sortOrder: "asc" }, { isHome: "desc" }, { updatedAt: "desc" }] } },
   });
   if (!site) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(site);

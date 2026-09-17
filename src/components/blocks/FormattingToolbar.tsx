@@ -41,8 +41,19 @@ export function FormattingToolbar({ onFormat }: Props) {
   }
 
   function insertLink() {
+    // prompt() takes the selection with it, and execCommand has nothing to
+    // apply the link to once it comes back. Remember the range first, then
+    // put it back before asking the browser to make the link.
+    const sel = window.getSelection();
+    const saved = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
     const url = prompt("Link URL (e.g. https://)", "https://");
-    if (url) exec("createLink", url);
+    if (!url) return;
+    if (saved) {
+      const current = window.getSelection();
+      current?.removeAllRanges();
+      current?.addRange(saved);
+    }
+    exec("createLink", url);
   }
 
   if (!visible) return null;
@@ -51,6 +62,10 @@ export function FormattingToolbar({ onFormat }: Props) {
     <div
       ref={ref}
       style={{ left: pos.x, top: pos.y }}
+      // Pressing a button must not move focus out of the text being edited:
+      // the browser drops the selection on blur, and execCommand then has
+      // nothing to embolden. Suppressing mousedown keeps the caret put.
+      onMouseDown={(e) => e.preventDefault()}
       className="fixed z-50 flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-bg-card border border-bg-border shadow-xl -translate-x-1/2"
     >
       <button onClick={() => exec("bold")} className="w-7 h-7 rounded hover:bg-bg-soft flex items-center justify-center text-sm font-bold text-fg-muted hover:text-fg" title="Bold (Ctrl+B)">B</button>

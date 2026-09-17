@@ -14,7 +14,7 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import { BaseBlock, BlockType } from "@/types";
 import { getBlockDefinition } from "@/lib/blocks";
-import { uid } from "@/lib/utils";
+import { uid, slugify } from "@/lib/utils";
 import { mapBlocks, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount, removeBlock, withFreshIds } from "@/lib/tree-utils";
 import { BlockPalette } from "./BlockPalette";
 import { BlockInspector } from "./BlockInspector";
@@ -44,6 +44,20 @@ interface Props {
 
 const MAX_HISTORY = 80;
 const AUTOSAVE_MS = 1500;
+/**
+ * Consecutive edits to the same block within this window become one undo
+ * step. Typing reports every keystroke — that is what keeps a save honest —
+ * and without this, undo would rewind one character at a time.
+ */
+const HISTORY_COALESCE_MS = 700;
+
+/** True for anything that takes a caret: inputs, textareas, block text. */
+export function isTextEntry(el: Element | null): boolean {
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return (el as HTMLElement).isContentEditable === true;
+}
 
 export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
   const [blocks, setBlocks] = useState<BaseBlock[]>(initial.blocks);
@@ -65,20 +79,44 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
   const [viewport, setViewport] = useState<"full" | "lg" | "md" | "sm">("full");
   const [activeDrag, setActiveDrag] = useState<{ kind: "palette" | "block"; type?: BlockType; block?: BaseBlock } | null>(null);
 
-  // Undo / redo
-  const [history, setHistory] = useState<BaseBlock[][]>([initial.blocks]);
-  const [historyIdx, setHistoryIdx] = useState(0);
-  const pushHistory = useCallback((next: BaseBlock[]) => {
-    setHistory((prev) => {
-      const trimmed = prev.slice(0, historyIdx + 1);
-      const stack = [...trimmed, next].slice(-MAX_HISTORY);
-      return stack;
-    });
-    setHistoryIdx((i) => Math.min(i + 1, MAX_HISTORY - 1));
+  // Undo / redo. The stack lives in a ref: keystrokes arrive faster than
+  // React re-renders, and an index read from state was a render behind, which
+  // wrote history entries over each other. The state below exists only so the
+  // two buttons know when to grey out.
+  const historyRef = useRef<{ stack: BaseBlock[][]; idx: number }>({ stack: [initial.blocks], idx: 0 });
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  // The last coalescable edit, so a run of keystrokes in one block collapses
+  // into a single undo step instead of one per character.
+  const coalesceRef = useRef<{ key: string; at: number } | null>(null);
+
+  const syncHistoryButtons = useCallback(() => {
+    const h = historyRef.current;
+    setCanUndo(h.idx > 0);
+    setCanRedo(h.idx < h.stack.length - 1);
+  }, []);
+
+  const pushHistory = useCallback((next: BaseBlock[], coalesceKey?: string) => {
+    const now = Date.now();
+    const last = coalesceRef.current;
+    const merge =
+      coalesceKey != null && last != null && last.key === coalesceKey && now - last.at < HISTORY_COALESCE_MS;
+    coalesceRef.current = coalesceKey != null ? { key: coalesceKey, at: now } : null;
+
+    const h = historyRef.current;
+    if (merge) {
+      // Same edit continuing: replace the top of the stack rather than grow it.
+      h.stack[h.idx] = next;
+    } else {
+      const trimmed = h.stack.slice(0, h.idx + 1);
+      trimmed.push(next);
+      h.stack = trimmed.slice(Math.max(0, trimmed.length - MAX_HISTORY));
+      h.idx = h.stack.length - 1;
+    }
+    syncHistoryButtons();
     setBlocks(next);
     setDirty(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historyIdx]);
+  }, [syncHistoryButtons]);
 
   // Autosave timer
   const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -89,23 +127,38 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirty, title, slug, isHome, published, blocks, seo]);
 
-  const saveFn = useCallback(async (reason: "manual" | "autosave" = "manual") => {
+  const slugInputRef = useRef<HTMLInputElement | null>(null);
+
+  const saveFn = useCallback(async (
+    reason: "manual" | "autosave" = "manual",
+    override?: { published?: boolean },
+  ): Promise<boolean> => {
+    const willPublish = override?.published ?? published;
     setSaving(true);
     try {
       const res = await fetch(`/api/pages/${pageId}/save`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, slug, isHome, published, content: blocks, ...seo, reason }),
+        body: JSON.stringify({ title, slug, isHome, published: willPublish, content: blocks, ...seo, reason }),
       });
       setSaveFailed(!res.ok);
-      if (res.ok) {
-        setDirty(false);
-        setSavedAt(new Date());
+      if (!res.ok) return false;
+      setDirty(false);
+      setSavedAt(new Date());
+      // The server has the last word on the slug: it lower-cases it and adds
+      // a suffix when another page already owns that address. Take what it
+      // settled on, so the URL shown here is the URL that exists — but never
+      // rewrite the field while it is being typed in.
+      const saved = await res.json().catch(() => null);
+      if (saved?.slug && saved.slug !== slug && document.activeElement !== slugInputRef.current) {
+        setSlug(saved.slug);
       }
+      return true;
     } catch {
       // A save that never lands must not look like one that did — the status
       // line is the only signal that the work is safe.
       setSaveFailed(true);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -114,7 +167,21 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
   // Memo-ize save so the key event listener closure always has the latest
   const saveRef = useRef(saveFn);
   saveRef.current = saveFn;
-  const save = useCallback((reason: "manual" | "autosave" = "manual") => saveRef.current(reason), []);
+  const save = useCallback(
+    (reason: "manual" | "autosave" = "manual", override?: { published?: boolean }) =>
+      saveRef.current(reason, override),
+    [],
+  );
+
+  // Publishing has to carry the current page with it. It used to flip a flag
+  // on its own endpoint, which published whatever the last autosave had left
+  // on the server — edits made in the seconds before the click went live only
+  // when the next autosave caught up, and unreported text never at all.
+  const togglePublished = useCallback(async (next: boolean) => {
+    const ok = await saveRef.current("manual", { published: next });
+    if (ok) setPublished(next);
+    return ok;
+  }, []);
 
   // Maps every block id to the container that holds it. Columns children are
   // grouped by their own `column`, so these ids match what Columns renders.
@@ -175,7 +242,10 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
   }
 
   function replaceBlock(updated: BaseBlock) {
-    pushHistory(mapBlocks(blocks, (b) => (b.id === updated.id ? updated : b)));
+    pushHistory(
+      mapBlocks(blocks, (b) => (b.id === updated.id ? updated : b)),
+      `edit:${updated.id}`,
+    );
   }
 
   function deleteBlock(id: string) {
@@ -255,9 +325,12 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
       // Redo
       if (mod && e.key === "z" && e.shiftKey) { e.preventDefault(); redo(); return; }
       // Duplicate selected block
-      if (mod && e.key === "d" && selectedId && !e.repeat) { e.preventDefault(); duplicateBlock(selectedId); return; }
-      // Delete / Backspace — delete selected block (skip when editing text)
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedId && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
+      if (mod && e.key === "d" && selectedId && !e.repeat && !isTextEntry(document.activeElement)) { e.preventDefault(); duplicateBlock(selectedId); return; }
+      // Delete / Backspace — delete the selected block, but never while a
+      // caret is in something. Block text lives in a contentEditable, whose
+      // tag is H1 or P, so a tag-name check let one backspace mid-sentence
+      // delete the whole block.
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedId && !isTextEntry(document.activeElement)) {
         e.preventDefault();
         deleteBlock(selectedId);
         return;
@@ -268,21 +341,27 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, blocks, historyIdx]);
+  }, [selectedId, blocks]);
 
   function undo() {
-    if (historyIdx <= 0) return;
-    const idx = historyIdx - 1;
-    setHistoryIdx(idx);
-    setBlocks(history[idx]);
+    const h = historyRef.current;
+    if (h.idx <= 0) return;
+    h.idx -= 1;
+    // The next keystroke starts a new step rather than merging into the one
+    // we just rewound past.
+    coalesceRef.current = null;
+    setBlocks(h.stack[h.idx]);
+    syncHistoryButtons();
     setDirty(true);
   }
 
   function redo() {
-    if (historyIdx >= history.length - 1) return;
-    const idx = historyIdx + 1;
-    setHistoryIdx(idx);
-    setBlocks(history[idx]);
+    const h = historyRef.current;
+    if (h.idx >= h.stack.length - 1) return;
+    h.idx += 1;
+    coalesceRef.current = null;
+    setBlocks(h.stack[h.idx]);
+    syncHistoryButtons();
     setDirty(true);
   }
 
@@ -390,14 +469,21 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
           <Input value={title} onChange={(e) => { setTitle(e.target.value); setDirty(true); }} className="h-8 w-40 font-medium shrink-0" />
           <div className="flex items-center gap-1 text-xs text-fg-muted">
             <span>/sites/{siteSlug}/</span>
-            <Input value={slug} onChange={(e) => { setSlug(e.target.value); setDirty(true); }} className="h-7 w-28 text-xs" />
+            <Input
+              ref={slugInputRef}
+              value={slug}
+              onChange={(e) => { setSlug(e.target.value); setDirty(true); }}
+              onBlur={() => { const clean = slugify(slug); if (slug.trim() && clean !== slug) setSlug(clean); }}
+              className="h-7 w-28 text-xs"
+              aria-label="Page URL"
+            />
             {isHome ? <span className="ml-1 text-amber-400" title="Home page">★</span> : null}
           </div>
 
           {/* Undo / Redo */}
           <div className="flex items-center gap-0.5 ml-1 shrink-0">
-            <button onClick={undo} disabled={historyIdx <= 0} title="Undo (Cmd+Z)" className="w-7 h-7 rounded-md text-fg-muted hover:text-fg hover:bg-bg-card disabled:opacity-30 flex items-center justify-center text-sm">↩</button>
-            <button onClick={redo} disabled={historyIdx >= history.length - 1} title="Redo (Shift+Cmd+Z)" className="w-7 h-7 rounded-md text-fg-muted hover:text-fg hover:bg-bg-card disabled:opacity-30 flex items-center justify-center text-sm">↪</button>
+            <button onClick={undo} disabled={!canUndo} title="Undo (Cmd+Z)" className="w-7 h-7 rounded-md text-fg-muted hover:text-fg hover:bg-bg-card disabled:opacity-30 flex items-center justify-center text-sm">↩</button>
+            <button onClick={redo} disabled={!canRedo} title="Redo (Shift+Cmd+Z)" className="w-7 h-7 rounded-md text-fg-muted hover:text-fg hover:bg-bg-card disabled:opacity-30 flex items-center justify-center text-sm">↪</button>
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -418,7 +504,7 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
             <Button variant="outline" size="sm" onClick={() => save("manual")} loading={saving} disabled={!dirty}>
               Save
             </Button>
-            <PublishButton pageId={pageId} isHome={isHome} published={published} siteSlug={siteSlug} pageSlug={slug} onPublished={(p) => { p !== published && setDirty(true); setPublished(p); }} />
+            <PublishButton isHome={isHome} published={published} siteSlug={siteSlug} pageSlug={slug} onToggle={togglePublished} />
             {isHome ? null : (
               <Button variant="ghost" size="sm" onClick={() => { setIsHome(true); setDirty(true); }} title="Set as home page">
                 Make home
@@ -460,7 +546,7 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
                   <SortableContainer
                     containerId="page"
                     blocks={blocks}
-                    onChange={(next) => pushHistory(next)}
+                    onChange={(next, editKey) => pushHistory(next, editKey)}
                     onSelect={(id) => setSelectedId(id)}
                     onDelete={deleteBlock}
                     onDuplicate={duplicateBlock}

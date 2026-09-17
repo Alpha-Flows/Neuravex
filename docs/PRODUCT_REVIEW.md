@@ -57,9 +57,47 @@ stays as it is — it only engages below 640px, so it costs a desktop user nothi
   accurate — Neuravex makes no network calls, but the Next.js CLI collects anonymous
   telemetry by default.
 
+### Round 3 — the editing bugs
+
+Found by driving the editor the way a customer does, rather than by reading it. All six
+were reproduced in a browser first and now have regression tests in `e2e/editing.spec.ts`.
+
+- **Typing in a block and pressing Backspace deleted the whole block.** The guard against
+  the delete shortcut checked for `INPUT` and `TEXTAREA`, but block text lives in a
+  `contentEditable` whose tag is `H1` or `P`. One backspace mid-sentence in a heading
+  wiped the heading. `Cmd+D` duplicated the block for the same reason.
+- **Text you typed was never saved unless you clicked away first.** The editable element
+  reported its contents on blur only, so the page was not marked dirty: autosave had
+  nothing to save, `Cmd+S` wrote the *previous* version while the status line said "All
+  saved", and closing the tab took the work with it — with no unsaved-changes warning.
+  Keystrokes are reported as they happen now, and a run of them still collapses into one
+  undo step.
+- **The page address typed in the editor was silently discarded.** The save endpoint
+  declared `slug` and never wrote it, so renaming a page's URL did nothing at all: the
+  status said "Saved", the address reverted on reload, and "View live" pointed at a page
+  that was not there. The server tidies and de-duplicates the slug, and the editor shows
+  what it settled on.
+- **Publish published the last autosave, not the page.** It flipped a flag on its own
+  endpoint, so edits made in the seconds before the click went live only when autosave
+  caught up — and unreported text never at all. Publishing now saves the page and sets
+  the flag in one request.
+- **Every text block rendered its own formatting toolbar.** Ten text blocks meant ten
+  identical toolbars stacked on the same spot; a click landed on whichever was on top,
+  which was rarely the one whose text was selected. Only the block being edited shows one
+  now. The toolbar also stole focus on `mousedown`, which dropped the selection before
+  `execCommand` could act on it, and `prompt()` did the same to the link button.
+- **A fixed header covered the top of every page.** Chosen in site settings, `position:
+  fixed` takes the header out of the flow and nothing made room for it.
+
+Two smaller things went with them: undo/redo kept its stack in React state and read a
+stale index when keystrokes outran a render, and three page listings each sorted
+differently, so reordering pages did not show up consistently.
+
 ### Still open from this review
 
-P0-1 (no way to publish off the machine) is untouched and remains the largest gap.
+P0-1 (no way to publish off the machine) is answered in part by **Download files** — a
+site now leaves the machine as plain HTML, CSS and images — but there is still no
+hosting step.
 Also open: P1-5 (editor is not WYSIWYG), P1-6 (branding does not cascade), P1-8 (no
 sitemap/robots/favicon, images without dimensions), P2-9 (prompt()-driven editing),
 P2-11 (templates point at remote Unsplash URLs), P2-13 (no reusable blocks), P2-15
@@ -85,7 +123,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 76 unit tests (sanitization, security, tree utils) — all passing; 4 thin Playwright specs |
+| Quality | 140 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms) — all passing; 33 Playwright specs |
 
 ---
 

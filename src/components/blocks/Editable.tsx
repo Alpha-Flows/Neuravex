@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { FormattingToolbar } from "./FormattingToolbar";
 import { sanitizeHtml } from "@/lib/sanitize";
 
@@ -18,6 +18,14 @@ interface Props {
  * Inline editable element used in the editor. Tracks innerHTML so that
  * bold / italic / links inserted via execCommand are persisted correctly.
  * Public callers pass disabled={true} for a read-only element.
+ *
+ * Every keystroke is reported, not just the ones before a blur. Reporting
+ * only on blur meant the text you had just typed existed nowhere but the
+ * browser: the page was not marked dirty, so autosave had nothing to save,
+ * Cmd+S wrote the previous version while the status line said "All saved",
+ * and closing the tab lost the lot without a warning. The editor coalesces
+ * these into one undo step per pause, so a report per keystroke does not
+ * turn undo into a character-by-character rewind.
  */
 export function Editable({
   value,
@@ -31,6 +39,11 @@ export function Editable({
 }: Props) {
   const ref = useRef<HTMLElement | null>(null);
   const lastValueRef = useRef<string>(value);
+  // The formatting toolbar belongs to whichever element is being edited. One
+  // per editable, all of them visible at once, meant a stack of identical
+  // toolbars at the same spot, and a click landed on whichever happened to be
+  // on top — not the block whose text was selected.
+  const [focused, setFocused] = useState(false);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -57,7 +70,7 @@ export function Editable({
 
   return (
     <>
-      <FormattingToolbar onFormat={report} />
+      {focused ? <FormattingToolbar onFormat={report} /> : null}
       <Tag
         ref={ref as any}
         className={`inline-editable ${className ?? ""}`}
@@ -65,7 +78,14 @@ export function Editable({
         contentEditable
         suppressContentEditableWarning
         data-placeholder={placeholder}
-        onBlur={report}
+        onFocus={() => setFocused(true)}
+        onInput={report}
+        onBlur={() => {
+          // Clicking a toolbar button keeps focus (the toolbar suppresses its
+          // own mousedown), so a blur here really is the caret leaving.
+          setFocused(false);
+          report();
+        }}
         onKeyDown={(e: any) => {
           if (!multiline && e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
