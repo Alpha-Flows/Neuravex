@@ -388,6 +388,11 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
       const mod = e.metaKey || e.ctrlKey;
       // Save
       if (mod && e.key === "s") { e.preventDefault(); save("manual"); return; }
+      // Nothing below this line changes the page while it is being previewed.
+      // A selection survives the switch — it has to, or previewing would cost
+      // you your place — but it is invisible there, and Delete was quietly
+      // throwing away a block with nothing on screen to say so.
+      if (preview) return;
       // Undo
       if (mod && e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); return; }
       // Redo
@@ -432,7 +437,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, blocks]);
+  }, [selectedId, blocks, preview]);
 
   function undo() {
     const h = historyRef.current;
@@ -467,6 +472,20 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
       return next;
     });
   }, []);
+
+  // Bring the selected block into view.
+  //
+  // Picking one in the outline did nothing you could see: the canvas stayed
+  // where it was and the inspector opened for a block a thousand pixels
+  // further down, so the outline read as broken. `nearest` leaves a block
+  // that is already on screen exactly where it is, so clicking a block on the
+  // canvas never makes the page jump.
+  useEffect(() => {
+    if (!selectedId || preview) return;
+    document
+      .querySelector(".public-canvas .editor-block.is-selected")
+      ?.scrollIntoView({ block: "nearest" });
+  }, [selectedId, preview]);
 
   // Beforeunload guard
   useEffect(() => {
@@ -804,7 +823,21 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
                   browser a reason to lay it out afresh. `h-full` gives the
                   page inside it a height to measure itself against, so it can
                   fill the frame instead of the window. */}
-              <div className="h-full" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="h-full"
+                onClick={(e) => e.stopPropagation()}
+                // The canvas is a drawing of the page, not a browser sitting
+                // on it. Following a link from here — the site's own nav, a
+                // button while previewing, an anchor inside custom HTML —
+                // walked out of the builder and onto the published site,
+                // which is never what clicking the page you are editing is
+                // meant to do. The click still reaches the block underneath,
+                // so it selects as any other click would; "View live" is the
+                // way out.
+                onClickCapture={(e) => {
+                  if ((e.target as HTMLElement).closest?.("a[href]")) e.preventDefault();
+                }}
+              >
                 {siteChrome(
                   preview ? (
                     <PublicBlocks blocks={blocks} />
