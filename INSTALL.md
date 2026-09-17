@@ -62,6 +62,19 @@ This installs all packages and automatically runs `prisma generate` (via the `po
 
 ---
 
+## The short version
+
+```bash
+npm install
+npm run desktop
+```
+
+`npm run desktop` does steps 3 and 4 below for you — it writes `.env`, creates the
+database, applies the schema, seeds a demo site the first time, builds and opens the app.
+The sections that follow are for doing it by hand, or for working on Neuravex itself.
+
+---
+
 ## 3. Configure Environment Variables
 
 Copy the example environment file:
@@ -318,11 +331,14 @@ To update to the latest version:
 ```bash
 git pull
 npm install
-npm run db:push    # Apply any schema changes
-npm run build      # Rebuild for production (if using desktop/production mode)
+npm run desktop    # applies any schema changes and rebuilds on the way up
 ```
 
-`npm run db:push` is safe to run on an existing database — it applies new columns and tables without deleting data.
+The launcher notices when the schema has moved and applies it before starting, so an
+update does not need anything else. Doing it by hand is `npm run db:push` followed by
+`npm run build`; `db:push` is safe on an existing database, applying new columns and
+tables without deleting data. If it ever cannot apply a change without losing data it
+refuses and says so, rather than doing it.
 
 ---
 
@@ -344,7 +360,8 @@ This should happen automatically during `npm install` (via the `postinstall` scr
 
 ### Database Errors After Pulling Updates
 
-If the schema has changed since you last updated:
+`npm run desktop` applies schema changes on the way up, so this should not come up. If you
+start the app another way, or the launcher told you it could not update the database:
 
 ```bash
 npm run db:push

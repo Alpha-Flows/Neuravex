@@ -9,6 +9,14 @@ Every problem below was reproduced, not inferred.
 
 ## 0. Status update
 
+**Scope note — how this product is delivered:** Neuravex is software people download and
+run on their own machine. It is not a hosted service, and there is no plan to host either
+the builder or the sites built with it. So "get the site online" is answered by **Download
+files** — the site leaves as plain HTML, CSS and images that work on any host the customer
+already has — and not by a deploy button or a hosting product. Recommendations below that
+assume a hosted product (R1's deploy targets, serving at a root path, custom domains) are
+out of scope and are kept only as a record of what the first pass found.
+
 **Scope note:** Neuravex is used on PCs only. The mobile-facing recommendations below
 (responsive section padding, anything framed around phone visitors) are out of scope and
 are kept only as a record of what was found. The responsive column work already merged
@@ -208,13 +216,117 @@ differently, so reordering pages did not show up consistently.
   one, and a plain function exported across that boundary is not callable from the server
   page that renders it. The published page threw until it moved.
 
+### Round 9 — the MCP server had been left behind
+
+Not from the review: found by checking the agent-facing side against what the last rounds
+changed to the app.
+
+- **An agent could destroy a site outright.** `delete_site` and `delete_page` called
+  Prisma directly, so a site deleted through MCP was gone with its pages, history and form
+  submissions — while a person deleting the same site could put it back. Both paths go
+  through the trash now, and the tools say so in their replies.
+- **`create_site` ignored the template's brand colour**, so an agent making a restaurant
+  site got indigo buttons where the builder gives the template's yellow. The rule lives in
+  one place now and both callers use it.
+- **It ran its own bare Prisma client.** WAL and the busy timeout are set by the app's
+  connection — which exists, as the comment there says, so the MCP server and the web app
+  can share one SQLite file. The MCP server was the one process not using it, so it was
+  the side that would throw `SQLITE_BUSY` under contention.
+
+Tests read `mcp-server.ts` and fail if it deletes directly, stops using the shared accent
+rule, or opens its own database connection again.
+
+### Round 10 — a download that starts
+
+Not from the review either: it follows from what this product is. Neuravex is downloaded
+and run on the customer's own machine, so the first thing that happens after unpacking has
+to work — and it did not.
+
+- **A fresh copy could not start.** Neither `.env` nor the database file is in a download:
+  both are made locally. `npm install && npm run desktop` started a server whose every
+  page threw, and the two commands that fixed it were steps 2 and 3 of the README. The
+  launcher now writes `.env`, creates the database, applies the schema and seeds the demo
+  site on a first run, before it serves anything. Proved on a copy built from
+  `git archive` with no `.env` and no database: the builder and the demo site both answer.
+- **An update applies itself.** The launcher notices when the schema has moved and applies
+  it on the way up, which is the footgun behind two "needs `npm run db:push` after
+  pulling" notes in this repository's recent history. It never passes
+  `--accept-data-loss`: `prisma db push` refuses rather than dropping a column, and on a
+  machine holding someone's only copy that is the right answer.
+- **A normal start costs nothing.** The schema it last applied is remembered, so the
+  second launch does no work — 45ms, measured.
+- `npm run setup` does the same steps for anyone using the dev server, and the README's
+  quick start is now the two commands the launcher actually supports.
+
+### Round 11 — the rest of P1-7
+
+Round 2 closed two of this finding's four rows and left two, which is the finding's own
+complaint applied to itself.
+
+- **Dark mode is gone.** `Site.theme` was stored, settable through the API and carried in
+  the export, and **no renderer ever read it**: a site set to dark rendered light. Removed
+  rather than built, which is the owner's call — Neuravex has one look for published
+  sites.
+- **`Page.scheduledAt` is gone too.** Scheduled publishing was never written; the column
+  sat in the schema, and the new archive format had started carrying it with a comment
+  admitting it was unused. Removed on the same grounds *(my call, not asked for — say the
+  word and it comes back with scheduling attached)*.
+- **Removing a column had to be shippable.** `prisma db push` refuses to lose data, which
+  is right on a machine holding someone's only copy and was exactly what the launcher
+  relied on — so a dead column could never be taken out. Intentional removals are now
+  written down in `prisma/intentional-drops.json` with what they held and why, and the
+  launcher accepts a loss only when **every** warning names a column on that list.
+  Anything else still stops, untouched.
+- A bug from the round before, found here: the launcher pushed with `--skip-generate`, so
+  after a schema change the generated client still expected the old columns and the app
+  queried what the database no longer had. It regenerates now.
+
+Checked by updating a copy that still had the column and a seeded site in it: the column
+goes, the message says what happened, and the site and its pages come through.
+
+### Round 12 — the last of P1-8
+
+- **Images reserve their space.** An `<img>` with no width and height leaves the browser
+  nothing to hold, so a page jumped as each picture arrived — the heading you were reading
+  slid away under you. Measured: with a picture held back, the heading beneath it moved
+  **1152px** when it landed. It now moves 0.
+  - The size is read from the file itself — a small header reader for PNG, JPEG, GIF and
+    WebP rather than an image library for four numbers — when a picture is uploaded, and
+    measured in the browser when one is chosen from the library.
+  - All 29 template images carry their real size, checked against the files on disk.
+  - A picture with no known size still renders as before; nothing regressed for existing
+    pages.
+- **Template images say what they show.** Every one shipped with `alt=""`, so a screen
+  reader got 67 silent images across the 28 templates. Each of the 29 now has a
+  description written against the photograph.
+
+Tests fail if a template image loses its alt text, loses its size, or states a size that
+does not match the file.
+
+### Round 13 — reuse
+
+- **P2-13 (no reuse anywhere)** — a section built on one page had to be rebuilt by hand on
+  the next.
+  - **Copy, cut and paste**, including between pages and tabs: the block is kept in the
+    browser's own storage, so it outlives the editor being remounted. Every paste gets
+    fresh ids, so pasting twice — or pasting back into the page it came from — cannot
+    produce two blocks claiming one id. The palette offers a "Paste section" button when
+    something is on the clipboard, and the shortcuts stand aside while a caret is in text,
+    where the browser's own copy and paste is what was meant.
+  - **An outline of the page**, next to the palette. Once a Section is full of children,
+    clicking the Section itself is fiddly — every click lands on something inside it. Each
+    block is one row, indented, labelled with a few words of its own content and, inside a
+    Columns block, which column it sits in.
+  - **Saved blocks.** Name a block from the inspector and it is offered in the palette on
+    every page of every site, inserted with fresh ids.
+
 ### Still open from this review
 
-P0-1 (no way to publish off the machine) is answered in part by **Download files** — a
-site now leaves the machine as plain HTML, CSS and images — but there is still no
-hosting step.
-Also open: the last of P1-8 (images carry no width/height, and template images no alt
-text), and P2-13 (no reusable blocks — no saved sections, no copy-paste between pages, no
+P0-1 is **closed**: **Download files** takes a site off the machine as plain HTML, CSS and
+images, and hosting is not something Neuravex does — it is downloaded software, and the
+customer hosts where they already do.
+P1-7 is now closed. Also open: the last of P1-8 (images carry no width/height, and
+template images no alt text), and P2-13 (no reusable blocks — no saved sections, no copy-paste between pages, no
 outline tree).
 
 ---
@@ -237,7 +349,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 195 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping) — all passing; 66 Playwright specs |
+| Quality | 225 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes, clipboard) — all passing; 77 Playwright specs |
 
 ---
 
@@ -285,6 +397,13 @@ can read (`src/app/api/sites/[id]/export/route.ts`).
 
 For the customer this is the whole ballgame: the product currently builds *mockups*, not
 *websites*. Everything else in this review is secondary to it.
+
+**Answered, and closed.** *(Round 2, and the scope note above.)* **Download files** hands
+the whole site over as ordinary HTML, CSS and images: unpack it, double-click
+`index.html`, or drop the folder on any static host. Since Neuravex is downloaded software
+rather than a service, that is the whole of the answer — the hosting half of this finding
+is not a gap to close but a product Neuravex is not. What remains worth doing here is
+making the exported folder as good as it can be, not adding a deploy button.
 
 ### P0-2. Published sites are not mobile-responsive
 
@@ -345,9 +464,9 @@ style, no design tokens.
 
 | Field | Status |
 | --- | --- |
-| `Site.theme` (light/dark) | Stored, editable via API, **never read by any renderer** |
+| `Site.theme` (light/dark) | Stored, editable via API, **never read by any renderer** — *removed in round 11* |
 | `Site.headHtml` | Writable via `PATCH /api/sites/[id]`, **never rendered**, no UI — so the documented "load Google Fonts / add analytics" path does not exist |
-| `Page.scheduledAt` | In the schema, **no scheduling logic anywhere** |
+| `Page.scheduledAt` | In the schema, **no scheduling logic anywhere** — *removed in round 11* |
 | `Page.metaTitle` / `metaDescription` / `ogImage` | **Read** by `generateMetadata`, but no UI and `PATCH /api/pages/[id]` refuses to set them — per-page SEO is impossible from inside the app |
 
 ### P1-8. SEO and publishing basics are missing
@@ -418,11 +537,13 @@ LAN.
 
 ### Tier 1 — ship-blockers
 
-**R1. Make "Publish" mean published.**
-Add a static export that writes real HTML/CSS/assets (download as a zip), plus at least one
-push-button deploy target (Netlify drop, GitHub Pages, Vercel, or plain SFTP). Let a site
-be served at the root path instead of `/sites/<slug>`, and allow a configured base URL so
-canonical tags and sitemaps are correct. Without this, nothing else in the product matters.
+**R1. Make "Publish" mean published.** ✅ *Done, in the form this product takes.*
+A static export writes real HTML, CSS and assets and hands them over as a zip. The
+push-button deploy targets this originally asked for (Netlify, GitHub Pages, Vercel, SFTP)
+are **not** planned: Neuravex is downloaded software, not a service, and the customer
+hosts wherever they already do. A configured base URL is still worth having so the
+exported pages can carry their own canonical tags and a sitemap — that part of this
+recommendation stands.
 
 **R2. Responsive by default.**
 - Stack `Columns` below 640px and drop 3/4-column grids to 2-up below 1024px, as the

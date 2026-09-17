@@ -52,7 +52,6 @@ const site = {
   name: "Acme",
   slug: "acme",
   description: "A site",
-  theme: "light",
   accent: "#059669",
   fontFamily: "Georgia, serif",
   headingFont: null,
@@ -83,7 +82,6 @@ const site = {
       metaTitle: "Home | Acme",
       metaDescription: null,
       ogImage: null,
-      scheduledAt: null,
       revisions: [{ title: "Home", content: "[]", manual: true, createdAt: new Date("2026-01-02T03:04:05Z") }],
       submissions: [{ data: '{"field-0":"hi"}', createdAt: new Date("2026-01-02T03:04:05Z") }],
     },
@@ -131,7 +129,7 @@ describe("siteCreateData", () => {
     expect(data.accent).toBe("#6366f1");
     expect(data.headerOpacity).toBe(80);
     expect(data.language).toBe("en");
-    expect(data.theme).toBe("light");
+    expect(data.headerShape).toBe("bar");
   });
 
   it("survives a nameless archive", () => {

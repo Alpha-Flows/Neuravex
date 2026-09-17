@@ -15,7 +15,6 @@ model Site {
   name        String
   slug        String   @unique
   description String?
-  theme       String   @default("light")
   accent      String   @default("#6366f1")
   // Visual theme
   fontFamily  String?  // e.g. "Inter, sans-serif"
@@ -59,8 +58,6 @@ model Page {
   metaTitle       String?
   metaDescription String?
   ogImage         String?
-  // Scheduled publishing
-  scheduledAt     DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -69,6 +66,21 @@ model Page {
 
   @@unique([siteId, slug])
   @@index([siteId])
+}
+
+/// A block someone kept to use again — a section they built once and want on
+/// another page. Saved by hand from the editor; nothing creates these on its own.
+model SavedBlock {
+  id        String   @id @default(cuid())
+  /// What they called it.
+  name      String
+  /// The block type, for the icon and the label in the palette.
+  type      String
+  /// The block and everything inside it, as JSON.
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 /// A site or page that was deleted, kept whole so it can be put back.

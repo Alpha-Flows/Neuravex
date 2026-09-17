@@ -4,6 +4,7 @@ import { BaseBlock, HeadingProps, TextProps, ImageProps, ButtonProps, DividerPro
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { MediaPicker } from "./MediaPicker";
+import { getBlockDefinition } from "@/lib/blocks";
 
 interface Placement {
   /** Zero-based column this block currently sits in. */
@@ -18,9 +19,11 @@ interface Props {
   onClose: () => void;
   /** Set when the block is a child of a columns block. */
   placement?: Placement;
+  /** Keeps this block, under a name, for use on any page. */
+  onSaveForReuse?: (name: string) => Promise<void> | void;
 }
 
-export function BlockInspector({ block, onChange, onClose, placement }: Props) {
+export function BlockInspector({ block, onChange, onClose, placement, onSaveForReuse }: Props) {
   if (!block) {
     return (
       <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full p-4 text-sm text-fg-muted">
@@ -45,8 +48,80 @@ export function BlockInspector({ block, onChange, onClose, placement }: Props) {
       <div className="p-4 space-y-4">
         {placement ? <ColumnPlacement placement={placement} /> : null}
         <InspectorBody block={block} onChange={onChange} />
+        {onSaveForReuse ? <SaveForReuse block={block} onSave={onSaveForReuse} /> : null}
       </div>
     </aside>
+  );
+}
+
+/**
+ * Keeping a block to use again.
+ *
+ * A section built once had to be rebuilt by hand on the next page. Named here,
+ * it shows up in the palette on every page of every site.
+ */
+function SaveForReuse({ block, onSave }: { block: BaseBlock; onSave: (name: string) => Promise<void> | void }) {
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function keep() {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setSaving(true);
+    try {
+      await onSave(trimmed);
+      setSaved(true);
+      setNaming(false);
+      setName("");
+      setTimeout(() => setSaved(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!naming) {
+    return (
+      <div className="pt-4 border-t border-bg-border">
+        <button
+          onClick={() => { setNaming(true); setName(getBlockDefinition(block.type)?.label ?? block.type); }}
+          className="w-full h-8 rounded-md border border-bg-border text-xs text-fg-muted hover:text-fg hover:border-brand/60"
+        >
+          {saved ? "Saved to the palette" : "Save for reuse"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pt-4 border-t border-bg-border space-y-2">
+      <Label>Name it</Label>
+      <Input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") keep();
+          if (e.key === "Escape") setNaming(false);
+        }}
+        placeholder="Pricing section"
+        className="h-8 text-xs"
+      />
+      <div className="flex items-center justify-end gap-1.5">
+        <button onClick={() => setNaming(false)} className="h-7 px-2.5 rounded-md text-xs text-fg-muted hover:text-fg">
+          Cancel
+        </button>
+        <button
+          onClick={keep}
+          disabled={saving || !name.trim()}
+          className="h-7 px-3 rounded-md text-xs font-medium bg-brand text-white hover:opacity-90 disabled:opacity-50"
+        >
+          Save
+        </button>
+      </div>
+    </div>
   );
 }
 

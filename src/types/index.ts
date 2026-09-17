@@ -67,6 +67,15 @@ export interface ImageProps {
   rounded: "none" | "md" | "xl" | "full";
   width: "small" | "medium" | "large" | "full";
   caption: string;
+  /**
+   * The picture's own pixel size, when it is known — from the file when it was
+   * uploaded or picked from the library. It is what the browser needs to hold
+   * the right amount of space before the image arrives, instead of letting the
+   * page jump as each one loads. `width` above is a layout choice; these two
+   * are a fact about the file.
+   */
+  naturalWidth?: number;
+  naturalHeight?: number;
 }
 
 export interface ButtonProps {

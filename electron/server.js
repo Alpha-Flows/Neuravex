@@ -13,6 +13,7 @@ const { exec, spawn, execSync } = require("child_process");
 const http = require("http");
 const path = require("path");
 const fs = require("fs");
+const { firstRun } = require("../scripts/first-run");
 
 const PORT = parseInt(process.argv[2] || process.env.PORT || "3939", 10);
 const URL = `http://localhost:${PORT}`;
@@ -71,8 +72,19 @@ function waitForServer(url, retries = 30, interval = 500) {
 
 async function main() {
   log(`Neuravex Website Builder v0.1.0`);
-  log(`Starting on port ${PORT}…`);
 
+  // Everything the app needs before it can serve a page: somewhere to keep the
+  // data, and a database that matches the schema. A fresh copy has neither,
+  // and this used to start a server whose every page threw until the reader
+  // found steps 2 and 3 of the README.
+  try {
+    firstRun();
+  } catch {
+    log("Neuravex cannot start until that is sorted out.");
+    process.exit(1);
+  }
+
+  log(`Starting on port ${PORT}…`);
   ensureBuilt();
 
   const proc = spawn("npx", ["next", "start", "-p", String(PORT)], {

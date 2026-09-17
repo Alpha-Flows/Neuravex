@@ -35,8 +35,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (typeof body.name === "string") data.name = body.name.trim();
   if (typeof body.description === "string" || body.description === null) data.description = body.description;
   if (typeof body.accent === "string") data.accent = body.accent;
-  if (typeof body.theme === "string") data.theme = body.theme;
-  // New theme / layout / SEO fields
+  // Theme / layout / SEO fields
   if (typeof body.fontFamily === "string" || body.fontFamily === null) data.fontFamily = body.fontFamily;
   if (typeof body.headingFont === "string" || body.headingFont === null) data.headingFont = body.headingFont;
   if (typeof body.borderRadius === "string" || body.borderRadius === null) data.borderRadius = body.borderRadius;

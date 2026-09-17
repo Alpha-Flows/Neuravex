@@ -11,7 +11,6 @@ interface SiteInfo {
   slug: string;
   description: string | null;
   accent: string;
-  theme: string;
 }
 
 type Tab = "general" | "theme" | "layout" | "seo" | "advanced";

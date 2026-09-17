@@ -36,7 +36,7 @@ export default async function SiteAdmin({ params }: { params: { id: string } }) 
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <SiteSettings site={{ id: site.id, name: site.name, slug: site.slug, description: site.description, accent: site.accent, theme: site.theme }} />
+            <SiteSettings site={{ id: site.id, name: site.name, slug: site.slug, description: site.description, accent: site.accent }} />
             <DownloadSiteButton siteId={site.id} disabled={!pages.some((p) => p.published)} />
             {pages.find((p) => p.isHome && p.published) ? (
               <Link href={`/sites/${site.slug}`} target="_blank">

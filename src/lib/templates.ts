@@ -47,8 +47,19 @@ function btn(label: string, color = "", variant = "primary", size = "lg", align 
   return b("button", { label, href: "#", variant, size, align, color, textColor: "" } as any);
 }
 function s(hPx: number): TemplateBlock { return b("spacer", { height: hPx }); }
-function img(url: string, caption = ""): TemplateBlock {
-  return b("image", { src: url, alt: "", rounded: "xl", width: "full", caption } as any);
+function img(image: StockImage, caption = ""): TemplateBlock {
+  // Alt text and the file's own size travel with the picture: a template used
+  // to seed every image with an empty alt and no dimensions, so a screen reader
+  // got nothing and the page jumped as each one loaded.
+  return b("image", {
+    src: image.src,
+    alt: image.alt,
+    rounded: "xl",
+    width: "full",
+    caption,
+    naturalWidth: image.width,
+    naturalHeight: image.height,
+  } as any);
 }
 function div(color = "#e2e8f0"): TemplateBlock { return b("divider", { style: "solid", color, thickness: 1 }); }
 function cols(count: 2 | 3 | 4, gap: number, ...kids: TemplateBlock[]) {
@@ -67,36 +78,45 @@ function lst(items: string[], style: "check" | "bullet" | "number" = "check"): T
 // created showed broken images without an internet connection — in an app
 // whose whole point is that it runs on your own machine — and a downloaded
 // site carried the same dependency with it. Everything here ships in the repo.
-const IMG = {
-  heroSaaS: "/stock/abstract/magicpattern-bevXKKL7E9g-unsplash.jpg",
-  heroAgency: "/stock/abstract/pawel-czerwinski-NTYYL9Eb9y8-unsplash.jpg",
-  heroPortfolio: "/stock/industry/monika-bienert-EETgT0lmAiQ-unsplash.jpg",
-  interior: "/stock/food/jelezniac-bianca-FTHK04C2FLg-unsplash.jpg",
-  food1: "/stock/food/alexandru-bogdan-ghita-UeYkqQh4PoI-unsplash.jpg",
-  food2: "/stock/food/edward-howell-vvUy1hWVYEA-unsplash.jpg",
-  food3: "/stock/food/louis-hansel-wVoP_Q2Bg_A-unsplash.jpg",
-  blog1: "/stock/nature/degleex-ganzorig-wQImoykAwGs-unsplash.jpg",
-  blog2: "/stock/nature/sam-ferrara-1527pjeb6jg-unsplash.jpg",
-  blog3: "/stock/nature/cristian-palmer-3leBubkp5hk-unsplash.jpg",
-  device: "/stock/industry/thisisengineering-ZPeXrWxOjRQ-unsplash.jpg",
-  workspace: "/stock/healthcare/national-cancer-institute-NFvdKIhxYlU-unsplash.jpg",
-  team: "/stock/industry/thisisengineering-WjOWazUPAss-unsplash.jpg",
-  abstract: "/stock/abstract/mymind-XUlsF9LYeVk-unsplash.jpg",
-  graph: "/stock/abstract/maxim-berg-ANuuRuCRRAc-unsplash.jpg",
-  outdoor: "/stock/nature/pietro-de-grandi-Q5dMq3cKqec-unsplash.jpg",
-  phone: "/stock/food/clay-banks-1Uj0HmqQFGk-unsplash.jpg",
-  event: "/stock/food/siyuan-g_V2rt6iG7A-unsplash.jpg",
-  book: "/stock/abstract/codioful-formerly-gradienta-n2XqPm7Bqhk-unsplash.jpg",
-  property: "/stock/transport/aron-yigin-lNpAmLA_bvQ-unsplash.jpg",
-  camera: "/stock/nature/ian-keefe-NBQhCKtg_9Y-unsplash.jpg",
-  building: "/stock/architecture/james-sullivan-ESZRBtkQ_f8-unsplash.jpg",
-  gym: "/stock/fitness/dane-wetton-zdLdgGbi9Ow-unsplash.jpg",
-  podcast: "/stock/abstract/pawel-czerwinski-6lQDFGOB1iw-unsplash.jpg",
-  stage: "/stock/architecture/scott-blake-x-ghf9LjrVg-unsplash.jpg",
-  law: "/stock/abstract/milad-fakurian-nY14Fs8pxT8-unsplash.jpg",
-  finance: "/stock/abstract/magicpattern-87PP9Zd7MNo-unsplash.jpg",
-  charity: "/stock/agriculture/land-o-lakes-inc-iFx1WMvjvpw-unsplash.jpg",
-  wedding: "/stock/nature/sebastian-unrau-sp-p7uuT0tw-unsplash.jpg",
+interface StockImage {
+  src: string;
+  /** What the picture shows, for a reader who cannot see it. */
+  alt: string;
+  /** The file's own pixel size, so a page can hold its space while it loads. */
+  width: number;
+  height: number;
+}
+
+const IMG: Record<string, StockImage> = {
+  heroSaaS: { src: "/stock/abstract/magicpattern-bevXKKL7E9g-unsplash.jpg", alt: "A blue and violet gradient", width: 2560, height: 1440 },
+  heroAgency: { src: "/stock/abstract/pawel-czerwinski-NTYYL9Eb9y8-unsplash.jpg", alt: "Swirls of liquid colour", width: 2560, height: 3840 },
+  heroPortfolio: { src: "/stock/industry/monika-bienert-EETgT0lmAiQ-unsplash.jpg", alt: "Hands shaping a bowl on a potter's wheel", width: 2560, height: 1920 },
+  interior: { src: "/stock/food/jelezniac-bianca-FTHK04C2FLg-unsplash.jpg", alt: "A bench and a plant against a warm plastered wall", width: 2560, height: 4550 },
+  food1: { src: "/stock/food/alexandru-bogdan-ghita-UeYkqQh4PoI-unsplash.jpg", alt: "A platter of grilled ribs with tomatoes, fries and pickles", width: 2560, height: 1710 },
+  food2: { src: "/stock/food/edward-howell-vvUy1hWVYEA-unsplash.jpg", alt: "A plated dish of greens in a pale bowl", width: 2560, height: 1706 },
+  food3: { src: "/stock/food/louis-hansel-wVoP_Q2Bg_A-unsplash.jpg", alt: "A restaurant dining room", width: 2560, height: 1706 },
+  blog1: { src: "/stock/nature/degleex-ganzorig-wQImoykAwGs-unsplash.jpg", alt: "A dense green forest", width: 2560, height: 3840 },
+  blog2: { src: "/stock/nature/sam-ferrara-1527pjeb6jg-unsplash.jpg", alt: "Mountain peaks above the clouds at sunset", width: 2560, height: 1706 },
+  blog3: { src: "/stock/nature/cristian-palmer-3leBubkp5hk-unsplash.jpg", alt: "Sunlight through turquoise water", width: 2560, height: 1920 },
+  device: { src: "/stock/industry/thisisengineering-ZPeXrWxOjRQ-unsplash.jpg", alt: "An engineer working at a laptop beside machinery", width: 2560, height: 1708 },
+  workspace: { src: "/stock/healthcare/national-cancer-institute-NFvdKIhxYlU-unsplash.jpg", alt: "Hands typing on a laptop", width: 2560, height: 1706 },
+  team: { src: "/stock/industry/thisisengineering-WjOWazUPAss-unsplash.jpg", alt: "Three colleagues looking at a laptop together", width: 2560, height: 3838 },
+  abstract: { src: "/stock/abstract/mymind-XUlsF9LYeVk-unsplash.jpg", alt: "A warm orange and pink gradient", width: 2560, height: 3840 },
+  graph: { src: "/stock/abstract/maxim-berg-ANuuRuCRRAc-unsplash.jpg", alt: "Vertical blue lines rising like a bar chart", width: 2560, height: 1600 },
+  outdoor: { src: "/stock/nature/pietro-de-grandi-Q5dMq3cKqec-unsplash.jpg", alt: "A lake below mountains", width: 2560, height: 3840 },
+  phone: { src: "/stock/food/clay-banks-1Uj0HmqQFGk-unsplash.jpg", alt: "A phone, a bowl and a plant on a wooden desk", width: 2560, height: 1708 },
+  event: { src: "/stock/food/siyuan-g_V2rt6iG7A-unsplash.jpg", alt: "A restaurant terrace busy in the evening", width: 2560, height: 1706 },
+  book: { src: "/stock/abstract/codioful-formerly-gradienta-n2XqPm7Bqhk-unsplash.jpg", alt: "A red and violet gradient", width: 2560, height: 1706 },
+  property: { src: "/stock/transport/aron-yigin-lNpAmLA_bvQ-unsplash.jpg", alt: "Two modern buildings against the sky", width: 2560, height: 3414 },
+  camera: { src: "/stock/nature/ian-keefe-NBQhCKtg_9Y-unsplash.jpg", alt: "Ripples on still water", width: 2560, height: 3840 },
+  building: { src: "/stock/architecture/james-sullivan-ESZRBtkQ_f8-unsplash.jpg", alt: "A construction crane against a pink sky", width: 2560, height: 3200 },
+  gym: { src: "/stock/fitness/dane-wetton-zdLdgGbi9Ow-unsplash.jpg", alt: "Someone exercising outdoors", width: 2560, height: 3838 },
+  podcast: { src: "/stock/abstract/pawel-czerwinski-6lQDFGOB1iw-unsplash.jpg", alt: "Dark smoke against black", width: 2560, height: 3840 },
+  stage: { src: "/stock/architecture/scott-blake-x-ghf9LjrVg-unsplash.jpg", alt: "Workers on a large construction site", width: 2560, height: 1706 },
+  law: { src: "/stock/abstract/milad-fakurian-nY14Fs8pxT8-unsplash.jpg", alt: "A dark magenta gradient", width: 2560, height: 1920 },
+  finance: { src: "/stock/abstract/magicpattern-87PP9Zd7MNo-unsplash.jpg", alt: "A dark teal gradient", width: 2560, height: 1440 },
+  charity: { src: "/stock/agriculture/land-o-lakes-inc-iFx1WMvjvpw-unsplash.jpg", alt: "Someone tending plants in a field", width: 2560, height: 1708 },
+  wedding: { src: "/stock/nature/sebastian-unrau-sp-p7uuT0tw-unsplash.jpg", alt: "A misty forest path", width: 2560, height: 1706 },
 };
 
 export const TEMPLATES: Template[] = [
@@ -1999,11 +2019,11 @@ export const TEMPLATES: Template[] = [
                 </div>
               </div>`;
             return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-              ${card("🔍", "AI Upscaling", "Scale images up to 16x with multiple AI models tuned for crystal-clear results.", IMG.device, 0, true)}
-              ${card("🎨", "Color Accuracy", "Preserve every detail and color, ready for print.", IMG.abstract, 80)}
-              ${card("✏️", "Smart Editing", "AI face enhancement, detail recovery, and batch editing.", IMG.workspace, 160)}
-              ${card("☁️", "Unlimited Cloud Storage", "Access your files from anywhere, anytime.", IMG.graph, 240, true)}
-              ${card("⚡", "Batch Processing", "Queue hundreds of images and let it run in the background.", IMG.device, 320)}
+              ${card("🔍", "AI Upscaling", "Scale images up to 16x with multiple AI models tuned for crystal-clear results.", IMG.device.src, 0, true)}
+              ${card("🎨", "Color Accuracy", "Preserve every detail and color, ready for print.", IMG.abstract.src, 80)}
+              ${card("✏️", "Smart Editing", "AI face enhancement, detail recovery, and batch editing.", IMG.workspace.src, 160)}
+              ${card("☁️", "Unlimited Cloud Storage", "Access your files from anywhere, anytime.", IMG.graph.src, 240, true)}
+              ${card("⚡", "Batch Processing", "Queue hundreds of images and let it run in the background.", IMG.device.src, 320)}
             </div>`;
           })() } as any),
         ),
@@ -2156,11 +2176,11 @@ export const TEMPLATES: Template[] = [
                 </div>
               </div>`;
             return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-              ${card("🔍", "AI Upscaling", "Scale images up to 16x with multiple AI models tuned for crystal-clear results.", IMG.device, 0, true)}
-              ${card("🎨", "Color Accuracy", "Preserve every detail and color, ready for print.", IMG.abstract, 80)}
-              ${card("✏️", "Smart Editing", "AI face enhancement, detail recovery, and batch editing.", IMG.workspace, 160)}
-              ${card("☁️", "Unlimited Cloud Storage", "Access your files from anywhere, anytime.", IMG.graph, 240, true)}
-              ${card("⚡", "Batch Processing", "Queue hundreds of images and let it run in the background.", IMG.device, 320)}
+              ${card("🔍", "AI Upscaling", "Scale images up to 16x with multiple AI models tuned for crystal-clear results.", IMG.device.src, 0, true)}
+              ${card("🎨", "Color Accuracy", "Preserve every detail and color, ready for print.", IMG.abstract.src, 80)}
+              ${card("✏️", "Smart Editing", "AI face enhancement, detail recovery, and batch editing.", IMG.workspace.src, 160)}
+              ${card("☁️", "Unlimited Cloud Storage", "Access your files from anywhere, anytime.", IMG.graph.src, 240, true)}
+              ${card("⚡", "Batch Processing", "Queue hundreds of images and let it run in the background.", IMG.device.src, 320)}
             </div>`;
           })() } as any),
         ),
@@ -2179,4 +2199,17 @@ export const TEMPLATES: Template[] = [
 ];
 export function getTemplate(id: string): Template | undefined {
   return TEMPLATES.find((t) => t.id === id);
+}
+
+/**
+ * The accent a new site starts on.
+ *
+ * A template's buttons read the site accent rather than carrying a colour
+ * each, so a site made from one has to start on that template's palette or a
+ * green restaurant opens with indigo buttons. Both the web app and the MCP
+ * server create sites, and they have to agree about this.
+ */
+export function resolveSiteAccent(requested: string | undefined | null, template?: Template | null): string {
+  const asked = typeof requested === "string" ? requested.trim() : "";
+  return asked || template?.accent || "#6366f1";
 }

@@ -21,7 +21,6 @@ async function main() {
       slug: "demo",
       description: "A sample site showing what Neuravex can do.",
       accent: "#6366f1",
-      theme: "light",
       pages: {
         create: tpl.pages.map((p, i) => ({
           title: p.title,

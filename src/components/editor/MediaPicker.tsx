@@ -3,10 +3,40 @@ import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
+export interface PickedImage {
+  /** The picture's own pixel size, when it could be read. */
+  naturalWidth?: number;
+  naturalHeight?: number;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSelect: (url: string) => void;
+  /**
+   * The chosen picture, with its size when we know it. The size is what lets a
+   * page reserve the right space instead of jumping as the image arrives.
+   */
+  onSelect: (url: string, size?: PickedImage) => void;
+}
+
+/** Ask the browser how big a picture is, without waiting forever for an answer. */
+function measure(url: string): Promise<PickedImage> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") return resolve({});
+    const img = new window.Image();
+    const done = (size: PickedImage) => resolve(size);
+    const timer = setTimeout(() => done({}), 4000);
+    img.onload = () => {
+      clearTimeout(timer);
+      done(
+        img.naturalWidth && img.naturalHeight
+          ? { naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight }
+          : {},
+      );
+    };
+    img.onerror = () => { clearTimeout(timer); done({}); };
+    img.src = url;
+  });
 }
 
 interface StockPhoto {
@@ -58,7 +88,7 @@ export function MediaPicker({ open, onClose, onSelect }: Props) {
       const info = await res.json();
       if (info.url) {
         setFiles((f) => [...f, { url: info.url, name: info.name }]);
-        onSelect(info.url);
+        onSelect(info.url, { naturalWidth: info.width, naturalHeight: info.height });
         onClose();
       }
     } finally {
@@ -126,7 +156,7 @@ export function MediaPicker({ open, onClose, onSelect }: Props) {
           ) : (
             <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
               {files.map((f) => (
-                <div key={f.url} className="group relative rounded-lg overflow-hidden border border-bg-border bg-bg cursor-pointer" onClick={() => { onSelect(f.url); onClose(); }}>
+                <div key={f.url} className="group relative rounded-lg overflow-hidden border border-bg-border bg-bg cursor-pointer" onClick={async () => { const size = await measure(f.url); onSelect(f.url, size); onClose(); }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={f.url} alt={f.name} className="w-full h-24 object-cover" />
                   {f.usedOn && f.usedOn.length > 0 ? (
@@ -179,7 +209,7 @@ export function MediaPicker({ open, onClose, onSelect }: Props) {
                 <div
                   key={p.id}
                   className="group relative rounded-lg overflow-hidden border border-bg-border bg-bg cursor-pointer"
-                  onClick={() => { onSelect(p.url); onClose(); }}
+                  onClick={async () => { const size = await measure(p.url); onSelect(p.url, size); onClose(); }}
                   title={p.credit ? `Photo by ${p.credit}${p.license ? ` — ${p.license}` : ""}` : undefined}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}

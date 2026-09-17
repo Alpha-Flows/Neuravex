@@ -14,13 +14,16 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import { BaseBlock, BlockType } from "@/types";
 import { getBlockDefinition } from "@/lib/blocks";
-import { uid, slugify } from "@/lib/utils";
+import { uid, slugify, cn } from "@/lib/utils";
 import { siteThemeCss, headerOffset, SiteThemeInput } from "@/lib/site-theme";
 import { scopeCss } from "@/lib/scope-css";
+import { readClipboard, writeClipboard, pasteable } from "@/lib/clipboard";
 import { sanitizeCss } from "@/lib/security";
 import { SiteHeader, SiteFooter, SiteChrome, NavPage } from "@/components/public/SiteChrome";
 import { mapBlocks, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount, removeBlock, withFreshIds } from "@/lib/tree-utils";
 import { BlockPalette } from "./BlockPalette";
+import { BlockOutline } from "./BlockOutline";
+import { SavedBlocks } from "./SavedBlocks";
 import { BlockInspector } from "./BlockInspector";
 import { RevisionsPanel } from "./RevisionsPanel";
 import { PageSettingsPanel, PageSeo } from "./PageSettingsPanel";
@@ -85,6 +88,9 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
   const [saveFailed, setSaveFailed] = useState(false);
   const [preview, setPreview] = useState(false);
   const [viewport, setViewport] = useState<"full" | "lg" | "md" | "sm">("full");
+  const [leftTab, setLeftTab] = useState<"blocks" | "outline">("blocks");
+  /** Bumped when a block is kept, so the palette shows it straight away. */
+  const [savedKey, setSavedKey] = useState(0);
   const [activeDrag, setActiveDrag] = useState<{ kind: "palette" | "block"; type?: BlockType; block?: BaseBlock } | null>(null);
 
   // Undo / redo. The stack lives in a ref: keystrokes arrive faster than
@@ -263,6 +269,40 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
     if (selectedId === id) setSelectedId(null);
   }
 
+  /** What is on the clipboard, for the hint in the palette. */
+  const [clipboardLabel, setClipboardLabel] = useState<string | null>(null);
+  useEffect(() => { setClipboardLabel(readClipboard()?.label ?? null); }, []);
+
+  function pasteBlock(entry: ReturnType<typeof readClipboard>) {
+    if (!entry) return;
+    insertExistingBlock(pasteable(entry));
+  }
+
+  /** Put a block that already exists onto the page, after the selection. */
+  function insertExistingBlock(block: BaseBlock) {
+    const { container, index } = findInsertAfterSelected();
+    const next =
+      container === "page"
+        ? (() => { const list = blocks.slice(); list.splice(index, 0, block); return list; })()
+        : updateContainer(blocks, container, (list) => {
+            const copy = list.slice();
+            copy.splice(index, 0, block);
+            return copy;
+          });
+    pushHistory(next);
+    setSelectedId(block.id);
+  }
+
+  async function saveForReuse(name: string) {
+    if (!selectedBlock) return;
+    await fetch("/api/saved-blocks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, block: selectedBlock }),
+    });
+    setSavedKey((k) => k + 1);
+  }
+
   function duplicateBlock(id: string) {
     const original = findBlock(blocks, id);
     if (!original) return;
@@ -332,6 +372,29 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
       if (mod && e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); return; }
       // Redo
       if (mod && e.key === "z" && e.shiftKey) { e.preventDefault(); redo(); return; }
+      // Copy, cut and paste — the way a block moves between pages. Skipped
+      // while a caret is in text, where the browser's own copy and paste is
+      // what the person means.
+      if (mod && (e.key === "c" || e.key === "x") && selectedId && !isTextEntry(document.activeElement)) {
+        const block = findBlock(blocks, selectedId);
+        if (block) {
+          e.preventDefault();
+          const label = getBlockDefinition(block.type)?.label ?? block.type;
+          if (writeClipboard(block, label)) {
+            setClipboardLabel(label);
+            if (e.key === "x") deleteBlock(selectedId);
+          }
+        }
+        return;
+      }
+      if (mod && e.key === "v" && !isTextEntry(document.activeElement)) {
+        const entry = readClipboard();
+        if (entry) {
+          e.preventDefault();
+          pasteBlock(entry);
+        }
+        return;
+      }
       // Duplicate selected block
       if (mod && e.key === "d" && selectedId && !e.repeat && !isTextEntry(document.activeElement)) { e.preventDefault(); duplicateBlock(selectedId); return; }
       // Delete / Backspace — delete the selected block, but never while a
@@ -559,7 +622,36 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
         {/* Body: palette | canvas | inspector */}
         <div className="flex-1 flex min-h-0">
           {!preview ? (
-            <BlockPalette onInsert={(t) => { const pos = findInsertAfterSelected(); insertBlockAt(t, pos.container, pos.index); }} />
+            <aside className="w-64 shrink-0 border-r border-bg-border bg-bg-soft h-full flex flex-col">
+              <div className="flex border-b border-bg-border shrink-0">
+                {(["blocks", "outline"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setLeftTab(t)}
+                    className={cn(
+                      "flex-1 h-9 text-xs capitalize border-b-2 -mb-px",
+                      leftTab === t ? "border-brand text-fg font-medium" : "border-transparent text-fg-muted hover:text-fg",
+                    )}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <div className="flex-1 overflow-y-auto min-h-0">
+                {leftTab === "blocks" ? (
+                  <>
+                    <BlockPalette
+                      onInsert={(t) => { const pos = findInsertAfterSelected(); insertBlockAt(t, pos.container, pos.index); }}
+                      pasteLabel={clipboardLabel}
+                      onPaste={() => pasteBlock(readClipboard())}
+                    />
+                    <SavedBlocks refreshKey={savedKey} onInsert={insertExistingBlock} />
+                  </>
+                ) : (
+                  <BlockOutline blocks={blocks} selectedId={selectedId} onSelect={(id) => setSelectedId(id)} />
+                )}
+              </div>
+            </aside>
           ) : (
             <div className="w-64 shrink-0 border-r border-bg-border bg-bg-soft p-4 text-sm text-fg-muted">
               <div className="text-xs uppercase tracking-wide font-semibold mb-3">Preview</div>
@@ -614,6 +706,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
                     ? { current: selectedPlacement.current, count: selectedPlacement.count, onMove: moveSelectedToColumn }
                     : undefined
                 }
+                onSaveForReuse={saveForReuse}
               />
             ) : (
               <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full overflow-y-auto p-4">

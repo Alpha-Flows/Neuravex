@@ -18,7 +18,6 @@ export const SITE_FIELDS = [
   "name",
   "slug",
   "description",
-  "theme",
   "accent",
   "fontFamily",
   "headingFont",
@@ -37,7 +36,7 @@ export const SITE_FIELDS = [
   "language",
 ] as const;
 
-/** Page columns worth carrying. `scheduledAt` goes too, unused as it is. */
+/** Page columns worth carrying. */
 export const PAGE_FIELDS = [
   "title",
   "slug",
@@ -48,7 +47,6 @@ export const PAGE_FIELDS = [
   "metaTitle",
   "metaDescription",
   "ogImage",
-  "scheduledAt",
 ] as const;
 
 type Row = Record<string, unknown>;
@@ -111,7 +109,6 @@ export function serializePage(page: Row, { includeHistory = false }: SerializeOp
 }
 
 const SITE_DEFAULTS: Row = {
-  theme: "light",
   accent: "#6366f1",
   headerBackground: "#ffffff",
   headerOpacity: 80,
@@ -150,7 +147,6 @@ export interface PageCreateData {
   metaTitle: string | null;
   metaDescription: string | null;
   ogImage: string | null;
-  scheduledAt: Date | null;
 }
 
 /** One page, ready to be written. Dates come back as dates. */
@@ -165,7 +161,6 @@ export function pageCreateData(page: Row): PageCreateData {
     metaTitle: (page.metaTitle as string) ?? null,
     metaDescription: (page.metaDescription as string) ?? null,
     ogImage: (page.ogImage as string) ?? null,
-    scheduledAt: page.scheduledAt ? new Date(page.scheduledAt as string) : null,
   };
 }
 

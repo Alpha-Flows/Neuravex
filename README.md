@@ -41,19 +41,19 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 18+).
 You need **Node.js 18+** installed. From the project root:
 
 ```bash
-# 1. Install dependencies (postinstall also runs `prisma generate`)
 npm install
+npm run desktop
+```
 
-# 2. Set up your environment
-cp .env.example .env
+That is the whole of it. The launcher creates your `.env`, sets up the database, adds a
+demo site on the very first run, builds the app and opens it in your browser. Running it
+again does none of that work twice.
 
-# 3. Create the database and apply the schema
-npm run db:push
+To work on Neuravex itself, use the dev server instead:
 
-# 4. (Optional) Seed a demo site so the app is not empty
-npm run db:seed
-
-# 5. Start the dev server
+```bash
+npm install
+npm run setup      # .env, database, demo site — the same first-run steps
 npm run dev
 ```
 
