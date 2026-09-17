@@ -31,7 +31,6 @@ model Site {
   footerHtml  String?
   // Custom CSS injected on every public page
   customCss   String?
-  headHtml    String?
   // SEO defaults (per-page SEO overrides these)
   metaTitle       String?
   metaDescription String?
@@ -74,6 +73,9 @@ model Revision {
   page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
   title     String
   content   String
+  // A save the user asked for (Cmd+S / Save) rather than an autosave.
+  // Autosaves within the same window coalesce; manual saves never do.
+  manual    Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@index([pageId])

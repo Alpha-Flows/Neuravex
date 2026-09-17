@@ -15,10 +15,11 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { BaseBlock, BlockType } from "@/types";
 import { getBlockDefinition } from "@/lib/blocks";
 import { uid } from "@/lib/utils";
-import { mapBlocks, findInChildren, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount } from "@/lib/tree-utils";
+import { mapBlocks, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount, removeBlock, withFreshIds } from "@/lib/tree-utils";
 import { BlockPalette } from "./BlockPalette";
 import { BlockInspector } from "./BlockInspector";
 import { RevisionsPanel } from "./RevisionsPanel";
+import { PageSettingsPanel, PageSeo } from "./PageSettingsPanel";
 import { SortableContainer } from "../blocks/Sortable";
 import { PublicBlocks } from "../public/PublicBlocks";
 import { Button } from "@/components/ui/Button";
@@ -34,6 +35,9 @@ interface Props {
     slug: string;
     isHome: boolean;
     published: boolean;
+    metaTitle: string;
+    metaDescription: string;
+    ogImage: string;
     blocks: BaseBlock[];
   };
 }
@@ -47,10 +51,16 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
   const [slug, setSlug] = useState(initial.slug);
   const [isHome, setIsHome] = useState(initial.isHome);
   const [published, setPublished] = useState(initial.published);
+  const [seo, setSeo] = useState<PageSeo>({
+    metaTitle: initial.metaTitle,
+    metaDescription: initial.metaDescription,
+    ogImage: initial.ogImage,
+  });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [preview, setPreview] = useState(false);
   const [viewport, setViewport] = useState<"full" | "lg" | "md" | "sm">("full");
   const [activeDrag, setActiveDrag] = useState<{ kind: "palette" | "block"; type?: BlockType; block?: BaseBlock } | null>(null);
@@ -74,32 +84,37 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
   const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!dirty) return;
-    autosaveRef.current = setTimeout(() => save(), AUTOSAVE_MS);
+    autosaveRef.current = setTimeout(() => save("autosave"), AUTOSAVE_MS);
     return () => { if (autosaveRef.current) clearTimeout(autosaveRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dirty, title, slug, isHome, published, blocks]);
+  }, [dirty, title, slug, isHome, published, blocks, seo]);
 
-  const saveFn = useCallback(async () => {
+  const saveFn = useCallback(async (reason: "manual" | "autosave" = "manual") => {
     setSaving(true);
     try {
       const res = await fetch(`/api/pages/${pageId}/save`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, slug, isHome, published, content: blocks }),
+        body: JSON.stringify({ title, slug, isHome, published, content: blocks, ...seo, reason }),
       });
+      setSaveFailed(!res.ok);
       if (res.ok) {
         setDirty(false);
         setSavedAt(new Date());
       }
+    } catch {
+      // A save that never lands must not look like one that did — the status
+      // line is the only signal that the work is safe.
+      setSaveFailed(true);
     } finally {
       setSaving(false);
     }
-  }, [pageId, title, slug, isHome, published, blocks]);
+  }, [pageId, title, slug, isHome, published, blocks, seo]);
 
   // Memo-ize save so the key event listener closure always has the latest
   const saveRef = useRef(saveFn);
   saveRef.current = saveFn;
-  const save = useCallback(() => saveRef.current(), []);
+  const save = useCallback((reason: "manual" | "autosave" = "manual") => saveRef.current(reason), []);
 
   // Maps every block id to the container that holds it. Columns children are
   // grouped by their own `column`, so these ids match what Columns renders.
@@ -164,24 +179,19 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
   }
 
   function deleteBlock(id: string) {
-    const next = mapBlocks(blocks, (b) => ({ ...b, children: (b.children ?? []).filter((c) => c.id !== id) })).filter((b) => b.id !== id);
+    const next = removeBlock(blocks, id);
+    if (next === blocks) return;
     pushHistory(next);
     if (selectedId === id) setSelectedId(null);
   }
 
   function duplicateBlock(id: string) {
-    const original = blocks.find((b) => b.id === id) ?? findInChildren(blocks, id);
+    const original = findBlock(blocks, id);
     if (!original) return;
-    const copy: BaseBlock = cloneTree(original);
-    copy.id = `${copy.id}-dup-${uid()}`;
-    if (copy.children) reidTree(copy, copy.id);
+    const copy = withFreshIds(cloneTree(original));
     const next = insertAfterInTree(blocks, id, copy);
     pushHistory(next);
     setSelectedId(copy.id);
-  }
-
-  function reidTree(b: BaseBlock, prefix: string) {
-    if (b.children) b.children.forEach((c) => { c.id = `${prefix}__${c.id}`; reidTree(c, c.id); });
   }
 
   function insertAfterInTree(list: BaseBlock[], target: string, dup: BaseBlock): BaseBlock[] {
@@ -239,7 +249,7 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
     function onKey(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey;
       // Save
-      if (mod && e.key === "s") { e.preventDefault(); save(); return; }
+      if (mod && e.key === "s") { e.preventDefault(); save("manual"); return; }
       // Undo
       if (mod && e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); return; }
       // Redo
@@ -391,13 +401,21 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-fg-muted shrink-0">
-              {saving ? "Saving…" : dirty ? "Unsaved changes" : savedAt ? `Saved ${savedAt.toLocaleTimeString()}` : "All saved"}
+            <span className={`text-xs shrink-0 ${saveFailed ? "text-red-400" : "text-fg-muted"}`}>
+              {saving
+                ? "Saving…"
+                : saveFailed
+                  ? "Couldn't save — press Save to retry"
+                  : dirty
+                    ? "Unsaved changes"
+                    : savedAt
+                      ? `Saved ${savedAt.toLocaleTimeString()}`
+                      : "All saved"}
             </span>
             <Button variant="ghost" size="sm" onClick={() => setPreview((p) => !p)}>
               {preview ? "Edit" : "Preview"}
             </Button>
-            <Button variant="outline" size="sm" onClick={save} loading={saving} disabled={!dirty}>
+            <Button variant="outline" size="sm" onClick={() => save("manual")} loading={saving} disabled={!dirty}>
               Save
             </Button>
             <PublishButton pageId={pageId} isHome={isHome} published={published} siteSlug={siteSlug} pageSlug={slug} onPublished={(p) => { p !== published && setDirty(true); setPublished(p); }} />
@@ -470,7 +488,12 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
               />
             ) : (
               <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full overflow-y-auto p-4">
-                <RevisionsPanel pageId={pageId} onRestore={() => window.location.reload()} />
+                <PageSettingsPanel
+                  seo={seo}
+                  fallbackTitle={title}
+                  onChange={(next) => { setSeo(next); setDirty(true); }}
+                />
+                <RevisionsPanel pageId={pageId} refreshKey={savedAt?.getTime() ?? 0} onRestore={() => window.location.reload()} />
               </aside>
             )
           ) : null}

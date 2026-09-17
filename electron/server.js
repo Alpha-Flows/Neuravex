@@ -41,7 +41,11 @@ function ensureBuilt() {
   const dotNext = path.join(ROOT, ".next");
   if (!fs.existsSync(dotNext)) {
     log("Production build not found. Running `next build`…");
-    execSync("npx next build", { cwd: ROOT, stdio: "inherit" });
+    execSync("npx next build", {
+      cwd: ROOT,
+      stdio: "inherit",
+      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
+    });
     log("Build complete.");
   }
 }
@@ -75,6 +79,9 @@ async function main() {
     cwd: ROOT,
     stdio: "pipe",
     shell: true,
+    // Neuravex is sold on running entirely on your machine, so the launcher
+    // does not leave the Next.js CLI's usage telemetry on.
+    env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
   });
 
   proc.stdout.on("data", (d) => process.stdout.write(d));

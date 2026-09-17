@@ -1,7 +1,7 @@
 "use client";
 import { BaseBlock, ColumnsProps } from "@/types";
 import { SortableContainer } from "./Sortable";
-import { flattenColumns, groupIntoColumns } from "@/lib/tree-utils";
+import { clampColumnCount, cloneTree, flattenColumns, groupIntoColumns, withFreshIds } from "@/lib/tree-utils";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -27,7 +27,9 @@ export function Columns({
   disabled,
   blockId,
 }: Props) {
-  const cols = props.count;
+  // Imported or hand-edited content can carry a missing or out-of-range count;
+  // rendering `repeat(undefined, ...)` collapsed the whole block.
+  const cols = clampColumnCount(props.count);
   const buckets = groupIntoColumns(childBlocks ?? [], cols);
 
   function bucketIndexOf(id: string): number {
@@ -55,10 +57,10 @@ export function Columns({
     if (idx < 0) { onChildDuplicate?.(id); return; }
     const source = buckets[idx].find((b) => b.id === id);
     if (!source) return;
-    const copy: BaseBlock = {
-      ...JSON.parse(JSON.stringify(source)),
-      id: source.id + "-dup-" + Math.random().toString(36).slice(2, 6),
-    };
+    // Every descendant needs a fresh id too — only re-labelling the top block
+    // left a duplicated section sharing its children's ids with the original,
+    // which breaks selection and drag-and-drop for both copies.
+    const copy = withFreshIds(cloneTree(source));
     const list = buckets[idx].slice();
     const at = list.findIndex((b) => b.id === id);
     list.splice(at + 1, 0, copy);

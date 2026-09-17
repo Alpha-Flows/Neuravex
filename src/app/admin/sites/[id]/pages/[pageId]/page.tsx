@@ -32,6 +32,9 @@ export default async function PageEditorRoute({
         slug: page.slug,
         isHome: page.isHome,
         published: page.published,
+        metaTitle: page.metaTitle ?? "",
+        metaDescription: page.metaDescription ?? "",
+        ogImage: page.ogImage ?? "",
         blocks,
       }}
     />

@@ -147,3 +147,15 @@ html, body {
 .nvx-nav-toggle:not([open]) > summary .nvx-nav-close-icon {
   display: none;
 }
+
+/* A block sits inside every container that holds it, so hovering a child
+ * also counts as hovering each ancestor — which lit up a stack of outlines
+ * and toolbars at once. Only the innermost hovered block should answer.
+ * A selected block keeps its chrome regardless. */
+.editor-block:not(.is-selected):has(.editor-block:hover) > .editor-outline {
+  outline-color: transparent;
+}
+.editor-block:not(.is-selected):has(.editor-block:hover) > .editor-toolbar {
+  opacity: 0;
+  pointer-events: none;
+}

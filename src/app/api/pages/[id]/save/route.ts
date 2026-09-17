@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { snapshotRevision } from "@/lib/revisions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,11 @@ interface SaveBody {
   published?: boolean;
   isHome?: boolean;
   content?: unknown; // BaseBlock[] tree
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  ogImage?: string | null;
+  /** "manual" for Cmd+S / the Save button, "autosave" for the timer. */
+  reason?: "manual" | "autosave";
 }
 
 // Persist the full page (title, slug, flags, and the entire block tree as JSON).
@@ -35,17 +41,21 @@ export async function PUT(req: NextRequest, { params }: Params) {
     }
   }
   if (body.content !== undefined) data.content = JSON.stringify(body.content);
+  // Per-page SEO. Empty means "fall back to the site default", so it is
+  // stored as null rather than an empty string.
+  for (const key of ["metaTitle", "metaDescription", "ogImage"] as const) {
+    const value = body[key];
+    if (typeof value === "string") data[key] = value.trim() || null;
+    else if (value === null) data[key] = null;
+  }
 
   const updated = await prisma.page.update({ where: { id: params.id }, data });
 
-  // Snapshot a revision after every save
   if (body.content !== undefined || typeof body.title === "string") {
-    await prisma.revision.create({
-      data: {
-        pageId: page.id,
-        title: (typeof body.title === "string" ? body.title.trim() : page.title) || "Untitled",
-        content: body.content !== undefined ? JSON.stringify(body.content) : page.content,
-      },
+    await snapshotRevision(page.id, {
+      title: (typeof body.title === "string" ? body.title.trim() : page.title) || "Untitled",
+      content: body.content !== undefined ? JSON.stringify(body.content) : page.content,
+      manual: body.reason === "manual",
     });
   }
 
