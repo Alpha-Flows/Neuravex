@@ -14,6 +14,9 @@ interface SaveBody {
   published?: boolean;
   isHome?: boolean;
   content?: unknown; // BaseBlock[] tree
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  ogImage?: string | null;
   /** "manual" for Cmd+S / the Save button, "autosave" for the timer. */
   reason?: "manual" | "autosave";
 }
@@ -38,6 +41,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
     }
   }
   if (body.content !== undefined) data.content = JSON.stringify(body.content);
+  // Per-page SEO. Empty means "fall back to the site default", so it is
+  // stored as null rather than an empty string.
+  for (const key of ["metaTitle", "metaDescription", "ogImage"] as const) {
+    const value = body[key];
+    if (typeof value === "string") data[key] = value.trim() || null;
+    else if (value === null) data[key] = null;
+  }
 
   const updated = await prisma.page.update({ where: { id: params.id }, data });
 

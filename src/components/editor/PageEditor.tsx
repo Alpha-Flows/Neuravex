@@ -19,6 +19,7 @@ import { mapBlocks, findBlock, cloneTree, updateContainer, removeFromContainer, 
 import { BlockPalette } from "./BlockPalette";
 import { BlockInspector } from "./BlockInspector";
 import { RevisionsPanel } from "./RevisionsPanel";
+import { PageSettingsPanel, PageSeo } from "./PageSettingsPanel";
 import { SortableContainer } from "../blocks/Sortable";
 import { PublicBlocks } from "../public/PublicBlocks";
 import { Button } from "@/components/ui/Button";
@@ -34,6 +35,9 @@ interface Props {
     slug: string;
     isHome: boolean;
     published: boolean;
+    metaTitle: string;
+    metaDescription: string;
+    ogImage: string;
     blocks: BaseBlock[];
   };
 }
@@ -47,6 +51,11 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
   const [slug, setSlug] = useState(initial.slug);
   const [isHome, setIsHome] = useState(initial.isHome);
   const [published, setPublished] = useState(initial.published);
+  const [seo, setSeo] = useState<PageSeo>({
+    metaTitle: initial.metaTitle,
+    metaDescription: initial.metaDescription,
+    ogImage: initial.ogImage,
+  });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -77,7 +86,7 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
     autosaveRef.current = setTimeout(() => save("autosave"), AUTOSAVE_MS);
     return () => { if (autosaveRef.current) clearTimeout(autosaveRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dirty, title, slug, isHome, published, blocks]);
+  }, [dirty, title, slug, isHome, published, blocks, seo]);
 
   const saveFn = useCallback(async (reason: "manual" | "autosave" = "manual") => {
     setSaving(true);
@@ -85,7 +94,7 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
       const res = await fetch(`/api/pages/${pageId}/save`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, slug, isHome, published, content: blocks, reason }),
+        body: JSON.stringify({ title, slug, isHome, published, content: blocks, ...seo, reason }),
       });
       if (res.ok) {
         setDirty(false);
@@ -94,7 +103,7 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
     } finally {
       setSaving(false);
     }
-  }, [pageId, title, slug, isHome, published, blocks]);
+  }, [pageId, title, slug, isHome, published, blocks, seo]);
 
   // Memo-ize save so the key event listener closure always has the latest
   const saveRef = useRef(saveFn);
@@ -465,6 +474,11 @@ export function PageEditor({ pageId, siteId, siteSlug, initial }: Props) {
               />
             ) : (
               <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full overflow-y-auto p-4">
+                <PageSettingsPanel
+                  seo={seo}
+                  fallbackTitle={title}
+                  onChange={(next) => { setSeo(next); setDirty(true); }}
+                />
                 <RevisionsPanel pageId={pageId} refreshKey={savedAt?.getTime() ?? 0} onRestore={() => window.location.reload()} />
               </aside>
             )

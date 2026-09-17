@@ -31,7 +31,6 @@ model Site {
   footerHtml  String?
   // Custom CSS injected on every public page
   customCss   String?
-  headHtml    String?
   // SEO defaults (per-page SEO overrides these)
   metaTitle       String?
   metaDescription String?
