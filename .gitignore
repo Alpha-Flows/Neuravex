@@ -13,3 +13,6 @@ public/uploads/
 test-results/
 prisma/dev.db-shm
 prisma/dev.db-wal
+
+# First-run state: which schema this copy has applied
+prisma/.neuravex-state.json

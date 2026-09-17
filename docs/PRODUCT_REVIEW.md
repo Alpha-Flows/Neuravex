@@ -236,6 +236,28 @@ changed to the app.
 Tests read `mcp-server.ts` and fail if it deletes directly, stops using the shared accent
 rule, or opens its own database connection again.
 
+### Round 10 — a download that starts
+
+Not from the review either: it follows from what this product is. Neuravex is downloaded
+and run on the customer's own machine, so the first thing that happens after unpacking has
+to work — and it did not.
+
+- **A fresh copy could not start.** Neither `.env` nor the database file is in a download:
+  both are made locally. `npm install && npm run desktop` started a server whose every
+  page threw, and the two commands that fixed it were steps 2 and 3 of the README. The
+  launcher now writes `.env`, creates the database, applies the schema and seeds the demo
+  site on a first run, before it serves anything. Proved on a copy built from
+  `git archive` with no `.env` and no database: the builder and the demo site both answer.
+- **An update applies itself.** The launcher notices when the schema has moved and applies
+  it on the way up, which is the footgun behind two "needs `npm run db:push` after
+  pulling" notes in this repository's recent history. It never passes
+  `--accept-data-loss`: `prisma db push` refuses rather than dropping a column, and on a
+  machine holding someone's only copy that is the right answer.
+- **A normal start costs nothing.** The schema it last applied is remembered, so the
+  second launch does no work — 45ms, measured.
+- `npm run setup` does the same steps for anyone using the dev server, and the README's
+  quick start is now the two commands the launcher actually supports.
+
 ### Still open from this review
 
 P0-1 is **closed**: **Download files** takes a site off the machine as plain HTML, CSS and
@@ -265,7 +287,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 201 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity) — all passing; 66 Playwright specs |
+| Quality | 206 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run) — all passing; 66 Playwright specs |
 
 ---
 
