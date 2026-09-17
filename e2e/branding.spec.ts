@@ -120,3 +120,60 @@ test.describe("The editor canvas", () => {
     await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
+
+test.describe("A sticky header", () => {
+  /** A page tall enough that scrolling it really engages the sticky offset. */
+  const tallPage = Array.from({ length: 90 }, (_, i) => ({
+    id: `t${i}`,
+    type: "text",
+    props: { text: `Paragraph ${i + 1}, here so the page is tall.`, align: "left", size: "base", color: "" },
+  }));
+
+  /** Where the header sits in the window, before and after a long scroll. */
+  async function restAndStuck(page: Page, slug: string) {
+    const box = () =>
+      page.evaluate(() => {
+        const r = document.querySelector("header")!.getBoundingClientRect();
+        return { top: Math.round(r.top), left: Math.round(r.left), width: Math.round(r.width) };
+      });
+    await page.goto(`/sites/${slug}`);
+    await page.waitForSelector("header");
+    const rest = await box();
+    await page.evaluate(() => window.scrollTo(0, 3000));
+    await page.waitForTimeout(250);
+    const stuck = await box();
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
+    return { rest, stuck };
+  }
+
+  test("keeps a pill floating instead of snapping flush to the top", async ({ page, request }) => {
+    const { site } = await siteWith(request, tallPage);
+    await request.patch(`/api/sites/${site.id}`, {
+      data: { headerShape: "pill", headerPosition: "sticky" },
+    });
+
+    const { rest, stuck } = await restAndStuck(page, site.slug);
+
+    // A pill floats on a 1rem margin. `top-0` used to throw that away the
+    // moment the page scrolled: the pill went flush against the window, its
+    // rounded top edge straightened out and it read as a plain bar.
+    expect(rest).toEqual({ top: 16, left: 16, width: 1248 });
+    expect(stuck).toEqual(rest);
+
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
+  });
+
+  test("still holds a bar and a rounded header flush, which is their shape", async ({ page, request }) => {
+    const { site } = await siteWith(request, tallPage);
+
+    for (const headerShape of ["bar", "rounded"]) {
+      await request.patch(`/api/sites/${site.id}`, { data: { headerShape, headerPosition: "sticky" } });
+      const { rest, stuck } = await restAndStuck(page, site.slug);
+      expect(rest.top, headerShape).toBe(0);
+      expect(rest.left, headerShape).toBe(0);
+      expect(stuck).toEqual(rest);
+    }
+
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
+  });
+});
