@@ -39,6 +39,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (typeof body.fontFamily === "string" || body.fontFamily === null) data.fontFamily = body.fontFamily;
   if (typeof body.headingFont === "string" || body.headingFont === null) data.headingFont = body.headingFont;
   if (typeof body.borderRadius === "string" || body.borderRadius === null) data.borderRadius = body.borderRadius;
+  if (typeof body.contentWidth === "string" || body.contentWidth === null) data.contentWidth = body.contentWidth;
   if (typeof body.headerHtml === "string" || body.headerHtml === null) data.headerHtml = body.headerHtml;
   if (typeof body.footerHtml === "string" || body.footerHtml === null) data.footerHtml = body.footerHtml;
   if (typeof body.headerBackground === "string") data.headerBackground = body.headerBackground;

@@ -19,13 +19,28 @@ export interface SiteThemeInput {
   fontFamily?: string | null;
   headingFont?: string | null;
   borderRadius?: string | null;
+  contentWidth?: string | null;
 }
 
 /** Used when a site has nothing set, and as the CSS fallback in every block. */
+/** Side padding on the page's column, in rem. */
+export const GUTTER = 1.5;
+
 export const THEME_FALLBACK = {
   accent: "#6366f1",
   radius: "0.5rem",
+  /** 1152px — the width the header and footer have always used. */
+  contentWidth: "72rem",
 } as const;
+
+/** The widths offered in settings, narrow to edge-to-edge. */
+export const CONTENT_WIDTHS = [
+  { value: "60rem", label: "Narrow", hint: "960px" },
+  { value: "72rem", label: "Standard", hint: "1152px" },
+  { value: "80rem", label: "Wide", hint: "1280px" },
+  { value: "96rem", label: "Extra wide", hint: "1536px" },
+  { value: "none", label: "Full width", hint: "fills the window" },
+] as const;
 
 /** The token a block reads, with the fallback baked in for pages without a theme. */
 export const TOKEN = {
@@ -77,6 +92,18 @@ export function siteThemeCss(site: SiteThemeInput, selector = ":root"): string {
   if (site.fontFamily) declarations.push(`--site-font: ${sanitizeCssValue(site.fontFamily)}`);
   if (site.headingFont) declarations.push(`--site-heading-font: ${sanitizeCssValue(site.headingFont)}`);
   if (site.borderRadius) declarations.push(`--site-radius: ${sanitizeCssValue(site.borderRadius)}`);
+  // How wide the page's content column runs. "none" lets it fill the window.
+  //
+  // Two variables, because they are measured differently: a section already
+  // supplies its own side padding and wants the bare content width, while a
+  // block sitting straight on the page carries the gutter with it and needs
+  // room for both — otherwise the two start 24px apart on a wide window.
+  const width = site.contentWidth?.trim();
+  if (width) {
+    const bare = width === "none" ? "none" : sanitizeCssValue(width);
+    declarations.push(`--site-content-width: ${bare}`);
+    declarations.push(`--site-column-max: ${bare === "none" ? "none" : `calc(${bare} + ${GUTTER * 2}rem)`}`);
+  }
 
   const headings = ["h1", "h2", "h3", "h4", "h5", "h6"]
     .map((h) => `${selector} ${h}`)

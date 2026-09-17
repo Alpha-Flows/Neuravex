@@ -56,6 +56,7 @@ const site = {
   fontFamily: "Georgia, serif",
   headingFont: null,
   borderRadius: "1rem",
+  contentWidth: "80rem",
   headerBackground: "#101010",
   headerOpacity: 65,
   headerShape: "pill",
@@ -121,6 +122,7 @@ describe("siteCreateData", () => {
     expect(data.headerOpacity).toBe(65);
     expect(data.language).toBe("pt-BR");
     expect(data.favicon).toBe("/uploads/icon.png");
+    expect(data.contentWidth).toBe("80rem");
     expect(data.slug).toBeUndefined();
   });
 

@@ -22,6 +22,7 @@ export const SITE_FIELDS = [
   "fontFamily",
   "headingFont",
   "borderRadius",
+  "contentWidth",
   "headerBackground",
   "headerOpacity",
   "headerShape",

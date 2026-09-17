@@ -14,9 +14,19 @@ interface Props {
 export function PublicBlocks({ blocks, pageId }: Props) {
   return (
     <>
-      {blocks.map((b) => (
-        <BlockView key={b.id} block={b} disabled pageId={pageId} />
-      ))}
+      {blocks.map((b) =>
+        // A section spans the window and lays out its own inside; anything else
+        // placed straight on the page belongs in the page's content column,
+        // lined up with the header and the footer rather than jammed against
+        // the edge of the window.
+        b.type === "section" ? (
+          <BlockView key={b.id} block={b} disabled pageId={pageId} />
+        ) : (
+          <div key={b.id} className="nvx-site-column">
+            <BlockView block={b} disabled pageId={pageId} />
+          </div>
+        ),
+      )}
     </>
   );
 }

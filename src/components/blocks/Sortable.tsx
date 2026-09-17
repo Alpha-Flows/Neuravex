@@ -16,6 +16,8 @@ interface BlockChromeProps {
   onDuplicate: () => void;
   /** First block on the page — its controls have no room above, so they sit inside. */
   atTop?: boolean;
+  /** Held in the page's content column, as the published page holds it. */
+  inPageColumn?: boolean;
   children: ReactNode;
 }
 
@@ -31,7 +33,7 @@ interface BlockChromeProps {
  * for every block and clear of the block's own content, so clicking a block
  * always selects it instead of hitting a button.
  */
-function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplicate, atTop, children }: BlockChromeProps) {
+function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplicate, atTop, inPageColumn, children }: BlockChromeProps) {
   return (
     <div
       ref={sortable.setNodeRef}
@@ -40,7 +42,7 @@ function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplic
         transition: sortable.transition,
         opacity: sortable.isDragging ? 0.5 : 1,
       }}
-      className={cn("editor-block relative group", isSelected && "is-selected")}
+      className={cn("editor-block relative group", inPageColumn && "nvx-site-column", isSelected && "is-selected")}
       onClick={(e) => {
         e.stopPropagation();
         onSelect();
@@ -112,9 +114,11 @@ interface SortableBlockProps {
   onChildDelete?: (id: string) => void;
   onChildDuplicate?: (id: string) => void;
   atTop?: boolean;
+  /** Wraps the block in the page's content column. */
+  inPageColumn?: boolean;
 }
 
-export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate, selectedId, disabled, pageId, onSelectId, onChildDelete, onChildDuplicate, atTop }: SortableBlockProps) {
+export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate, selectedId, disabled, pageId, onSelectId, onChildDelete, onChildDuplicate, atTop, inPageColumn }: SortableBlockProps) {
   const sortable = useSortable({ id: block.id, disabled });
   const isSelected = selectedId === block.id;
 
@@ -135,6 +139,7 @@ export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate
       onDelete={onDelete}
       onDuplicate={onDuplicate}
       atTop={atTop}
+      inPageColumn={inPageColumn}
     >
       <BlockView
         block={block}
@@ -202,6 +207,10 @@ export function SortableContainer({
             <SortableBlock
               key={b.id}
               atTop={containerId === "page" && i === 0}
+              // Straight on the page and not a section: the same content column
+              // the published page puts it in, so the canvas is not showing a
+              // width the visitor never sees.
+              inPageColumn={containerId === "page" && b.type !== "section"}
               block={b}
               onChange={updateChild}
               onSelect={() => onSelect(b.id)}

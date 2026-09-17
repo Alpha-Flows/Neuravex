@@ -111,7 +111,8 @@ export const BLOCKS: BlockDefinition[] = [
       background: "#f8fafc",
       paddingY: 64,
       paddingX: 24,
-      maxWidth: "6xl",
+      // Follows the site's content width, so widening the site widens this too.
+      maxWidth: "site",
       align: "center",
     } satisfies SectionProps,
   },

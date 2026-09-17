@@ -135,7 +135,7 @@ export const TEMPLATES: Template[] = [
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
         // ── HERO ──
-        sec("#0b0f1e", 128, "6xl", "center",
+        sec("#0b0f1e", 128, "site", "center",
           b("text", { text: "INTRODUCING POLARIS", align: "center", size: "sm", color: "#818cf8" } as any),
           s(16),
           b("heading", { text: "The operating system for modern product teams", level: 1, align: "center", color: "#f8fafc", weight: "bold" } as any),
@@ -152,7 +152,7 @@ export const TEMPLATES: Template[] = [
           img(IMG.graph, "Dashboard built for speed — sub-50ms interactions"),
         ),
         // ── LOGOS ──
-        sec("#ffffff", 56, "6xl", "center",
+        sec("#ffffff", 56, "site", "center",
           b("text", { text: "Trusted by engineering teams at", align: "center", size: "sm", color: "#94a3b8" } as any),
           s(24),
           cols(4, 32,
@@ -164,7 +164,7 @@ export const TEMPLATES: Template[] = [
         ),
         div("#e2e8f0"),
         // ── FEATURES GRID ──
-        sec("#ffffff", 96, "6xl", "center",
+        sec("#ffffff", 96, "site", "center",
           b("text", { text: "Why the best teams switch", align: "center", size: "sm", color: "#6366f1" } as any),
           s(8),
           h("Everything you need. Nothing you don't.", 2, "#0f172a", "bold", "center"),
@@ -228,7 +228,7 @@ export const TEMPLATES: Template[] = [
           ),
         ),
         // ── STATS ──
-        sec("#f8fafc", 80, "6xl", "center",
+        sec("#f8fafc", 80, "site", "center",
           cols(4, 16,
             b("heading", { text: "120K+", level: 2, align: "center", color: "#6366f1", weight: "bold" } as any),
             b("text", { text: "Teams use Polaris daily", align: "center", size: "sm", color: "#64748b" } as any),
@@ -241,7 +241,7 @@ export const TEMPLATES: Template[] = [
           ),
         ),
         // ── SHOWCASE ──
-        sec("#ffffff", 96, "6xl", "center",
+        sec("#ffffff", 96, "site", "center",
           b("text", { text: "DESIGNED FOR SPEED", align: "center", size: "sm", color: "#6366f1" } as any),
           s(8),
           h("Beautiful to look at. Fast to use.", 2, "#0f172a", "bold", "center"),
@@ -264,7 +264,7 @@ export const TEMPLATES: Template[] = [
           ),
         ),
         // ── PRICING ──
-        sec("#f8fafc", 96, "6xl", "center",
+        sec("#f8fafc", 96, "site", "center",
           b("text", { text: "PRICING", align: "center", size: "sm", color: "#6366f1" } as any),
           s(8),
           h("Plans for teams of every size", 2, "#0f172a", "bold", "center"),
@@ -321,7 +321,7 @@ export const TEMPLATES: Template[] = [
           ),
         ),
         // ── TESTIMONIALS ──
-        sec("#ffffff", 96, "6xl", "center",
+        sec("#ffffff", 96, "site", "center",
           b("text", { text: "LOVED BY BUILDERS", align: "center", size: "sm", color: "#6366f1" } as any),
           s(8),
           h("What our customers say", 2, "#0f172a", "bold", "center"),
@@ -363,7 +363,7 @@ export const TEMPLATES: Template[] = [
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
         // HERO
-        sec("#0a0a0a", 120, "6xl", "left",
+        sec("#0a0a0a", 120, "site", "left",
           b("text", { text: "STUDIO", align: "left", size: "sm", color: "#a3a3a3" } as any),
           s(12),
           b("heading", { text: "We design digital products that people love to use.", level: 1, align: "left", color: "#fafafa", weight: "bold" } as any),
@@ -378,7 +378,7 @@ export const TEMPLATES: Template[] = [
           img(IMG.heroAgency, ""),
         ),
         // CLIENTS
-        sec("#ffffff", 64, "6xl", "center",
+        sec("#ffffff", 64, "site", "center",
           t("Selected clients", "sm", "#a3a3a3", "center"),
           s(24),
           cols(4, 16,
@@ -390,7 +390,7 @@ export const TEMPLATES: Template[] = [
         ),
         div("#e5e5e5"),
         // WORK 1
-        sec("#ffffff", 80, "6xl", "left",
+        sec("#ffffff", 80, "site", "left",
           h("Era — AI research platform", 2, "#171717", "bold", "left"),
           s(12),
           t("Brand identity, UX strategy, and full product redesign for an AI startup backed by Sequoia. We shipped a 0-to-1 product in 8 weeks.", "lg", "#525252", "left"),
@@ -403,7 +403,7 @@ export const TEMPLATES: Template[] = [
         div("#e5e5e5"),
         s(40),
         // WORK 2
-        sec("#ffffff", 80, "6xl", "right",
+        sec("#ffffff", 80, "site", "right",
           h("Notch — creative toolkit", 2, "#171717", "bold", "right"),
           s(12),
           t("We partnered with Notch for 2 years to design and build their entire product suite. The result: #1 Product of the Day on Product Hunt and a $12M Series A.", "lg", "#525252", "right"),
@@ -413,7 +413,7 @@ export const TEMPLATES: Template[] = [
           img(IMG.device, "Mobile dashboard with gesture-based navigation"),
         ),
         // SERVICES
-        sec("#fafafa", 96, "6xl", "center",
+        sec("#fafafa", 96, "site", "center",
           t("WHAT WE DO", "sm", "#a3a3a3", "center"),
           s(8),
           h("Strategy, design, and engineering under one roof.", 2, "#171717", "bold"),
@@ -475,7 +475,7 @@ export const TEMPLATES: Template[] = [
           ]),
         ),
         // PROJECTS
-        sec("#ffffff", 80, "6xl", "center",
+        sec("#ffffff", 80, "site", "center",
           t("SELECTED WORK", "sm", "#a3a3a3", "center"),
           s(8),
           h("Recent projects", 2, "#171717", "bold"),
@@ -565,7 +565,7 @@ export const TEMPLATES: Template[] = [
           t("Dinner Wed–Sun  ·  5:30 PM – 10:00 PM  ·  242 Court St, Brooklyn", "sm", "#6ee7b7", "center"),
         ),
         // ABOUT
-        sec("#ffffff", 80, "6xl", "left",
+        sec("#ffffff", 80, "site", "left",
           cols(2, 48,
             h("Our philosophy is simple.", 2, "#064e3b", "bold", "left"),
             t("Everything we serve is sourced within 150 miles of the restaurant. We work with 14 farms, 3 fisheries, and a forager in the Catskills. The menu changes every week based on what's at peak season.", "lg", "#525252", "left"),
@@ -744,7 +744,7 @@ export const TEMPLATES: Template[] = [
     pages: [{
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
-        sec("#f0f9ff", 96, "6xl", "center",
+        sec("#f0f9ff", 96, "site", "center",
           b("text", { text: "NEW", align: "center", size: "sm", color: "#0284c7" } as any),
           s(8),
           h("Meet Arc Monitor", 1, "#0f172a", "bold"),
@@ -762,7 +762,7 @@ export const TEMPLATES: Template[] = [
           img(IMG.device, ""),
         ),
         // FEATURE 1
-        sec("#ffffff", 96, "6xl", "center",
+        sec("#ffffff", 96, "site", "center",
           h("6K resolution. Zero compromise.", 2, "#0f172a", "bold"),
           s(16),
           cols(2, 40,
@@ -773,7 +773,7 @@ export const TEMPLATES: Template[] = [
           img(IMG.graph, "Side-by-side color accuracy comparison: Arc Monitor vs reference display"),
         ),
         // FEATURE 2
-        sec("#f8fafc", 96, "6xl", "center",
+        sec("#f8fafc", 96, "site", "center",
           cols(2, 48,
             h("Built-in calibration. Always accurate.", 2, "#0f172a", "bold", "left"),
             t("A built-in spectrophotometer calibrates your display every time you turn it on. No external hardware, no monthly ritual — just perfect color, always. Factory-calibrated to Delta E < 1.", "lg", "#475569", "left"),
@@ -784,7 +784,7 @@ export const TEMPLATES: Template[] = [
           img(IMG.workspace, ""),
         ),
         // SPECS
-        sec("#ffffff", 96, "6xl", "center",
+        sec("#ffffff", 96, "site", "center",
           h("Technical specifications", 2, "#0f172a", "bold"),
           s(48),
           cols(3, 24,
@@ -825,7 +825,7 @@ export const TEMPLATES: Template[] = [
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
         // HERO
-        sec("#0f0518", 112, "6xl", "center",
+        sec("#0f0518", 112, "site", "center",
           b("text", { text: "STUDIO RUIN", align: "center", size: "sm", color: "#c084fc" } as any),
           s(12),
           b("heading", { text: "We make brands impossible to ignore.", level: 1, align: "center", color: "#fafafa", weight: "bold" } as any),
@@ -837,7 +837,7 @@ export const TEMPLATES: Template[] = [
           img(IMG.abstract, ""),
         ),
         // CLIENTS
-        sec("#ffffff", 64, "6xl", "center",
+        sec("#ffffff", 64, "site", "center",
           t("WE'VE WORKED WITH", "sm", "#a3a3a3", "center"),
           s(24),
           cols(4, 16,
@@ -849,7 +849,7 @@ export const TEMPLATES: Template[] = [
         ),
         div("#e5e5e5"),
         // CASE STUDIES
-        sec("#ffffff", 96, "6xl", "center",
+        sec("#ffffff", 96, "site", "center",
           t("FEATURED WORK", "sm", "#c084fc", "center"),
           s(8),
           h("Selected projects", 2, "#171717", "bold"),
@@ -861,7 +861,7 @@ export const TEMPLATES: Template[] = [
           img(IMG.device, "Adobe · Creative Cloud — Product launch campaign and interactive landing page · 2025"),
         ),
         // PROCESS
-        sec("#fafafa", 96, "6xl", "center",
+        sec("#fafafa", 96, "site", "center",
           t("HOW WE WORK", "sm", "#c084fc", "center"),
           s(8),
           h("Strategy, then style. Always in that order.", 2, "#171717", "bold"),
@@ -934,7 +934,7 @@ export const TEMPLATES: Template[] = [
     pages: [{
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
-        sec("#0f0720", 112, "6xl", "center",
+        sec("#0f0720", 112, "site", "center",
           b("text", { text: "NOW ON IOS & ANDROID", align: "center", size: "sm", color: "#a78bfa" } as any),
           s(12),
           h("Your habits, beautifully tracked.", 1, "#fafafa", "bold"),
@@ -951,7 +951,7 @@ export const TEMPLATES: Template[] = [
           s(48),
           img(IMG.phone, ""),
         ),
-        sec("#ffffff", 96, "6xl", "center",
+        sec("#ffffff", 96, "site", "center",
           h("Why 2 million people use Streak", 2, "#171717", "bold"),
           s(48),
           cols(3, 40,
@@ -997,7 +997,7 @@ export const TEMPLATES: Template[] = [
     pages: [{
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
-        sec("#0c1929", 112, "6xl", "center",
+        sec("#0c1929", 112, "site", "center",
           b("text", { text: "OCTOBER 12–14, 2026  ·  SAN FRANCISCO", align: "center", size: "sm", color: "#38bdf8" } as any),
           s(16),
           h("Design Systems Conf", 1, "#f0f9ff", "bold"),
@@ -1011,7 +1011,7 @@ export const TEMPLATES: Template[] = [
           s(48),
           img(IMG.stage, ""),
         ),
-        sec("#ffffff", 80, "6xl", "center",
+        sec("#ffffff", 80, "site", "center",
           h("Speakers", 2, "#171717", "bold"),
           s(32),
           cols(4, 24,
@@ -1066,7 +1066,7 @@ export const TEMPLATES: Template[] = [
     pages: [{
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
-        sec("#fff7ed", 96, "6xl", "left",
+        sec("#fff7ed", 96, "site", "left",
           cols(2, 48,
             h("The Design Engineering Handbook", 1, "#171717", "bold", "left"),
             t("A free 120-page guide to bridging the gap between design and engineering. Written for designers who want to code and engineers who want to design.", "xl", "#525252", "left"),
@@ -1106,7 +1106,7 @@ export const TEMPLATES: Template[] = [
     pages: [{
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
-        sec("#ffffff", 96, "6xl", "left",
+        sec("#ffffff", 96, "site", "left",
           cols(2, 48,
             sec("#transparent", 0, "full", "left",
               h("Building the infrastructure modern businesses run on.", 1, "#0f172a", "bold", "left"),
@@ -1121,7 +1121,7 @@ export const TEMPLATES: Template[] = [
             img(IMG.workspace, ""),
           ),
         ),
-        sec("#f8fafc", 80, "6xl", "center",
+        sec("#f8fafc", 80, "site", "center",
           cols(4, 24,
             b("heading", { text: "142", level: 2, align: "center", color: "#0f172a", weight: "bold" } as any),
             t("Projects delivered", "sm", "#64748b", "center"),
@@ -1133,7 +1133,7 @@ export const TEMPLATES: Template[] = [
             t("Client value", "sm", "#64748b", "center"),
           ),
         ),
-        sec("#ffffff", 96, "6xl", "center",
+        sec("#ffffff", 96, "site", "center",
           h("What we do", 2, "#0f172a", "bold"),
           s(40),
           cols(3, 32,
@@ -1172,7 +1172,7 @@ export const TEMPLATES: Template[] = [
     pages: [{
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
-        sec("#ffffff", 80, "6xl", "left",
+        sec("#ffffff", 80, "site", "left",
           cols(2, 48,
             sec("#transparent", 0, "full", "left",
               h("Find a place you'll love to call home.", 1, "#171717", "bold"),
@@ -1184,7 +1184,7 @@ export const TEMPLATES: Template[] = [
             img(IMG.property, ""),
           ),
         ),
-        sec("#ffffff", 64, "6xl", "center",
+        sec("#ffffff", 64, "site", "center",
           h("Featured properties", 2, "#171717", "bold"),
           s(32),
           cols(3, 16,
@@ -1231,7 +1231,7 @@ export const TEMPLATES: Template[] = [
           s(24),
           btn("See our results ↓", "", "primary", "lg", "left"),
         ),
-        sec("#ffffff", 96, "6xl", "center",
+        sec("#ffffff", 96, "site", "center",
           h("Case studies", 2, "#171717", "bold"),
           s(40),
           img(IMG.graph, "Bloom Analytics · Grew from $3M to $12M ARR in 14 months by repositioning from SMB to mid-market, rebuilding the pricing model, and restructuring the sales team."),
@@ -1240,7 +1240,7 @@ export const TEMPLATES: Template[] = [
           s(32),
           img(IMG.workspace, "Tide · Launched an enterprise tier that added $4.2M in new ARR within 6 months by bundling compliance features and introducing annual contracts."),
         ),
-        sec("#f8fafc", 80, "6xl", "center",
+        sec("#f8fafc", 80, "site", "center",
           h("How we work", 2, "#171717", "bold"),
           s(32),
           cols(3, 32,
@@ -1284,7 +1284,7 @@ export const TEMPLATES: Template[] = [
           s(48),
           img(IMG.charity, "A new water well being installed in rural Guatemala — Project Aqua, 2025"),
         ),
-        sec("#ffffff", 80, "6xl", "center",
+        sec("#ffffff", 80, "site", "center",
           cols(3, 32,
             b("heading", { text: "340", level: 2, align: "center", color: "#16a34a", weight: "bold" } as any),
             t("Villages served", "sm", "#64748b", "center"),
@@ -1329,7 +1329,7 @@ export const TEMPLATES: Template[] = [
     pages: [{
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
-        sec("#0f172a", 80, "6xl", "left",
+        sec("#0f172a", 80, "site", "left",
           h("Legal excellence since 1987.", 1, "#f8fafc", "bold"),
           s(16),
           t("Harrington & Walsh is a full-service law firm with offices in New York, Washington DC, and London. We represent Fortune 500 companies, startups, and individuals in their most consequential matters.", "xl", "#94a3b8", "left"),
@@ -1343,7 +1343,7 @@ export const TEMPLATES: Template[] = [
             b("heading", { text: "Regulatory", level: 4, align: "center", color: "#cbd5e1", weight: "semibold" } as any),
           ),
         ),
-        sec("#ffffff", 96, "6xl", "left",
+        sec("#ffffff", 96, "site", "left",
           img(IMG.law, ""),
           s(40),
           h("Our approach", 2, "#171717", "bold", "left"),
@@ -1353,7 +1353,7 @@ export const TEMPLATES: Template[] = [
             t("Our partners are former federal prosecutors, SEC enforcement attorneys, and Supreme Court clerks. But more importantly, they're practical problem-solvers who understand that the best legal outcome is the one that lets you get back to business.", "lg", "#525252", "left"),
           ),
         ),
-        sec("#f8fafc", 80, "6xl", "center",
+        sec("#f8fafc", 80, "site", "center",
           h("Recognized by", 2, "#171717", "bold"),
           s(32),
           cols(4, 24,
@@ -1391,7 +1391,7 @@ export const TEMPLATES: Template[] = [
     pages: [{
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
-        sec("#042f2e", 112, "6xl", "center",
+        sec("#042f2e", 112, "site", "center",
           b("text", { text: "TRUSTED BY 50,000+ BUSINESSES", align: "center", size: "sm", color: "#5eead4" } as any),
           s(12),
           h("Move money at the speed of your business.", 1, "#f0fdfa", "bold"),
@@ -1403,7 +1403,7 @@ export const TEMPLATES: Template[] = [
             b("button", { label: "Talk to sales", href: "#", variant: "outline", size: "lg", align: "center", color: "#5eead4", textColor: "#5eead4" } as any),
           ]),
         ),
-        sec("#ffffff", 80, "6xl", "center",
+        sec("#ffffff", 80, "site", "center",
           cols(4, 24,
             b("heading", { text: "99.999%", level: 2, align: "center", color: "#0f766e", weight: "bold" } as any),
             t("API uptime", "sm", "#64748b", "center"),
@@ -1415,7 +1415,7 @@ export const TEMPLATES: Template[] = [
             t("Certified", "sm", "#64748b", "center"),
           ),
         ),
-        sec("#f0fdfa", 80, "6xl", "center",
+        sec("#f0fdfa", 80, "site", "center",
           h("Enterprise-grade security", 2, "#0f766e", "bold"),
           s(32),
           cols(3, 32,
@@ -1463,7 +1463,7 @@ export const TEMPLATES: Template[] = [
             b("button", { label: "Book a shoot →", href: "#", variant: "outline", size: "md", align: "center", color: "#fafafa", textColor: "#d6d3d1" } as any),
           ]),
         ),
-        sec("#ffffff", 64, "6xl", "center",
+        sec("#ffffff", 64, "site", "center",
           img(IMG.abstract, "Campaign for Maison Laurent — Spring/Summer 2026"),
           s(24),
           img(IMG.outdoor, "Editorial for Kinfolk Magazine — Volume 44"),
@@ -1504,7 +1504,7 @@ export const TEMPLATES: Template[] = [
           s(24),
           btn("See our projects ↓", "", "primary", "md", "left"),
         ),
-        sec("#ffffff", 64, "6xl", "center",
+        sec("#ffffff", 64, "site", "center",
           img(IMG.building, "Nordhavn Residence · Copenhagen, 2025 — A minimalist family home on the waterfront."),
           s(40),
           img(IMG.abstract, "Vesterbro Office Tower · Copenhagen, 2024 — 22-story mixed-use tower with a living façade."),
@@ -1542,7 +1542,7 @@ export const TEMPLATES: Template[] = [
     pages: [{
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
-        sec("#1a0a0a", 96, "6xl", "center",
+        sec("#1a0a0a", 96, "site", "center",
           h("Motion with meaning.", 1, "#fafafa", "bold"),
           s(16),
           t("I'm Kai Jensen — a director and cinematographer specializing in brand films, documentaries, and music videos. Every frame has a purpose.", "xl", "#fca5a5", "center"),
@@ -1566,7 +1566,7 @@ export const TEMPLATES: Template[] = [
           b("heading", { text: "Billie Eilish — Ocean Eyes (Reimagined)", level: 3, align: "left", color: "#171717", weight: "semibold" } as any),
           t("Official music video. 87M views. VMA nomination for Best Cinematography.", "base", "#525252", "left"),
         ),
-        sec("#fafafa", 64, "6xl", "center",
+        sec("#fafafa", 64, "site", "center",
           t("CLIENTS", "sm", "#a3a3a3", "center"),
           s(16),
           cols(4, 16,
@@ -1688,7 +1688,7 @@ export const TEMPLATES: Template[] = [
     pages: [{
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
-        sec("#fdf2f8", 96, "6xl", "center",
+        sec("#fdf2f8", 96, "site", "center",
           b("text", { text: "SUMMER COLLECTION 2026", align: "center", size: "sm", color: "#be185d" } as any),
           s(12),
           h("Designed for the light.", 1, "#171717", "bold"),
@@ -1702,7 +1702,7 @@ export const TEMPLATES: Template[] = [
           s(48),
           img(IMG.food1, "The Linen Edit — our bestselling summer collection in three new colors."),
         ),
-        sec("#ffffff", 64, "6xl", "center",
+        sec("#ffffff", 64, "site", "center",
           h("Featured products", 2, "#171717", "bold"),
           s(32),
           cols(4, 16,
@@ -1896,7 +1896,7 @@ export const TEMPLATES: Template[] = [
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
         // ── HERO ──
-        sec("#0a0e1a", 112, "6xl", "center",
+        sec("#0a0e1a", 112, "site", "center",
           b("html", { html:
             `<div style="display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:999px;border:1px solid rgba(148,163,184,0.25);background:rgba(255,255,255,0.03);font-size:13px;color:#cbd5e1;">
               <span style="width:8px;height:8px;border-radius:999px;background:#34d399;display:inline-block;" class="anim-pulse-glow"></span>
@@ -1937,7 +1937,7 @@ export const TEMPLATES: Template[] = [
           ),
         ),
         // ── "LOW RES IS NO FUN" SPLIT ──
-        sec("#0a0e1a", 112, "6xl", "left",
+        sec("#0a0e1a", 112, "site", "left",
           cols(2, 56,
             sec("#transparent", 0, "full", "left",
               h("Low resolution is no fun.", 2, "#f8fafc", "bold", "left"),
@@ -1977,7 +1977,7 @@ export const TEMPLATES: Template[] = [
           </div>`
         } as any),
         // ── MEET CLOUD ──
-        sec("#0a0e1a", 112, "6xl", "center",
+        sec("#0a0e1a", 112, "site", "center",
           h("Meet PixelForge Cloud.", 2, "#f8fafc", "bold", "center"),
           s(12),
           t("The best gets even better.", "lg", "#94a3b8", "center"),
@@ -2003,7 +2003,7 @@ export const TEMPLATES: Template[] = [
           } as any),
         ),
         // ── BENTO FEATURE GRID ──
-        sec("#0a0e1a", 112, "6xl", "center",
+        sec("#0a0e1a", 112, "site", "center",
           t("EVERYTHING YOU NEED", "sm", "#818cf8", "center"),
           s(8),
           h("One app. Every fix your photos need.", 2, "#f8fafc", "bold", "center"),
@@ -2053,7 +2053,7 @@ export const TEMPLATES: Template[] = [
       title: "Home", slug: "index", isHome: true, published: true,
       blocks: [
         // ── HERO ──
-        sec("#ffffff", 112, "6xl", "center",
+        sec("#ffffff", 112, "site", "center",
           b("html", { html:
             `<div style="display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:999px;border:1px solid rgba(15,23,42,0.12);background:rgba(15,23,42,0.03);font-size:13px;color:#334155;">
               <span style="width:8px;height:8px;border-radius:999px;background:#10b981;display:inline-block;" class="anim-pulse-glow"></span>
@@ -2094,7 +2094,7 @@ export const TEMPLATES: Template[] = [
           ),
         ),
         // ── "LOW RES IS NO FUN" SPLIT ──
-        sec("#ffffff", 112, "6xl", "left",
+        sec("#ffffff", 112, "site", "left",
           cols(2, 56,
             sec("#transparent", 0, "full", "left",
               h("Low resolution is no fun.", 2, "#0f172a", "bold", "left"),
@@ -2134,7 +2134,7 @@ export const TEMPLATES: Template[] = [
           </div>`
         } as any),
         // ── MEET CLOUD ──
-        sec("#ffffff", 112, "6xl", "center",
+        sec("#ffffff", 112, "site", "center",
           h("Meet PixelForge Cloud.", 2, "#0f172a", "bold", "center"),
           s(12),
           t("The best gets even better.", "lg", "#475569", "center"),
@@ -2160,7 +2160,7 @@ export const TEMPLATES: Template[] = [
           } as any),
         ),
         // ── BENTO FEATURE GRID ──
-        sec("#ffffff", 112, "6xl", "center",
+        sec("#ffffff", 112, "site", "center",
           t("EVERYTHING YOU NEED", "sm", "#6366f1", "center"),
           s(8),
           h("One app. Every fix your photos need.", 2, "#0f172a", "bold", "center"),
