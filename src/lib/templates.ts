@@ -51,37 +51,42 @@ function lst(items: string[], style: "check" | "bullet" | "number" = "check"): T
   return b("list", { style, items } as any);
 }
 
-// --- shared image URLs (Unsplash, high quality) ---
+// --- shared images ---
+// These are the bundled stock photos under public/stock, not remote URLs. A
+// template used to seed a new site with Unsplash addresses, so every page it
+// created showed broken images without an internet connection — in an app
+// whose whole point is that it runs on your own machine — and a downloaded
+// site carried the same dependency with it. Everything here ships in the repo.
 const IMG = {
-  heroSaaS: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1600&q=80",
-  heroAgency: "https://images.unsplash.com/photo-1522542550221-31fd19575a2d?auto=format&fit=crop&w=1600&q=80",
-  heroPortfolio: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80",
-  interior: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=80",
-  food1: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80",
-  food2: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
-  food3: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=800&q=80",
-  blog1: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=800&q=80",
-  blog2: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
-  blog3: "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80",
-  device: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80",
-  workspace: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80",
-  team: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80",
-  abstract: "https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?auto=format&fit=crop&w=1200&q=80",
-  graph: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
-  outdoor: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1600&q=80",
-  phone: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=600&q=80",
-  event: "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=1200&q=80",
-  book: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=600&q=80",
-  property: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=80",
-  camera: "https://images.unsplash.com/photo-1452587925148-ce544e77e70d?auto=format&fit=crop&w=1200&q=80",
-  building: "https://images.unsplash.com/photo-1487958449943-2429e8be8625?auto=format&fit=crop&w=1200&q=80",
-  gym: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80",
-  podcast: "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?auto=format&fit=crop&w=1200&q=80",
-  stage: "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1200&q=80",
-  law: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=80",
-  finance: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80",
-  charity: "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&w=1200&q=80",
-  wedding: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80",
+  heroSaaS: "/stock/abstract/magicpattern-bevXKKL7E9g-unsplash.jpg",
+  heroAgency: "/stock/abstract/pawel-czerwinski-NTYYL9Eb9y8-unsplash.jpg",
+  heroPortfolio: "/stock/industry/monika-bienert-EETgT0lmAiQ-unsplash.jpg",
+  interior: "/stock/food/jelezniac-bianca-FTHK04C2FLg-unsplash.jpg",
+  food1: "/stock/food/alexandru-bogdan-ghita-UeYkqQh4PoI-unsplash.jpg",
+  food2: "/stock/food/edward-howell-vvUy1hWVYEA-unsplash.jpg",
+  food3: "/stock/food/louis-hansel-wVoP_Q2Bg_A-unsplash.jpg",
+  blog1: "/stock/nature/degleex-ganzorig-wQImoykAwGs-unsplash.jpg",
+  blog2: "/stock/nature/sam-ferrara-1527pjeb6jg-unsplash.jpg",
+  blog3: "/stock/nature/cristian-palmer-3leBubkp5hk-unsplash.jpg",
+  device: "/stock/industry/thisisengineering-ZPeXrWxOjRQ-unsplash.jpg",
+  workspace: "/stock/healthcare/national-cancer-institute-NFvdKIhxYlU-unsplash.jpg",
+  team: "/stock/industry/thisisengineering-WjOWazUPAss-unsplash.jpg",
+  abstract: "/stock/abstract/mymind-XUlsF9LYeVk-unsplash.jpg",
+  graph: "/stock/abstract/maxim-berg-ANuuRuCRRAc-unsplash.jpg",
+  outdoor: "/stock/nature/pietro-de-grandi-Q5dMq3cKqec-unsplash.jpg",
+  phone: "/stock/food/clay-banks-1Uj0HmqQFGk-unsplash.jpg",
+  event: "/stock/food/siyuan-g_V2rt6iG7A-unsplash.jpg",
+  book: "/stock/abstract/codioful-formerly-gradienta-n2XqPm7Bqhk-unsplash.jpg",
+  property: "/stock/transport/aron-yigin-lNpAmLA_bvQ-unsplash.jpg",
+  camera: "/stock/nature/ian-keefe-NBQhCKtg_9Y-unsplash.jpg",
+  building: "/stock/architecture/james-sullivan-ESZRBtkQ_f8-unsplash.jpg",
+  gym: "/stock/fitness/dane-wetton-zdLdgGbi9Ow-unsplash.jpg",
+  podcast: "/stock/abstract/pawel-czerwinski-6lQDFGOB1iw-unsplash.jpg",
+  stage: "/stock/architecture/scott-blake-x-ghf9LjrVg-unsplash.jpg",
+  law: "/stock/abstract/milad-fakurian-nY14Fs8pxT8-unsplash.jpg",
+  finance: "/stock/abstract/magicpattern-87PP9Zd7MNo-unsplash.jpg",
+  charity: "/stock/agriculture/land-o-lakes-inc-iFx1WMvjvpw-unsplash.jpg",
+  wedding: "/stock/nature/sebastian-unrau-sp-p7uuT0tw-unsplash.jpg",
 };
 
 export const TEMPLATES: Template[] = [

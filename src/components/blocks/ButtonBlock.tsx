@@ -1,5 +1,7 @@
 "use client";
+import { useState } from "react";
 import { Editable } from "./Editable";
+import { InlineEdit } from "@/components/ui/InlineEdit";
 import { ButtonProps } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +27,8 @@ const sizeClass: Record<ButtonProps["size"], string> = {
 const alignClass = { left: "text-left", center: "text-center", right: "text-right" } as const;
 
 export function ButtonBlock({ props, onChange, disabled }: Props) {
+  const [editingLink, setEditingLink] = useState(false);
+
   const inner = (
     <Editable
       as="span"
@@ -53,16 +57,26 @@ export function ButtonBlock({ props, onChange, disabled }: Props) {
   return (
     <div className={cn(alignClass[props.align], "space-y-1")}>
       {inner}
-      <button
-        type="button"
-        className="block text-xs text-slate-400 hover:text-slate-600"
-        onClick={() => {
-          const next = prompt("Link URL (e.g. https://… or #section)", props.href);
-          if (next != null && onChange) onChange({ ...props, href: next });
-        }}
-      >
-        {props.href || "Set link"} ↗
-      </button>
+      <div className="relative inline-block">
+        <button
+          type="button"
+          className="block text-xs text-slate-400 hover:text-slate-600"
+          onClick={(e) => { e.stopPropagation(); setEditingLink(true); }}
+        >
+          {props.href || "Set link"} ↗
+        </button>
+        {editingLink ? (
+          <InlineEdit
+            label="Link URL"
+            value={props.href}
+            placeholder="https://example.com"
+            hint="A full address, a page on this site, or #section for a spot on this page."
+            onSave={(href) => { onChange?.({ ...props, href }); setEditingLink(false); }}
+            onCancel={() => setEditingLink(false)}
+            className="left-0 top-full"
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

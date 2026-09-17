@@ -48,9 +48,12 @@ export const BLOCKS: BlockDefinition[] = [
     label: "Image",
     category: "media",
     icon: "🖼",
-    description: "A picture from a URL.",
+    description: "A picture from your library or a URL.",
     defaultProps: {
-      src: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1600&q=80",
+      // One of the bundled stock photos. A new image block used to start on a
+      // remote Unsplash address, which is a broken image on a machine that is
+      // offline and an outside dependency in a downloaded site.
+      src: "/stock/nature/pietro-de-grandi-Q5dMq3cKqec-unsplash.jpg",
       alt: "",
       rounded: "xl",
       width: "large",
@@ -127,7 +130,10 @@ export const BLOCKS: BlockDefinition[] = [
     icon: "▶",
     description: "An embedded video.",
     defaultProps: {
-      src: "https://www.w3schools.com/html/mov_bbb.mp4",
+      // Empty on purpose: the block asks for a video instead of shipping one.
+      // It used to default to a demo clip hosted on w3schools.com, which every
+      // new video block then fetched from a third party.
+      src: "",
       poster: "",
       ratio: "16/9",
     } satisfies VideoProps,

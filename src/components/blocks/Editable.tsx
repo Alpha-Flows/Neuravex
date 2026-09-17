@@ -80,9 +80,12 @@ export function Editable({
         data-placeholder={placeholder}
         onFocus={() => setFocused(true)}
         onInput={report}
-        onBlur={() => {
-          // Clicking a toolbar button keeps focus (the toolbar suppresses its
-          // own mousedown), so a blur here really is the caret leaving.
+        onBlur={(e: any) => {
+          // Toolbar buttons suppress their own mousedown, so they never take
+          // focus. Its link field does, though, and the toolbar has to stay up
+          // while a URL is being typed into it.
+          const to = e.relatedTarget as HTMLElement | null;
+          if (to?.closest?.("[data-formatting-toolbar]")) { report(); return; }
           setFocused(false);
           report();
         }}

@@ -93,15 +93,35 @@ Two smaller things went with them: undo/redo kept its stack in React state and r
 stale index when keystrokes outran a render, and three page listings each sorted
 differently, so reordering pages did not show up consistently.
 
+### Round 4 — prompt() editing and the remote images
+
+- **P2-9 (prompt()-driven editing)** — the four `prompt()` calls are gone. A
+  `prompt` cannot be styled, blocks the window, shows no context beyond one line, and
+  takes the text selection with it, so a link typed into the one in the formatting
+  toolbar was applied to nothing at all. In their place: a small panel anchored to the
+  control that opened it (button link, image URL), an input in the toolbar itself for
+  linking selected text, and a proper editor for custom HTML — a `prompt` cannot hold a
+  newline, so any HTML worth embedding arrived as one unreadable line. Enter saves,
+  Escape cancels, clicking away cancels, and the page behind stays visible.
+- **P2-11 (remote images)** — nothing bundled points off the machine any more. All 29
+  template images, used 67 times across the 28 templates, were Unsplash addresses: a new
+  site made from a template showed broken pictures with no internet connection, in an app
+  whose whole point is that it runs on your own machine, and a downloaded site carried
+  that dependency with it. They now name bundled photos from `public/stock`, chosen per
+  slot. A new image block starts on a bundled photo too, the empty-image placeholder is
+  drawn in the page instead of fetched from `via.placeholder.com`, and a new video block
+  starts empty rather than pointing at a demo clip on `w3schools.com` — it asks for a
+  video in the editor and renders nothing on a published page. A unit test fails if any
+  block default or template ever names a remote address again.
+
 ### Still open from this review
 
 P0-1 (no way to publish off the machine) is answered in part by **Download files** — a
 site now leaves the machine as plain HTML, CSS and images — but there is still no
 hosting step.
 Also open: P1-5 (editor is not WYSIWYG), P1-6 (branding does not cascade), P1-8 (no
-sitemap/robots/favicon, images without dimensions), P2-9 (prompt()-driven editing),
-P2-11 (templates point at remote Unsplash URLs), P2-13 (no reusable blocks), P2-15
-(thin rails on destructive actions).
+sitemap/robots/favicon, images without dimensions — template images also carry no alt
+text), P2-13 (no reusable blocks), P2-15 (thin rails on destructive actions).
 
 ---
 
@@ -123,7 +143,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 140 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms) — all passing; 33 Playwright specs |
+| Quality | 146 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults) — all passing; 38 Playwright specs |
 
 ---
 
