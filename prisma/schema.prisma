@@ -71,6 +71,26 @@ model Page {
   @@index([siteId])
 }
 
+/// A site or page that was deleted, kept whole so it can be put back.
+/// Deleting used to be final: a site took its pages, revisions and form
+/// submissions with it, behind one browser confirm() and with no undo.
+model TrashItem {
+  id        String   @id @default(cuid())
+  /// "site" or "page"
+  kind      String
+  /// What it was called, for the trash list.
+  label     String
+  /// The site it belonged to, so a deleted page can be offered back there.
+  siteId    String?
+  siteName  String?
+  /// The whole thing as JSON: the archive format the export uses.
+  payload   String
+  deletedAt DateTime @default(now())
+
+  @@index([kind])
+  @@index([siteId])
+}
+
 model Revision {
   id        String   @id @default(cuid())
   pageId    String

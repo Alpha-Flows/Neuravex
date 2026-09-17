@@ -72,11 +72,11 @@ test.describe("API", () => {
     expect(exportRes.ok()).toBeTruthy();
 
     // Delete the page
-    const delPage = await request.delete(`/api/pages/${p.id}`);
+    const delPage = await request.delete(`/api/pages/${p.id}?permanent=1`);
     expect(delPage.ok()).toBeTruthy();
 
     // Delete the site
-    const delSite = await request.delete(`/api/sites/${site.id}`);
+    const delSite = await request.delete(`/api/sites/${site.id}?permanent=1`);
     expect(delSite.ok()).toBeTruthy();
   });
 
@@ -145,7 +145,7 @@ test.describe("API", () => {
     expect(homePages[0].id).toBe(p2data.id);
 
     // Cleanup
-    await request.delete(`/api/sites/${s.id}`);
+    await request.delete(`/api/sites/${s.id}?permanent=1`);
   });
 
   test("import site from export", async ({ request }) => {

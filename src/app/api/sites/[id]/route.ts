@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
+import { trashSite, siteDeletionCost } from "@/lib/trash";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,15 @@ interface Params {
   params: { id: string };
 }
 
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
+  // ?cost=1 answers "what exactly would deleting this take with it", which the
+  // confirmation asks before anyone presses the button.
+  if (new URL(req.url).searchParams.get("cost") === "1") {
+    const site = await prisma.site.findUnique({ where: { id: params.id }, select: { name: true } });
+    if (!site) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ name: site.name, ...(await siteDeletionCost(params.id)) });
+  }
+
   const site = await prisma.site.findUnique({
     where: { id: params.id },
     include: { pages: { orderBy: [{ sortOrder: "asc" }, { isHome: "desc" }, { updatedAt: "desc" }] } },
@@ -64,7 +73,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   return NextResponse.json(site);
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
-  await prisma.site.delete({ where: { id: params.id } });
-  return NextResponse.json({ ok: true });
+export async function DELETE(req: NextRequest, { params }: Params) {
+  // Into the trash, whole, rather than gone. It can be put back from there.
+  // ?permanent=1 skips that, for a caller that has already made its mind up.
+  if (new URL(req.url).searchParams.get("permanent") === "1") {
+    await prisma.site.delete({ where: { id: params.id } }).catch(() => null);
+    return NextResponse.json({ ok: true, trashed: false });
+  }
+  if (!(await trashSite(params.id))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  return NextResponse.json({ ok: true, trashed: true });
 }

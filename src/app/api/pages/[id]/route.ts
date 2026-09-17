@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
+import { trashPage, pageDeletionCost } from "@/lib/trash";
 
 export const dynamic = "force-dynamic";
 
@@ -8,9 +9,13 @@ interface Params {
   params: { id: string };
 }
 
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
   const page = await prisma.page.findUnique({ where: { id: params.id } });
   if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // ?cost=1 — what deleting this page would take with it.
+  if (new URL(req.url).searchParams.get("cost") === "1") {
+    return NextResponse.json({ title: page.title, ...(await pageDeletionCost(params.id)) });
+  }
   return NextResponse.json(page);
 }
 
@@ -69,7 +74,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   return NextResponse.json(updated);
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
-  await prisma.page.delete({ where: { id: params.id } });
-  return NextResponse.json({ ok: true });
+export async function DELETE(req: NextRequest, { params }: Params) {
+  if (new URL(req.url).searchParams.get("permanent") === "1") {
+    await prisma.page.delete({ where: { id: params.id } }).catch(() => null);
+    return NextResponse.json({ ok: true, trashed: false });
+  }
+  if (!(await trashPage(params.id))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  return NextResponse.json({ ok: true, trashed: true });
 }

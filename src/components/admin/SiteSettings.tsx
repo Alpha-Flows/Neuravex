@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
+import { ConfirmDelete } from "./ConfirmDelete";
 
 interface SiteInfo {
   id: string;
@@ -52,7 +53,7 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
   const [customCss, setCustomCss] = useState("");
   // State
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [asking, setAsking] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const router = useRouter();
 
@@ -117,14 +118,9 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
   }
 
   async function destroy() {
-    if (!confirm("Delete this site and all its pages? This cannot be undone.")) return;
-    setDeleting(true);
-    try {
-      await fetch(`/api/sites/${site.id}`, { method: "DELETE" });
-      router.push("/");
-    } finally {
-      setDeleting(false);
-    }
+    const res = await fetch(`/api/sites/${site.id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("delete failed");
+    router.push("/");
   }
 
   return (
@@ -265,7 +261,7 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
               )}
             </div>
             <div className="px-5 pb-5 flex items-center justify-between">
-              <Button variant="danger" onClick={destroy} loading={deleting}>Delete site</Button>
+              <Button variant="danger" onClick={() => setAsking(true)}>Delete site</Button>
               <div className="flex gap-2">
                 <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
                 <Button onClick={save} loading={saving}>Save</Button>
@@ -274,6 +270,15 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           </div>
         </div>
       )}
+      <ConfirmDelete
+        open={asking}
+        onClose={() => setAsking(false)}
+        kind="site"
+        name={site.name}
+        costUrl={`/api/sites/${site.id}?cost=1`}
+        backupUrl={`/api/sites/${site.id}/export`}
+        onConfirm={destroy}
+      />
     </>
   );
 }

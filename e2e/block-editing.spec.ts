@@ -40,7 +40,7 @@ test.describe("Setting a button's link", () => {
     const saved = await (await request.get(`/api/pages/${p.id}`)).json();
     expect(saved.content).toContain("https://example.com/pricing");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -59,7 +59,7 @@ test.describe("Pointing an image at a URL", () => {
     await page.keyboard.press("Enter");
     await expect(img).toHaveAttribute("src", "https://example.com/photo.jpg");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -78,7 +78,7 @@ test.describe("Editing custom HTML", () => {
     const saved = await (await request.get(`/api/pages/${p.id}`)).json();
     expect(saved.content).toContain("<p>two</p>");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -105,7 +105,7 @@ test.describe("Linking selected text", () => {
     const saved = await (await request.get(`/api/pages/${p.id}`)).json();
     expect(saved.content).toContain("https://example.com");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -124,6 +124,6 @@ test.describe("A video block with nothing in it", () => {
     await expect(page.getByText("No video yet")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Below" })).toBeVisible();
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });

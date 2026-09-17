@@ -163,14 +163,36 @@ differently, so reordering pages did not show up consistently.
   loads. That needs the dimensions captured when a picture is chosen, which is its own
   piece of work.
 
+### Round 7 — deleting, with a way back
+
+- **P2-15 (destructive actions have thin rails)** — deleting was final. A browser
+  `confirm()` said "this cannot be undone" and nothing else, then took the site's pages,
+  their history and every form submission with it.
+  - **A trash.** Deleting a site or a page writes it away whole first — settings, pages,
+    revisions and the answers people sent through forms — and "Put back" rebuilds it. The
+    50 most recent deletions are kept; the trash sits under the sites list.
+  - **The confirmation says what goes.** It counts the pages, saved versions and form
+    submissions attached, warns separately about submissions (nobody else has a copy of
+    those), and offers a JSON copy before deleting a site.
+  - **A caller that means it** can still delete outright with `?permanent=1`.
+  - **The builder says when it is reachable over the network.** The API asks nobody who
+    they are — reasonable on your own machine, which is the design — but nothing said so
+    when the address in the bar was not localhost, and anyone on the same Wi-Fi could edit
+    or delete these sites.
+- A bug found on the way: **the JSON export had fallen behind the schema.** It listed
+  fields by hand, so header styling, per-page SEO and the site's own social image were
+  dropped — "export and re-import" quietly gave back a different site. Export, import and
+  the trash now share one archive format, and a test reads `schema.prisma` and fails when
+  a field is added to the schema and not to the archive.
+
 ### Still open from this review
 
 P0-1 (no way to publish off the machine) is answered in part by **Download files** — a
 site now leaves the machine as plain HTML, CSS and images — but there is still no
 hosting step.
 Also open: P1-5 (editor is not WYSIWYG — closer now that the canvas carries the site
-theme), the last of P1-8 (no
-images without dimensions — template images also carry no alt text), P2-13 (no reusable blocks), P2-15 (thin rails on destructive actions).
+theme), the last of P1-8 (images carry no width/height, and template images no alt text),
+and P2-13 (no reusable blocks).
 
 ---
 
@@ -192,7 +214,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 172 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO) — all passing; 54 Playwright specs |
+| Quality | 184 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive) — all passing; 61 Playwright specs |
 
 ---
 

@@ -33,7 +33,7 @@ test.describe("The site accent", () => {
     expect(await bg(page, "Follows the site")).toBe("rgb(5, 150, 105)");
     expect(await bg(page, "Has its own")).toBe("rgb(239, 68, 68)");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("picks a readable label for a filled button, whoever chose the colour", async ({ page, request }) => {
@@ -50,7 +50,7 @@ test.describe("The site accent", () => {
     expect(await colour("On the accent")).toBe("rgb(15, 23, 42)");
     expect(await colour("On its own pale colour")).toBe("rgb(15, 23, 42)");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("draws an outline button's label in the accent instead of white on white", async ({ page, request }) => {
@@ -62,7 +62,7 @@ test.describe("The site accent", () => {
     expect(await span.evaluate((el) => getComputedStyle(el).color)).toBe("rgb(219, 39, 119)");
     expect(await span.evaluate((el) => getComputedStyle(el).borderTopColor)).toBe("rgb(219, 39, 119)");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("carries the site's corner radius", async ({ page, request }) => {
@@ -71,7 +71,7 @@ test.describe("The site accent", () => {
     await page.goto(`/sites/${site.slug}`);
     const span = page.getByRole("link", { name: "Rounded" }).locator("span");
     expect(await span.evaluate((el) => getComputedStyle(el).borderTopLeftRadius)).toBe("24px");
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -84,7 +84,7 @@ test.describe("A site made from a template", () => {
     ).json();
     expect(site.accent).toBe(restaurant.accent);
     expect(site.accent).not.toBe("#6366f1");
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -102,7 +102,7 @@ test.describe("The editor canvas", () => {
     const palette = page.getByRole("button", { name: "Heading" }).first();
     expect(await palette.evaluate((el) => getComputedStyle(el).getPropertyValue("--site-accent"))).toBe("");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("hands a block's colour back to the site from the inspector", async ({ page, request }) => {
@@ -117,6 +117,6 @@ test.describe("The editor canvas", () => {
     const saved = await (await request.get(`/api/pages/${p.id}`)).json();
     expect(saved.content).not.toContain("#ef4444");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });

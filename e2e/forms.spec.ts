@@ -56,7 +56,7 @@ test.describe("Published forms", () => {
       Message: "hello",
     });
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("the editor keeps form inputs inert", async ({ page, request }) => {
@@ -87,7 +87,7 @@ test.describe("Published forms", () => {
     await expect(page.locator("form input").first()).toBeDisabled();
     await expect(page.locator('form button[type="submit"]')).toBeDisabled();
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("oversized submissions are refused", async ({ request }) => {
@@ -102,6 +102,6 @@ test.describe("Published forms", () => {
     });
     expect(res.status()).toBe(413);
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });

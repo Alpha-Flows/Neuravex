@@ -30,7 +30,7 @@ test.describe("A published site tells search engines about itself", () => {
     expect(xml).toContain(`/sites/${site.slug}/about</loc>`);
     expect(xml).not.toContain("/draft</loc>");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("serves a robots.txt that points at the sitemap", async ({ request }) => {
@@ -40,14 +40,14 @@ test.describe("A published site tells search engines about itself", () => {
     const txt = await res.text();
     expect(txt).toContain("Allow: /");
     expect(txt).toContain(`/sites/${site.slug}/sitemap.xml`);
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("asks not to be indexed while nothing is published", async ({ request }) => {
     const site = await (await request.post("/api/sites", { data: { name: `Draft ${Date.now()}` } })).json();
     const txt = await (await request.get(`/sites/${site.slug}/robots.txt`)).text();
     expect(txt).toContain("Disallow: /");
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("404s for a site that does not exist", async ({ request }) => {
@@ -68,14 +68,14 @@ test.describe("A published page's head", () => {
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `/sites/${site.slug}/about`);
     await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/uploads/icon.png");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("the home page's canonical is the site address, not the index slug", async ({ page, request }) => {
     const { site } = await publishedSite(request);
     await page.goto(`/sites/${site.slug}`);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `/sites/${site.slug}`);
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("a visitor's page does not carry the builder's own theme", async ({ page, request }) => {
@@ -84,7 +84,7 @@ test.describe("A published page's head", () => {
     const cls = (await page.locator("body").getAttribute("class")) ?? "";
     expect(cls).not.toContain("bg-bg");
     expect(cls).not.toContain("text-fg");
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -98,7 +98,7 @@ test.describe("Images on a published page", () => {
     });
     await page.goto(`/sites/${site.slug}`);
     await expect(page.locator("img").first()).toHaveAttribute("loading", "lazy");
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -107,6 +107,6 @@ test.describe("The download", () => {
     const { site } = await publishedSite(request);
     const zip = await (await request.get(`/api/sites/${site.id}/download`)).body();
     expect(zip.toString("binary")).toContain("robots.txt");
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
