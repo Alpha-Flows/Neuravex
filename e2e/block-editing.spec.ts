@@ -71,6 +71,10 @@ test.describe("Editing custom HTML", () => {
     const { site, page: p } = await seed(request, [html]);
     await page.goto(`/admin/sites/${site.id}/pages/${p.id}`);
 
+    // "Edit HTML" is editor chrome now: it floats over the block and appears
+    // when the block is hovered or selected, rather than taking a line under
+    // the markup and pushing the rest of the page down.
+    await page.locator(".editor-block").first().click();
     await page.getByRole("button", { name: "Edit HTML" }).click();
     const box = page.getByRole("dialog", { name: "Custom HTML" }).locator("textarea");
     await box.fill("<p>one</p>\n<p>two</p>");

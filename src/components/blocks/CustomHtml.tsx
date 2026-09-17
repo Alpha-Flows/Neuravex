@@ -26,14 +26,22 @@ export function CustomHtml({ props, onChange, disabled }: Props) {
   }
 
   return (
-    <div>
-      <div
-        className="rounded-lg border border-dashed border-bg-border p-4 min-h-[60px]"
-        dangerouslySetInnerHTML={{ __html: sanitizeHtml(props.html) }}
-      />
+    // The markup is drawn exactly as the page draws it — no dashed frame, no
+    // padding of its own and no button taking a line underneath. Those three
+    // things moved everything below them, so a block of custom HTML sat in a
+    // different place on the canvas than on the published page. The one
+    // control it needs floats over the block instead, and appears when the
+    // block is hovered or selected.
+    <div className="relative">
+      <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(props.html) }} />
+      {(props.html ?? "").trim() ? null : (
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 py-10 text-center text-sm text-slate-500">
+          Empty HTML block — press Edit HTML to put something in it.
+        </div>
+      )}
       <button
         onClick={(e) => { e.stopPropagation(); open(); }}
-        className="mt-2 text-xs text-fg-muted hover:text-fg"
+        className="nvx-block-chrome absolute left-2 top-2 z-10 rounded-md border border-bg-border bg-bg-card/95 px-2 py-1 text-xs text-fg-muted shadow-lg hover:text-fg"
       >
         Edit HTML
       </button>

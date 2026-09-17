@@ -3,7 +3,6 @@ import { BaseBlock, ColumnsProps } from "@/types";
 import { SortableContainer } from "./Sortable";
 import { clampColumnCount, cloneTree, flattenColumns, groupIntoColumns, withFreshIds } from "@/lib/tree-utils";
 import { columnBoxStyle } from "@/lib/block-style";
-import { cn } from "@/lib/utils";
 
 interface Props {
   props: ColumnsProps;
@@ -69,7 +68,12 @@ export function Columns({
   }
 
   return (
-    <div className={cn("nvx-columns", disabled && "nvx-columns-responsive")}>
+    // Responsive while editing too. The grid used to hold the authored column
+    // count here whatever the width, so a row of four columns that a visitor
+    // on a phone gets as four stacked blocks was drawn on the canvas as four
+    // slivers side by side. The buckets you drag into are still one per
+    // column — they simply sit where the visitor will see them.
+    <div className="nvx-columns nvx-columns-responsive">
       <div
         className="nvx-columns-grid"
         data-cols={cols}
