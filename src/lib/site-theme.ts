@@ -87,3 +87,17 @@ export function siteThemeCss(site: SiteThemeInput, selector = ":root"): string {
     `${headings} { font-family: var(--site-heading-font, inherit); }`,
   ].join("\n");
 }
+
+/**
+ * How much room a page has to leave at the top for its header. A fixed header
+ * is out of the flow, so without this the first block starts underneath it:
+ * 4rem tall, plus a 1px bottom border on the bar shape, plus a 1rem margin on
+ * the pill.
+ *
+ * It lives here rather than beside the header component: that component is a
+ * client one, and a plain function exported across that boundary is not
+ * callable from the server page that renders it.
+ */
+export function headerOffset(site: { headerShape: string }): number {
+  return site.headerShape === "pill" ? 80 : site.headerShape === "rounded" ? 64 : 65;
+}

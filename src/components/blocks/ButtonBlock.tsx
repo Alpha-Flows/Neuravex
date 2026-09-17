@@ -76,12 +76,15 @@ export function ButtonBlock({ props, onChange, disabled }: Props) {
   }
 
   return (
-    <div className={cn(alignClass[props.align], "space-y-1")}>
+    // The link control hangs below the button instead of taking a line of its
+    // own: as part of the flow it pushed the rest of the page down, so the
+    // canvas never matched what was published.
+    <div className={cn(alignClass[props.align], "relative")}>
       {inner}
-      <div className="relative inline-block">
+      <div className="absolute left-0 top-full z-10 inline-block">
         <button
           type="button"
-          className="block text-xs text-slate-400 hover:text-slate-600"
+          className="nvx-block-chrome block text-xs text-slate-400 hover:text-slate-600 whitespace-nowrap"
           onClick={(e) => { e.stopPropagation(); setEditingLink(true); }}
         >
           {props.href || "Set link"} ↗

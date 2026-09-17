@@ -185,14 +185,37 @@ differently, so reordering pages did not show up consistently.
   the trash now share one archive format, and a test reads `schema.prisma` and fails when
   a field is added to the schema and not to the archive.
 
+### Round 8 — the canvas shows what ships
+
+- **P1-5 (the editor is not WYSIWYG)** — the canvas rendered the block tree and nothing
+  else, so you laid a page out against a blank top edge and found out what it sat under
+  after publishing.
+  - **The site header, its nav and the footer are drawn in the canvas**, by the same
+    components the published page uses — extracted so there is one implementation rather
+    than two to drift apart.
+  - **The site's custom CSS applies in the canvas**, scoped to it so a rule on `body`
+    styles the page being edited and not the builder around it. A guard after it keeps a
+    broad rule from hiding the controls you need to edit with.
+  - **A fixed header is held inside the canvas.** Fixed means fixed to the window, so it
+    covered the builder's own toolbar and spanned the whole app.
+  - **The editor's own controls left the layout.** "Upload image", "Use URL" and the link
+    under a button each took a line of their own and pushed everything below them down.
+    They float over their block now, and appear when it is hovered or selected.
+  - **Blocks are no longer spaced differently from the published page.** The canvas put
+    12px between every block; a published page stacks them flush. Nothing in the review
+    named this one — it turned up measuring the gap above a heading in both places.
+- `headerOffset` moved out of the header's module on the way: the component is a client
+  one, and a plain function exported across that boundary is not callable from the server
+  page that renders it. The published page threw until it moved.
+
 ### Still open from this review
 
 P0-1 (no way to publish off the machine) is answered in part by **Download files** — a
 site now leaves the machine as plain HTML, CSS and images — but there is still no
 hosting step.
-Also open: P1-5 (editor is not WYSIWYG — closer now that the canvas carries the site
-theme), the last of P1-8 (images carry no width/height, and template images no alt text),
-and P2-13 (no reusable blocks).
+Also open: the last of P1-8 (images carry no width/height, and template images no alt
+text), and P2-13 (no reusable blocks — no saved sections, no copy-paste between pages, no
+outline tree).
 
 ---
 
@@ -214,7 +237,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 184 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive) — all passing; 61 Playwright specs |
+| Quality | 195 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping) — all passing; 66 Playwright specs |
 
 ---
 

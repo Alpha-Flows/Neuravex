@@ -11,7 +11,18 @@ export default async function PageEditorRoute({
   params: { id: string; pageId: string };
 }) {
   const page = await prisma.page.findUnique({ where: { id: params.pageId } });
-  const site = await prisma.site.findUnique({ where: { id: params.id } });
+  const site = await prisma.site.findUnique({
+    where: { id: params.id },
+    include: {
+      // The nav the header draws, so the canvas shows the same one a visitor
+      // gets rather than an empty bar.
+      pages: {
+        where: { published: true },
+        orderBy: [{ sortOrder: "asc" }, { isHome: "desc" }],
+        select: { slug: true, title: true, isHome: true },
+      },
+    },
+  });
   if (!page || !site || page.siteId !== site.id) notFound();
 
   let blocks: BaseBlock[] = [];
@@ -32,6 +43,21 @@ export default async function PageEditorRoute({
         fontFamily: site.fontFamily,
         headingFont: site.headingFont,
         borderRadius: site.borderRadius,
+      }}
+      chrome={{
+        site: {
+          name: site.name,
+          slug: site.slug,
+          accent: site.accent,
+          headerHtml: site.headerHtml,
+          footerHtml: site.footerHtml,
+          headerBackground: site.headerBackground,
+          headerOpacity: site.headerOpacity,
+          headerShape: site.headerShape,
+          headerPosition: site.headerPosition,
+        },
+        pages: site.pages,
+        customCss: site.customCss,
       }}
       initial={{
         title: page.title,

@@ -23,6 +23,8 @@ test.describe("Setting a button's link", () => {
     const { site, page: p } = await seed(request, [button]);
     await page.goto(`/admin/sites/${site.id}/pages/${p.id}`);
 
+    // Selecting the block brings up the controls that belong to the editor.
+    await page.locator(".editor-block").first().click();
     await page.getByRole("button", { name: "# ↗" }).click();
     const field = page.getByRole("textbox", { name: "Link URL" });
     await expect(field).toBeFocused();
@@ -54,6 +56,7 @@ test.describe("Pointing an image at a URL", () => {
     const img = page.locator("figure img");
     await expect(img).toHaveAttribute("src", /^data:image\/svg\+xml/);
 
+    await page.locator(".editor-block").first().click();
     await page.getByRole("button", { name: "Use URL" }).click();
     await page.getByRole("textbox", { name: "Image URL" }).fill("https://example.com/photo.jpg");
     await page.keyboard.press("Enter");

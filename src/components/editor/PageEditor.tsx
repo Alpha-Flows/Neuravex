@@ -15,7 +15,10 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { BaseBlock, BlockType } from "@/types";
 import { getBlockDefinition } from "@/lib/blocks";
 import { uid, slugify } from "@/lib/utils";
-import { siteThemeCss, SiteThemeInput } from "@/lib/site-theme";
+import { siteThemeCss, headerOffset, SiteThemeInput } from "@/lib/site-theme";
+import { scopeCss } from "@/lib/scope-css";
+import { sanitizeCss } from "@/lib/security";
+import { SiteHeader, SiteFooter, SiteChrome, NavPage } from "@/components/public/SiteChrome";
 import { mapBlocks, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount, removeBlock, withFreshIds } from "@/lib/tree-utils";
 import { BlockPalette } from "./BlockPalette";
 import { BlockInspector } from "./BlockInspector";
@@ -33,6 +36,8 @@ interface Props {
   siteSlug: string;
   /** The site's branding, so the canvas shows the colours the page will ship with. */
   theme: SiteThemeInput;
+  /** The header, footer and custom CSS a visitor gets around this page. */
+  chrome: { site: SiteChrome; pages: NavPage[]; customCss: string | null };
   initial: {
     title: string;
     slug: string;
@@ -62,7 +67,7 @@ export function isTextEntry(el: Element | null): boolean {
   return (el as HTMLElement).isContentEditable === true;
 }
 
-export function PageEditor({ pageId, siteId, siteSlug, theme, initial }: Props) {
+export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }: Props) {
   const [blocks, setBlocks] = useState<BaseBlock[]>(initial.blocks);
   const [title, setTitle] = useState(initial.title);
   const [slug, setSlug] = useState(initial.slug);
@@ -457,8 +462,30 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, initial }: Props) 
   const selectedBlock = selectedId ? findBlock(blocks, selectedId) : null;
 
   // Scoped to the canvas: on a published page this branding owns the document,
-  // but here it must not repaint the palette and the inspector around it.
+  // but here it must not repaint the palette and the inspector around it. The
+  // site's own CSS is scoped the same way, for the same reason — a rule on
+  // `body` would otherwise reach the builder's chrome.
   const themeCss = useMemo(() => siteThemeCss(theme, ".public-canvas"), [theme]);
+  const customCss = useMemo(
+    () => (chrome.customCss ? scopeCss(sanitizeCss(chrome.customCss), ".public-canvas") : ""),
+    [chrome.customCss],
+  );
+
+  // The page has to leave room for a fixed header here too, or the canvas
+  // shows the first block in a place the published page never puts it.
+  const canvasStyle =
+    chrome.site.headerPosition === "fixed" ? { paddingTop: headerOffset(chrome.site) } : undefined;
+
+  /** The header and footer, exactly as a visitor gets them. */
+  const siteChrome = (inner: React.ReactNode) => (
+    // `relative` so a fixed header is held inside the canvas instead of
+    // floating over the whole builder.
+    <div className="public-canvas relative" style={canvasStyle}>
+      <SiteHeader site={chrome.site} pages={chrome.pages} activeSlug={slug} contained />
+      <main>{inner}</main>
+      <SiteFooter site={chrome.site} />
+    </div>
+  );
 
   return (
     <DndContext
@@ -470,6 +497,14 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, initial }: Props) 
     >
       <div className="h-screen flex flex-col bg-bg text-fg editor-mode">
         <style dangerouslySetInnerHTML={{ __html: themeCss }} />
+        {customCss ? (
+          <>
+            <style dangerouslySetInnerHTML={{ __html: customCss }} />
+            {/* The site's CSS cannot reach outside the canvas, but inside it a
+                broad rule could still hide the controls for editing. */}
+            <style>{".public-canvas .editor-toolbar, .public-canvas .editor-outline { display: block !important; visibility: visible !important }"}</style>
+          </>
+        ) : null}
         {/* Top bar */}
         <header className="h-14 px-4 border-b border-bg-border flex items-center gap-3 bg-bg-soft">
           <a href={`/admin/sites/${siteId}`} className="text-fg-muted hover:text-fg text-sm shrink-0">← Pages</a>
@@ -546,11 +581,10 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, initial }: Props) 
             <div className="mx-auto my-8 max-w-5xl rounded-xl shadow-2xl border border-bg-border overflow-hidden"
               style={preview && viewport !== "full" ? { maxWidth: viewport === "lg" ? 1024 : viewport === "md" ? 768 : 480 } : undefined}>
               {preview ? (
-                <div className="public-canvas">
-                  <PublicBlocks blocks={blocks} />
-                </div>
+                siteChrome(<PublicBlocks blocks={blocks} />)
               ) : (
-                <div className="public-canvas" onClick={(e) => e.stopPropagation()}>
+                <div onClick={(e) => e.stopPropagation()}>
+                  {siteChrome(
                   <SortableContainer
                     containerId="page"
                     blocks={blocks}
@@ -561,7 +595,8 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, initial }: Props) 
                     selectedId={selectedId}
                     pageId={pageId}
                     emptyHint="Drag a block from the left to get started, or click any block to insert it here."
-                  />
+                  />,
+                  )}
                 </div>
               )}
             </div>

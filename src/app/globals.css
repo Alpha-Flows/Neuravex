@@ -152,6 +152,24 @@ html, body {
  * also counts as hovering each ancestor — which lit up a stack of outlines
  * and toolbars at once. Only the innermost hovered block should answer.
  * A selected block keeps its chrome regardless. */
+/*
+ * Controls that belong to the editor rather than the page — "Use URL" on an
+ * image, the link under a button. They float over the block instead of taking
+ * a line of their own, so the canvas shows the layout the page will actually
+ * have, and they appear when the block is hovered or selected.
+ */
+.nvx-block-chrome {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+.editor-block:hover > .nvx-block-chrome,
+.editor-block:hover .nvx-block-chrome,
+.editor-block.is-selected .nvx-block-chrome {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .editor-block:not(.is-selected):has(.editor-block:hover) > .editor-outline {
   outline-color: transparent;
 }
