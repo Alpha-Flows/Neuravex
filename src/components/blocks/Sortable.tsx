@@ -48,6 +48,10 @@ function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplic
         onSelect();
       }}
     >
+      {/* The selection / hover ring. It is positioned over the block rather
+          than sitting in front of it: as an ordinary element it was 0px tall,
+          so it drew a dashed line across the top edge instead of a box round
+          the block you were about to click. */}
       <div className="editor-outline" />
       <div
         className={cn(
@@ -202,7 +206,9 @@ export function SortableContainer({
         // canvas that spaced them out by 12px was showing a layout nobody would
         // ever get. Hovering outlines a block, which is what makes one
         // distinguishable from the next.
-        <div>
+        // `relative` so the end-of-list drop target below can be pinned to the
+        // bottom edge without taking a line of its own.
+        <div className="relative">
           {blocks.map((b, i) => (
             <SortableBlock
               key={b.id}
@@ -225,11 +231,19 @@ export function SortableContainer({
             />
           ))}
           {!disabled ? (
+            // Where a block dropped at the end of this container lands. It
+            // hangs off the bottom edge rather than sitting in the flow — an
+            // 8px strip after every container was 8px the published page does
+            // not have, and they added up through every nested section and
+            // column. dnd-kit finds it by its measured rectangle rather than
+            // by pointer events, so it can stay transparent to clicks and
+            // never shadow what sits below it.
             <div
               ref={drop.setNodeRef}
+              aria-hidden
               className={cn(
-                "h-2 rounded transition-all",
-                drop.isOver ? "bg-brand/30 h-6 ring-2 ring-brand/40" : "hover:bg-brand/10",
+                "absolute inset-x-0 top-full z-10 pointer-events-none rounded transition-all",
+                drop.isOver ? "h-6 bg-brand/30 ring-2 ring-brand/40" : "h-2",
               )}
             />
           ) : null}

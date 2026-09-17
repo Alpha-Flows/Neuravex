@@ -102,7 +102,12 @@ export function Form({ props, onChange, disabled, pageId }: Props) {
                 name={`field-${i}`}
                 disabled={editing}
                 rows={4}
-                className="w-full p-2.5 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/60 disabled:bg-slate-50"
+                // No greyed-out look while editing. A field that a visitor
+                // will see white and a field the canvas paints grey are two
+                // different designs, and only one of them ships. Transparent
+                // to clicks instead, so pressing a field on the canvas selects
+                // the block it belongs to rather than doing nothing at all.
+                className={`w-full p-2.5 rounded-md border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/60 ${editing ? "pointer-events-none" : ""}`}
               />
             ) : (
               <input
@@ -110,7 +115,7 @@ export function Form({ props, onChange, disabled, pageId }: Props) {
                 required={f.required}
                 name={`field-${i}`}
                 disabled={editing}
-                className="w-full h-10 px-3 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/60 disabled:bg-slate-50"
+                className={`w-full h-10 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand/60 ${editing ? "pointer-events-none" : ""}`}
               />
             )}
           </div>
@@ -123,7 +128,10 @@ export function Form({ props, onChange, disabled, pageId }: Props) {
         <button
           type="submit"
           disabled={editing || submitState === "sending"}
-          className="h-10 px-6 rounded-md bg-brand text-white text-sm font-medium hover:bg-brand-hover disabled:opacity-50"
+          // Faded only while a submission is in flight. Fading it because the
+          // canvas will not accept a click told you nothing about the button
+          // your visitors get.
+          className={`h-10 px-6 rounded-md bg-brand text-white text-sm font-medium hover:bg-brand-hover ${submitState === "sending" ? "opacity-50" : ""} ${editing ? "pointer-events-none" : ""}`}
         >
           <Editable
             disabled={disabled}

@@ -19,8 +19,17 @@ html, body {
 ::-webkit-scrollbar-thumb { background: #222735; border-radius: 8px; }
 ::-webkit-scrollbar-thumb:hover { background: #2c3245; }
 
-/* Editor-only outline highlights */
+/* Editor-only outline highlights.
+ *
+ * Stretched over the block it belongs to. Left in the flow it was an empty
+ * element with no height of its own, so the "outline" was a dashed line lying
+ * across the top edge of the block rather than a ring around it — you could
+ * not see what a click was about to select. Absolute keeps it out of the
+ * layout, so the canvas still stacks blocks exactly as the page does. */
 .editor-outline {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   outline: 2px dashed transparent;
   outline-offset: 2px;
   transition: outline-color 0.12s ease;
@@ -118,9 +127,10 @@ html, body {
  * viewport preview (which resizes a wrapper, not the window), and columns
  * nested inside another column.
  *
- * Only read-only renders (public pages, preview, revision preview) opt in
- * via .nvx-columns-responsive. While editing, the grid always shows the
- * authored column count so the buckets you drag into are the ones you see.
+ * Every render opts in via .nvx-columns-responsive, the editor canvas
+ * included: a row of columns has to break where the visitor will see it
+ * break, or the canvas is showing a layout nobody gets. The buckets you drag
+ * into are still one per column — they simply stack when the page stacks.
  *
  * Browsers without container query support fall back to the base rule —
  * the fixed N-column grid, i.e. the previous behaviour.

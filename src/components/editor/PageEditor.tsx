@@ -18,6 +18,7 @@ import { uid, slugify, cn } from "@/lib/utils";
 import { siteThemeCss, headerOffset, SiteThemeInput } from "@/lib/site-theme";
 import { scopeCss } from "@/lib/scope-css";
 import { readClipboard, writeClipboard, pasteable } from "@/lib/clipboard";
+import { readRails, writeRails, RailState, RAILS_OPEN } from "@/lib/rails";
 import { sanitizeCss } from "@/lib/security";
 import { SiteHeader, SiteFooter, SiteChrome, NavPage } from "@/components/public/SiteChrome";
 import { mapBlocks, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount, removeBlock, withFreshIds } from "@/lib/tree-utils";
@@ -62,6 +63,20 @@ const AUTOSAVE_MS = 1500;
  */
 const HISTORY_COALESCE_MS = 700;
 
+/**
+ * The widths the canvas can be pinned to. "Full" hands it the whole pane;
+ * the rest are the sizes a phone and a tablet actually give a page, so a
+ * layout can be checked against them without publishing first.
+ */
+const VIEWPORTS = [
+  { key: "full", label: "Full", title: "Fill the window", width: null },
+  { key: "lg", label: "1024", title: "Small laptop — 1024px", width: 1024 },
+  { key: "md", label: "768", title: "Tablet — 768px", width: 768 },
+  { key: "sm", label: "480", title: "Phone — 480px", width: 480 },
+] as const;
+
+type ViewportKey = (typeof VIEWPORTS)[number]["key"];
+
 /** True for anything that takes a caret: inputs, textareas, block text. */
 export function isTextEntry(el: Element | null): boolean {
   if (!el) return false;
@@ -87,8 +102,13 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
   const [preview, setPreview] = useState(false);
-  const [viewport, setViewport] = useState<"full" | "lg" | "md" | "sm">("full");
+  const [viewport, setViewport] = useState<ViewportKey>("full");
   const [leftTab, setLeftTab] = useState<"blocks" | "outline">("blocks");
+  // Which rails are folded away. It starts open on both sides and the stored
+  // preference is applied after mount: read during the first render it would
+  // not match the HTML the server sent, and React would throw the whole
+  // canvas away and build it again.
+  const [rails, setRails] = useState<RailState>(RAILS_OPEN);
   /** Bumped when a block is kept, so the palette shows it straight away. */
   const [savedKey, setSavedKey] = useState(0);
   const [activeDrag, setActiveDrag] = useState<{ kind: "palette" | "block"; type?: BlockType; block?: BaseBlock } | null>(null);
@@ -436,6 +456,18 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
     setDirty(true);
   }
 
+  useEffect(() => {
+    setRails(readRails());
+  }, []);
+
+  const toggleRail = useCallback((side: keyof RailState) => {
+    setRails((current) => {
+      const next = { ...current, [side]: !current[side] };
+      writeRails(next);
+      return next;
+    });
+  }, []);
+
   // Beforeunload guard
   useEffect(() => {
     function onBeforeUnload(e: BeforeUnloadEvent) {
@@ -534,6 +566,20 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
     [chrome.customCss],
   );
 
+  const leftRailTitle = rails.left
+    ? "Show the blocks panel"
+    : "Hide the blocks panel and give the page its width";
+  const rightRailTitle = rails.right
+    ? selectedBlock
+      ? "Show the settings for the selected block"
+      : "Show the settings panel"
+    : "Hide the settings panel and give the page its width";
+
+  // Whatever width the canvas is pinned to, in both modes. Pinning it only
+  // while previewing was what made Preview feel like a different page: the
+  // canvas grew, every line re-wrapped and blocks landed somewhere else.
+  const canvasWidth = VIEWPORTS.find((v) => v.key === viewport)?.width ?? null;
+
   // The page has to leave room for a fixed header here too, or the canvas
   // shows the first block in a place the published page never puts it.
   const canvasStyle =
@@ -592,6 +638,72 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
             <button onClick={redo} disabled={!canRedo} title="Redo (Shift+Cmd+Z)" className="w-7 h-7 rounded-md text-fg-muted hover:text-fg hover:bg-bg-card disabled:opacity-30 flex items-center justify-center text-sm">↪</button>
           </div>
 
+          {/*
+            How wide the canvas is. This used to live inside the preview panel
+            and apply only there, which meant pressing Preview re-laid the
+            whole page out: different width, different line breaks, different
+            place for every block. Here it belongs to the canvas itself, so
+            Preview only takes the editing controls away — nothing moves.
+          */}
+          <div className="hidden md:inline-flex items-center rounded-md border border-bg-border overflow-hidden shrink-0 ml-1">
+            {VIEWPORTS.map((v) => (
+              <button
+                key={v.key}
+                onClick={() => setViewport(v.key)}
+                aria-pressed={viewport === v.key}
+                title={v.title}
+                className={cn(
+                  "h-7 px-2 text-[11px]",
+                  viewport === v.key ? "bg-brand text-white" : "text-fg-muted hover:text-fg hover:bg-bg-card",
+                )}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+
+          {/*
+            Folding the rails away. Between them they take 34rem, which on a
+            1600px window left the page 1054px wide — narrower than the
+            1200px column a visitor gets, so the canvas could not show the
+            line breaks the published page has. These hand that room back.
+
+            They live here rather than on the rails themselves so that a
+            folded rail can leave nothing behind: a handle pinned to the edge
+            would either eat into the width this is meant to recover or sit on
+            top of the page.
+          */}
+          <div className="hidden md:inline-flex items-center rounded-md border border-bg-border overflow-hidden shrink-0 ml-1">
+            <button
+              onClick={() => toggleRail("left")}
+              aria-pressed={!rails.left}
+              aria-label={leftRailTitle}
+              title={leftRailTitle}
+              className={cn(
+                "h-7 px-2 text-xs",
+                rails.left ? "text-fg-subtle hover:text-fg hover:bg-bg-card" : "bg-bg-card text-fg",
+              )}
+            >
+              ◧
+            </button>
+            <button
+              onClick={() => toggleRail("right")}
+              aria-pressed={!rails.right}
+              aria-label={rightRailTitle}
+              title={rightRailTitle}
+              className={cn(
+                "relative h-7 px-2 text-xs",
+                rails.right ? "text-fg-subtle hover:text-fg hover:bg-bg-card" : "bg-bg-card text-fg",
+              )}
+            >
+              ◨
+              {/* Something is selected and its settings are out of sight. */}
+              {rails.right && selectedBlock ? (
+                <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-brand" />
+              ) : null}
+            </button>
+          </div>
+
           <div className="ml-auto flex items-center gap-2">
             <span className={`text-xs shrink-0 ${saveFailed ? "text-red-400" : "text-fg-muted"}`}>
               {saving
@@ -619,9 +731,10 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
           </div>
         </header>
 
-        {/* Body: palette | canvas | inspector */}
+        {/* Body: palette | canvas | inspector. Either rail can be folded away,
+            in which case it renders nothing and the canvas takes the room. */}
         <div className="flex-1 flex min-h-0">
-          {!preview ? (
+          {rails.left ? null : !preview ? (
             <aside className="w-64 shrink-0 border-r border-bg-border bg-bg-soft h-full flex flex-col">
               <div className="flex border-b border-bg-border shrink-0">
                 {(["blocks", "outline"] as const).map((t) => (
@@ -653,19 +766,15 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
               </div>
             </aside>
           ) : (
+            // The same 16rem the palette takes, because the canvas beside it
+            // must not change width when Preview is pressed.
             <div className="w-64 shrink-0 border-r border-bg-border bg-bg-soft p-4 text-sm text-fg-muted">
               <div className="text-xs uppercase tracking-wide font-semibold mb-3">Preview</div>
-              <p>This is how visitors will see your page. Click Edit to keep making changes.</p>
-              <div className="mt-4">
-                <div className="text-[11px] uppercase tracking-wider text-fg-subtle font-medium mb-2">Viewport</div>
-                <div className="inline-flex rounded-md border border-bg-border overflow-hidden w-full">
-                  {(["full", "lg", "md", "sm"] as const).map((v) => (
-                    <button key={v} onClick={() => setViewport(v)} className={`flex-1 h-8 text-xs uppercase ${viewport === v ? "bg-brand text-white" : "text-fg-muted hover:text-fg hover:bg-bg-card"}`}>
-                      {v === "full" ? "Full" : v === "lg" ? "1024" : v === "md" ? "768" : "480"}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <p>This is how visitors will see your page — the same widths and spacing the canvas was showing you, with the editing controls out of the way.</p>
+              <Button className="mt-4" variant="outline" size="sm" onClick={() => setPreview(false)}>
+                Back to editing
+              </Button>
+              <p className="mt-4 text-xs text-fg-subtle">Use the width buttons in the toolbar to see the page at a phone or tablet size.</p>
             </div>
           )}
 
@@ -674,58 +783,74 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
               The canvas takes the room it is given. It used to stop at 1024px
               whatever the window, so on a large screen you laid the page out
               at a width no visitor would see — and most of the monitor sat
-              empty. The viewport buttons in preview still pin it to a size on
-              purpose.
+              empty. The width buttons in the toolbar pin it to a phone or a
+              tablet on purpose, and they do so whether you are editing or
+              previewing.
             */}
-            <div className="mx-auto my-8 w-full rounded-xl shadow-2xl border border-bg-border overflow-hidden"
-              style={preview && viewport !== "full" ? { maxWidth: viewport === "lg" ? 1024 : viewport === "md" ? 768 : 480 } : undefined}>
-              {preview ? (
-                siteChrome(<PublicBlocks blocks={blocks} />)
-              ) : (
-                <div onClick={(e) => e.stopPropagation()}>
-                  {siteChrome(
-                  <SortableContainer
-                    containerId="page"
-                    blocks={blocks}
-                    onChange={(next, editKey) => pushHistory(next, editKey)}
-                    onSelect={(id) => setSelectedId(id)}
-                    onDelete={deleteBlock}
-                    onDuplicate={duplicateBlock}
-                    selectedId={selectedId}
-                    pageId={pageId}
-                    emptyHint="Drag a block from the left to get started, or click any block to insert it here."
-                  />,
-                  )}
-                </div>
-              )}
+            <div
+              data-canvas-frame
+              className="mx-auto my-8 w-full rounded-xl shadow-2xl border border-bg-border overflow-hidden"
+              style={canvasWidth ? { maxWidth: canvasWidth } : undefined}
+            >
+              {/* One wrapper for both modes. Preview used to drop it, which
+                  changed the shape of the tree around the page and gave the
+                  browser a reason to lay it out afresh. */}
+              <div onClick={(e) => e.stopPropagation()}>
+                {siteChrome(
+                  preview ? (
+                    <PublicBlocks blocks={blocks} />
+                  ) : (
+                    <SortableContainer
+                      containerId="page"
+                      blocks={blocks}
+                      onChange={(next, editKey) => pushHistory(next, editKey)}
+                      onSelect={(id) => setSelectedId(id)}
+                      onDelete={deleteBlock}
+                      onDuplicate={duplicateBlock}
+                      selectedId={selectedId}
+                      pageId={pageId}
+                      emptyHint={
+                        rails.left
+                          ? "Press ◧ in the toolbar to bring the blocks panel back, then drag a block in here."
+                          : "Drag a block from the left to get started, or click any block to insert it here."
+                      }
+                    />
+                  ),
+                )}
+              </div>
             </div>
             <div className="h-12" />
           </main>
 
-          {!preview ? (
-            selectedBlock ? (
-              <BlockInspector
-                block={selectedBlock}
-                onChange={replaceBlock}
-                onClose={() => setSelectedId(null)}
-                placement={
-                  selectedPlacement && selectedPlacement.count > 1
-                    ? { current: selectedPlacement.current, count: selectedPlacement.count, onMove: moveSelectedToColumn }
-                    : undefined
-                }
-                onSaveForReuse={saveForReuse}
+          {/*
+            The right-hand rail is never taken away. It used to disappear in
+            preview, which handed the canvas another 18rem and re-laid the
+            whole page out — the one thing Preview should not do. Previewing
+            only swaps the block inspector for the page's own settings, which
+            apply either way.
+          */}
+          {rails.right ? null : !preview && selectedBlock ? (
+            <BlockInspector
+              block={selectedBlock}
+              onChange={replaceBlock}
+              onClose={() => setSelectedId(null)}
+              placement={
+                selectedPlacement && selectedPlacement.count > 1
+                  ? { current: selectedPlacement.current, count: selectedPlacement.count, onMove: moveSelectedToColumn }
+                  : undefined
+              }
+              onSaveForReuse={saveForReuse}
+            />
+          ) : (
+            <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full overflow-y-auto p-4">
+              <PageSettingsPanel
+                seo={seo}
+                fallbackTitle={title}
+                onChange={(next) => { setSeo(next); setDirty(true); }}
               />
-            ) : (
-              <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full overflow-y-auto p-4">
-                <PageSettingsPanel
-                  seo={seo}
-                  fallbackTitle={title}
-                  onChange={(next) => { setSeo(next); setDirty(true); }}
-                />
-                <RevisionsPanel pageId={pageId} refreshKey={savedAt?.getTime() ?? 0} onRestore={() => window.location.reload()} />
-              </aside>
-            )
-          ) : null}
+              <RevisionsPanel pageId={pageId} refreshKey={savedAt?.getTime() ?? 0} onRestore={() => window.location.reload()} />
+            </aside>
+          )}
         </div>
 
         <DragOverlay dropAnimation={null}>
