@@ -226,3 +226,68 @@ test.describe("Folding a rail", () => {
     await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
+
+test.describe("The canvas is a viewport", () => {
+  const tall = Array.from({ length: 90 }, (_, i) => text(`t${i}`, `Paragraph ${i + 1}, here so the page is tall.`));
+
+  /** Where the header sits relative to the top of whatever holds the page. */
+  async function headerTop(page: Page, scrollTo: number) {
+    return page.evaluate((y) => {
+      const frame = document.querySelector("[data-canvas-frame]") as HTMLElement | null;
+      const scroller = frame ?? (document.scrollingElement as HTMLElement);
+      if (frame) frame.scrollTop = y;
+      else window.scrollTo(0, y);
+      const header = document.querySelector(frame ? ".public-canvas header" : "header")!;
+      const base = frame ? frame.getBoundingClientRect().top + 1 : 0; // +1: the frame's own border
+      return {
+        top: Math.round(header.getBoundingClientRect().top - base),
+        scrolled: Math.round(scroller.scrollTop || window.scrollY),
+      };
+    }, scrollTo);
+  }
+
+  for (const headerPosition of ["sticky", "fixed"]) {
+    test(`holds a ${headerPosition} header where the published page holds it`, async ({ page, request }) => {
+      const { site, page: p } = await siteWith(request, tall);
+      await request.patch(`/api/sites/${site.id}`, { data: { headerPosition, headerShape: "pill" } });
+      await page.setViewportSize({ width: 1280, height: 800 });
+
+      await page.goto(`/sites/${site.slug}`);
+      await page.waitForSelector("header");
+      const publishedRest = await headerTop(page, 0);
+      const publishedStuck = await headerTop(page, 3000);
+      expect(publishedStuck.scrolled).toBeGreaterThan(500);
+
+      await openEditor(page, site.id, p.id);
+      const canvasRest = await headerTop(page, 0);
+      await page.waitForTimeout(150);
+      const canvasStuck = await headerTop(page, 3000);
+      expect(canvasStuck.scrolled).toBeGreaterThan(500);
+
+      // The canvas used to be a tall strip on a scrolling pane, clipped by a
+      // frame that was a scroll container but never scrolled — so sticky never
+      // engaged and the header slid away, which is not what a visitor gets.
+      expect(canvasRest.top).toBe(publishedRest.top);
+      expect(canvasStuck.top).toBe(publishedStuck.top);
+
+      await request.delete(`/api/sites/${site.id}?permanent=1`);
+    });
+  }
+
+  test("gives a short page nothing to scroll", async ({ page, request }) => {
+    const { site, page: p } = await siteWith(request, [text("a", "One short line.")]);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openEditor(page, site.id, p.id);
+
+    // The page fills its frame rather than the window. At 100vh inside a
+    // shorter frame, even an empty page had a hundred stray pixels to scroll.
+    const frame = await page.evaluate(() => {
+      const f = document.querySelector("[data-canvas-frame]") as HTMLElement;
+      return { slack: f.scrollHeight - f.clientHeight, height: Math.round(f.getBoundingClientRect().height) };
+    });
+    expect(frame.slack).toBe(0);
+    expect(frame.height).toBeGreaterThan(400);
+
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
+  });
+});

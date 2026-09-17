@@ -77,10 +77,35 @@ export function SiteHeader({
   }
 
   const dark = isDarkColor(site.headerBackground);
-  const positionClass =
-    site.headerPosition === "fixed"
-      ? contained ? "absolute top-0 left-0 right-0" : "fixed top-0 left-0 right-0"
-      : site.headerPosition === "sticky" ? "sticky top-0" : "";
+  /**
+   * Where a sticky header comes to rest.
+   *
+   * A pill floats on a 1rem margin, and `top-0` threw that margin away the
+   * moment the page scrolled: the pill snapped flush against the top of the
+   * window, its rounded top edge went straight across, and a shape chosen to
+   * float read as a plain bar. Holding it at the same 1rem it sits at when
+   * the page is at rest keeps it the shape it is meant to be at every scroll
+   * position. A bar and a rounded header are both drawn to sit flush, so they
+   * stay at 0.
+   */
+  const stickyOffset = site.headerShape === "pill" ? "top-4" : "top-0";
+  /**
+   * In the canvas a fixed header is drawn sticky.
+   *
+   * It used to be `absolute`, which pinned it to the top of the page rather
+   * than to the top of the view: scroll the canvas and it slid away, so the
+   * editor showed a header behaving in a way no visitor will ever see. The
+   * canvas is a framed viewport that scrolls on its own, and sticky is what
+   * holds a header still inside one. It sits in the flow, which is exactly
+   * the room the published page reserves for a fixed header with its own
+   * padding — so the two come out in the same place.
+   */
+  const fixedHere = site.headerPosition === "fixed" && !contained;
+  const positionClass = fixedHere
+    ? "fixed top-0 left-0 right-0"
+    : site.headerPosition === "fixed" || site.headerPosition === "sticky"
+      ? `sticky ${stickyOffset}`
+      : "";
   const shapeClass =
     site.headerShape === "pill" ? "mx-4 mt-4 rounded-full shadow-lg" :
     site.headerShape === "rounded" ? "rounded-b-2xl shadow-sm" :
