@@ -138,3 +138,91 @@ test.describe("Editing controls", () => {
     await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
+
+/**
+ * A paragraph long enough that the width it is laid out at decides where it
+ * breaks — which is what makes it worth measuring.
+ */
+const longLine =
+  "A sentence long enough that the width it is laid out at decides exactly " +
+  "where it breaks onto a second line, which is the whole point of measuring it.";
+
+/** How the page's own content column and its first paragraph come out. */
+async function pageMetrics(page: Page, root: string) {
+  return page.evaluate((sel) => {
+    const scope = document.querySelector(sel)!;
+    const column = scope.querySelector("main .nvx-site-column")!.getBoundingClientRect();
+    const para = scope.querySelector("main p")!.getBoundingClientRect();
+    return {
+      column: Math.round(column.width),
+      text: Math.round(para.width),
+      lines: Math.round(para.height),
+    };
+  }, root);
+}
+
+test.describe("Folding a rail", () => {
+  test("gives the page the width a visitor gets", async ({ page, request }) => {
+    const { site, page: p } = await siteWith(request, [text("a", longLine)]);
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await openEditor(page, site.id, p.id);
+
+    // Both rails showing, the canvas is narrower than the site's own column,
+    // so the line breaks somewhere the published page never breaks it.
+    const cramped = await pageMetrics(page, ".public-canvas");
+
+    await page.getByTitle(/Hide the blocks panel/).click();
+    await page.getByTitle(/Hide the settings panel/).click();
+    await page.waitForTimeout(300);
+    const roomy = await pageMetrics(page, ".public-canvas");
+
+    await page.goto(`/sites/${site.slug}`);
+    await page.waitForSelector("main p");
+    const published = await pageMetrics(page, "body");
+
+    expect(cramped.column).toBeLessThan(published.column);
+    expect(roomy).toEqual(published);
+
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
+  });
+
+  test("is remembered, so it is not undone on every page", async ({ page, request }) => {
+    const { site, page: p } = await siteWith(request, [text("a", longLine)]);
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await openEditor(page, site.id, p.id);
+
+    await page.getByTitle(/Hide the blocks panel/).click();
+    await page.waitForTimeout(200);
+    const folded = await canvasGeometry(page);
+
+    await page.reload();
+    await page.waitForSelector(".public-canvas");
+    await page.waitForTimeout(600);
+    expect((await canvasGeometry(page)).frame.w).toBe(folded.frame.w);
+    // And it can be put back.
+    await page.getByTitle(/Show the blocks panel/).click();
+    await page.waitForTimeout(200);
+    expect((await canvasGeometry(page)).frame.w).toBeLessThan(folded.frame.w);
+
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
+  });
+
+  test("still leaves preview and the canvas identical", async ({ page, request }) => {
+    const { site, page: p } = await siteWith(request, [text("a", longLine), list("c"), html("d")]);
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await openEditor(page, site.id, p.id);
+
+    await page.getByTitle(/Hide the settings panel/).click();
+    await page.waitForTimeout(300);
+    const editing = await canvasGeometry(page);
+
+    await page.getByRole("banner").getByRole("button", { name: "Preview", exact: true }).click();
+    await page.waitForTimeout(400);
+    const previewing = await canvasGeometry(page);
+
+    expect(previewing.frame).toEqual(editing.frame);
+    expect(previewing.main).toEqual(editing.main);
+
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
+  });
+});

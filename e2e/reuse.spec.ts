@@ -124,8 +124,9 @@ test.describe("Saving a block for reuse", () => {
     // Scoped to the inspector: the editor's own Save button matches too.
     await page.locator("aside").last().getByRole("button", { name: "Save", exact: true }).click();
 
-    // It is offered straight away, without a reload.
-    await page.getByRole("button", { name: "blocks" }).click();
+    // It is offered straight away, without a reload. Exact, because the
+    // toolbar's fold button names the blocks panel too.
+    await page.getByRole("button", { name: "blocks", exact: true }).click();
     await expect(page.getByRole("button", { name: `Insert ${name}` })).toBeVisible();
 
     // And on a different page of the site.
