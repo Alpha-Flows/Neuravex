@@ -17,6 +17,7 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 18+).
 - **Multi-page sites** with home page routing
 - **Per-block inspector** for fine-grained control of every property (colors, sizes, alignment, spacing, etc.)
 - **Publish / unpublish** workflow — unpublished pages are drafts
+- **Download the site as files** — plain HTML, CSS and images you can open or host anywhere
 - **SQLite storage** in a single file, zero config
 - **Autosave** with `Cmd/Ctrl+S` shortcut
 - **Page history** — revisions with preview and restore; autosaves within five minutes of each other share one entry, and Cmd/Ctrl+S saves are kept separately
@@ -144,6 +145,32 @@ This deletes `prisma/dev.db` and re-seeds the demo site.
 
 That's it — the palette, drag-and-drop, save, and public render all pick it up automatically.
 
+## Downloading a site
+
+**Site → Download files** hands you the whole site as a `.zip` of ordinary
+files. Unpack it and double-click `index.html` — it opens in a browser with no
+server involved.
+
+```
+index.html          the home page
+about.html          one file per published page
+assets/site.css     only the styles these pages use, a few KB
+uploads/  stock/    the images the pages point at
+README.txt          what's inside, and how to host it
+```
+
+The pages are the same HTML a visitor gets, with the app's JavaScript removed
+and every link and image pointed at the file beside it. Upload the folder to
+any static host — Netlify, GitHub Pages, S3, a plain web server — and it works
+as-is, with no build step.
+
+Two things to know:
+
+- Only **published** pages are exported. Drafts stay in the builder.
+- **Forms** are included, but a static file has nowhere to send an answer.
+  Keep using the builder if you want submissions stored, or point the form at
+  a form-handling service.
+
 ## Telemetry
 
 Neuravex itself makes no network calls and the sites you publish contain no
@@ -169,7 +196,7 @@ Neuravex has no sign-in and no access control — it's meant to run locally on y
 
 ## Known limitations (V1)
 
-- No custom domains — published sites live under `/sites/:slug`.
+- No custom domains — sites served by the builder live under `/sites/:slug`. Use **Download files** to put a site on a host of your own.
 - Page history keeps the newest 50 revisions per page; older ones are dropped.
 - Drag and drop is fully supported within a single container (the page, a section, or a column) and across containers via drop, but the live "drag into another container" hover preview is a V2 item.
 - Section padding is still a fixed pixel value at every screen size — only columns and the site nav respond to width so far.

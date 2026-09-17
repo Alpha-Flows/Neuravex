@@ -9,6 +9,7 @@ import { DeletePageButton } from "@/components/admin/DeletePageButton";
 import { DuplicatePageButton } from "@/components/admin/DuplicatePageButton";
 import { MovePageButton } from "@/components/admin/MovePageButton";
 import { SubmissionsViewer } from "@/components/admin/SubmissionsViewer";
+import { DownloadSiteButton } from "@/components/admin/DownloadSiteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export default async function SiteAdmin({ params }: { params: { id: string } }) 
           </div>
           <div className="flex items-center gap-2">
             <SiteSettings site={{ id: site.id, name: site.name, slug: site.slug, description: site.description, accent: site.accent, theme: site.theme }} />
+            <DownloadSiteButton siteId={site.id} disabled={!pages.some((p) => p.published)} />
             {pages.find((p) => p.isHome && p.published) ? (
               <Link href={`/sites/${site.slug}`} target="_blank">
                 <Button variant="outline">View site ↗</Button>
@@ -125,7 +127,7 @@ export default async function SiteAdmin({ params }: { params: { id: string } }) 
         <div className="mt-10">
           <div className="flex items-center gap-4 mb-4">
             <h2 className="text-lg font-semibold">Submissions</h2>
-            <a href={`/api/sites/${site.id}/export`} className="text-xs text-fg-muted hover:text-fg underline ml-auto">Export site JSON</a>
+            <a href={`/api/sites/${site.id}/export`} className="text-xs text-fg-muted hover:text-fg underline ml-auto">Export site JSON (for re-importing into Neuravex)</a>
           </div>
           <Card className="p-5">
             <SubmissionsViewer siteId={site.id} />

@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    // The site download compiles a stylesheet for the exported pages at
+    // request time. These are CommonJS build tools — let them be required
+    // from node_modules rather than bundled into the server output.
+    serverComponentsExternalPackages: ["tailwindcss", "postcss", "autoprefixer"],
+  },
   images: {
     remotePatterns: [
       // Only allow images from trusted domains. Add more as needed.
