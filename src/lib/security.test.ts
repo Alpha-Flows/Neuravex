@@ -173,7 +173,53 @@ describe("sanitizeSvg", () => {
   });
 
   it("leaves benign SVG markup intact", () => {
-    const svg = '<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="#f00"/></svg>';
-    expect(sanitizeSvg(svg)).toBe(svg);
+    // The parser writes every tag closed rather than self-closed, which is
+    // still well-formed XML — so this compares what the picture says, not how
+    // the markup happens to be spelled.
+    const out = sanitizeSvg('<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="#f00"/></svg>');
+    expect(out).toContain('viewBox="0 0 10 10"');
+    expect(out).toContain('cx="5"');
+    expect(out).toContain('fill="#f00"');
+    expect(out).toMatch(/<circle[^>]*>/);
+  });
+
+  it("keeps the parts a standalone file needs to draw at all", () => {
+    const out = sanitizeSvg(
+      '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' +
+        '<defs><linearGradient id="g"><stop offset="0" stop-color="#f00"/></linearGradient></defs>' +
+        '<path d="M4 4h16v16H4z" stroke-dasharray="2 2" fill="url(#g)"/></svg>',
+    );
+    // Without the namespace a .svg file renders as nothing, and `viewBox`
+    // lower-cased is not `viewBox` any more once the file is read as XML.
+    expect(out).toContain('xmlns="http://www.w3.org/2000/svg"');
+    expect(out).toContain('viewBox="0 0 24 24"');
+    expect(out).toContain("linearGradient");
+    expect(out).toContain('stroke-dasharray="2 2"');
+    expect(out).toContain('fill="url(#g)"');
+  });
+
+  describe("the shapes a regular expression could not see", () => {
+    // Each of these went through the old text-matching version untouched.
+    const bypasses: [string, string][] = [
+      ["an unquoted handler", "<svg onload=alert(1)></svg>"],
+      ["a handler broken over lines", "<svg onload\n=\nalert(1)></svg>"],
+      ["a handler in capitals", '<svg ONLOAD="alert(1)"></svg>'],
+      ["a script tag that is never closed", '<svg><script src="https://evil.example/x.js"></svg>'],
+      ["an entity-encoded colon", '<svg><a xlink:href="javascript&#58;alert(1)"><text>x</text></a></svg>'],
+      ["an animation that sets a URL later", '<svg><animate attributeName="href" values="javascript:alert(1)"/></svg>'],
+      ["an animation that sets a handler later", '<svg><set attributeName="onload" to="alert(1)"/></svg>'],
+      ["a document smuggled in as a picture", '<svg><image href="data:text/html,<script>alert(1)</script>"/></svg>'],
+    ];
+
+    for (const [what, payload] of bypasses) {
+      it(`drops ${what}`, () => {
+        const out = sanitizeSvg(payload);
+        expect(out).not.toMatch(/\son\w+\s*=/i);
+        expect(out).not.toMatch(/<script/i);
+        expect(out).not.toMatch(/javascript\s*:/i);
+        expect(out).not.toMatch(/data:text\/html/i);
+        expect(out).not.toMatch(/<(?:animate|set)\b/i);
+      });
+    }
   });
 });

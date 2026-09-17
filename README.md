@@ -189,7 +189,9 @@ telemetry disabled.
 
 Neuravex has no sign-in and no access control — it's meant to run locally on your own machine, reachable only from that machine's browser. Don't expose it to the network without adding your own auth layer (e.g. a reverse proxy with basic auth).
 
-- User-provided HTML (custom headers, footers, rich text, HTML blocks) is sanitized with [DOMPurify](https://github.com/cure53/DOMPurify)
+- Requests that change something are refused when they come from another site. There is no sign-in to protect, but any page you have open elsewhere can post to `localhost` in the background, and it should not be able to delete your work. A request with no `Origin` at all — curl, a script of your own — is left alone
+- User-provided HTML (custom headers, footers, rich text, HTML blocks) is sanitized with [sanitize-html](https://github.com/apostrophecms/sanitize-html), which parses the markup rather than matching text against it
+- Uploaded SVGs are parsed and reduced to the elements that draw. `<script>`, `<style>`, `<foreignObject>`, `<use>` and the animation elements are dropped, along with every event handler and any URL that is not a page, a fragment or an inline picture
 - Custom CSS is sanitized to strip `url()`, `@import`, `expression()`, and other exfiltration vectors
 - File uploads are restricted to a safe allowlist of extensions with a 10MB size limit
 - Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) are set on all responses

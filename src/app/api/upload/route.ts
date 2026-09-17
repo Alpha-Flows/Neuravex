@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
-import { validateUploadFile, isDangerousExtension, sanitizeSvg } from "@/lib/security";
+import { validateUploadFile, isDangerousExtension, sanitizeSvg, isRenderableSvg } from "@/lib/security";
 import { imageSize } from "@/lib/image-size";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +23,14 @@ export async function POST(req: NextRequest) {
   if (isDangerousExtension(validation.ext)) {
     const content = bytes.toString("utf8");
     const sanitized = sanitizeSvg(content);
+    // Everything the file had was stripped, so there is no picture left to
+    // store. Saying so beats saving a blank that draws nothing.
+    if (!isRenderableSvg(sanitized)) {
+      return NextResponse.json(
+        { error: "That SVG had nothing drawable left once the scripts were taken out." },
+        { status: 400 },
+      );
+    }
     const sanitizedBuf = Buffer.from(sanitized, "utf8");
     const base = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const filename = `${base}.${validation.ext}`;
