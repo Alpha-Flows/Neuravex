@@ -9,21 +9,61 @@ Every problem below was reproduced, not inferred.
 
 ## 0. Status update
 
-Since this review was written, three of its findings have been fixed on this branch:
+**Scope note:** Neuravex is used on PCs only. The mobile-facing recommendations below
+(responsive section padding, anything framed around phone visitors) are out of scope and
+are kept only as a record of what was found. The responsive column work already merged
+stays as it is — it only engages below 640px, so it costs a desktop user nothing.
 
-- **P0-2 (not mobile-responsive)** — columns now stack on phones and halve on tablets,
-  and the site nav collapses into a menu. Horizontal overflow on the SaaS template at
-  390px went from 55px to 0.
-- **P0-3 (columns scramble content)** — each child now records the column it belongs to,
-  so adding or removing a block no longer reshuffles its siblings. Existing pages and
-  templates keep their current layout and convert to explicit placement on first edit.
+### Round 1 — layout
+
+- **P0-2 (not mobile-responsive)** — columns stack below 640px and halve on tablets, and
+  the site nav collapses into a menu. Horizontal overflow on the SaaS template at 390px
+  went from 55px to 0.
+- **P0-3 (columns scramble content)** — each child records the column it belongs to, so
+  adding or removing a block no longer reshuffles its siblings. Existing pages and
+  templates keep their layout and convert to explicit placement on first edit.
 - A bug this review missed: **no block inside a Section or Columns could be selected at
-  all** — `SortableBlock` never forwarded its container handlers to `BlockView`, so
-  clicking a nested block hit a no-op and the inspector never opened. Since every
-  template puts its content inside sections, the inspector was effectively unreachable
-  for almost every block on the page. Fixed.
+  all**. `SortableBlock` never forwarded its container handlers to `BlockView`, so
+  clicking a nested block hit a no-op and the inspector never opened — and every template
+  puts its content inside sections.
 
-Everything else below still stands.
+### Round 2 — bug fixes
+
+- **Published forms did nothing.** The Form block read its read-only render flag as "do
+  not accept input", so on every published page the fields and submit button were
+  disabled. No submission could ever be recorded, which also made the submissions viewer
+  (P2-10) a window onto rows that could not arrive. This was not in the review; it was
+  found when a test could not type into a form.
+- **P1-4 (revision history unusable)** — identical saves are skipped, autosaves inside a
+  five-minute window collapse into one entry, manual saves are kept separately and
+  marked, and each page keeps at most 50. 12 consecutive autosaves now produce 1
+  revision instead of 12.
+- **P1-7 (half-built settings)** — per-page SEO is reachable from a panel in the
+  inspector rail and the save endpoint accepts it. `headHtml` was removed: the API
+  accepted it and nothing ever rendered it.
+- **P2-10 (form field keys)** — two fields sharing a label wrote to the same key and one
+  answer was silently dropped; repeats are numbered now. A failed submission no longer
+  shows the success message.
+- **P2-12 (media library)** — the picker marks files that are in use and names the pages
+  before deleting one.
+- **The block toolbar was unreachable.** It hung 40px off each block's left edge, outside
+  a canvas that fills the pane: clipped away entirely in a leftmost column, drawn over
+  the neighbouring column everywhere else.
+- Editor data hygiene: deleting a block stamped an empty `children` array onto every
+  block on the page; duplicating a container gave the copy's children the same ids as the
+  original, which breaks selection and drag-and-drop for both.
+- A save that failed left the editor looking like it had succeeded.
+- README corrected (13 block types, 28 templates) and the "no telemetry" claim made
+  accurate — Neuravex makes no network calls, but the Next.js CLI collects anonymous
+  telemetry by default.
+
+### Still open from this review
+
+P0-1 (no way to publish off the machine) is untouched and remains the largest gap.
+Also open: P1-5 (editor is not WYSIWYG), P1-6 (branding does not cascade), P1-8 (no
+sitemap/robots/favicon, images without dimensions), P2-9 (prompt()-driven editing),
+P2-11 (templates point at remote Unsplash URLs), P2-13 (no reusable blocks), P2-15
+(thin rails on destructive actions).
 
 ---
 
