@@ -14,14 +14,24 @@ interface BlockChromeProps {
   onSelect: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  /** First block on the page — its controls have no room above, so they sit inside. */
+  atTop?: boolean;
   children: ReactNode;
 }
 
 /**
- * Visual wrapper around an editor block: hover/select outline,
- * floating drag-handle / delete / duplicate buttons on the left.
+ * Visual wrapper around an editor block: hover/select outline, plus a
+ * floating drag / duplicate / delete toolbar.
+ *
+ * The toolbar sits just above the block's top-right corner. It used to hang
+ * off the left edge, which does not work in this layout: the canvas fills
+ * the pane, so there is no left gutter to hang in. The controls were clipped
+ * away entirely for anything in a leftmost column and drew on top of the
+ * neighbouring column for everything else. Above-right keeps them reachable
+ * for every block and clear of the block's own content, so clicking a block
+ * always selects it instead of hitting a button.
  */
-function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplicate, children }: BlockChromeProps) {
+function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplicate, atTop, children }: BlockChromeProps) {
   return (
     <div
       ref={sortable.setNodeRef}
@@ -39,8 +49,10 @@ function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplic
       <div className="editor-outline" />
       <div
         className={cn(
-          "absolute -left-10 top-1.5 flex flex-col gap-1 z-10 transition-opacity",
-          // The rail keeps its box when hidden, so it has to stop taking
+          "editor-toolbar absolute right-1 z-20 flex items-center gap-0.5 rounded-md p-0.5",
+          "bg-bg-card border border-bg-border shadow-lg transition-opacity",
+          atTop ? "top-1" : "-top-8",
+          // The toolbar keeps its box when hidden, so it has to stop taking
           // clicks too — otherwise it shadows whatever sits beneath it.
           isSelected
             ? "opacity-100"
@@ -52,14 +64,14 @@ function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplic
           {...sortable.attributes}
           {...sortable.listeners}
           aria-label="Drag block"
-          className="w-7 h-7 rounded-md bg-bg-card border border-bg-border text-fg-muted hover:text-fg flex items-center justify-center cursor-grab active:cursor-grabbing"
+          className="w-6 h-6 rounded text-fg-muted hover:text-fg hover:bg-bg-soft flex items-center justify-center cursor-grab active:cursor-grabbing"
           title="Drag to reorder"
         >
           <span className="leading-none text-xs">⋮⋮</span>
         </button>
         <button
           aria-label="Duplicate block"
-          className="w-7 h-7 rounded-md bg-bg-card border border-bg-border text-fg-muted hover:text-fg flex items-center justify-center"
+          className="w-6 h-6 rounded text-fg-muted hover:text-fg hover:bg-bg-soft flex items-center justify-center"
           onClick={onDuplicate}
           title="Duplicate"
         >
@@ -67,7 +79,7 @@ function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplic
         </button>
         <button
           aria-label="Delete block"
-          className="w-7 h-7 rounded-md bg-bg-card border border-bg-border text-fg-muted hover:text-red-400 flex items-center justify-center"
+          className="w-6 h-6 rounded text-fg-muted hover:text-red-400 hover:bg-bg-soft flex items-center justify-center"
           onClick={onDelete}
           title="Delete"
         >
@@ -94,9 +106,10 @@ interface SortableBlockProps {
   onSelectId?: (id: string | null) => void;
   onChildDelete?: (id: string) => void;
   onChildDuplicate?: (id: string) => void;
+  atTop?: boolean;
 }
 
-export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate, selectedId, disabled, pageId, onSelectId, onChildDelete, onChildDuplicate }: SortableBlockProps) {
+export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate, selectedId, disabled, pageId, onSelectId, onChildDelete, onChildDuplicate, atTop }: SortableBlockProps) {
   const sortable = useSortable({ id: block.id, disabled });
   const isSelected = selectedId === block.id;
 
@@ -112,6 +125,7 @@ export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate
       onSelect={onSelect}
       onDelete={onDelete}
       onDuplicate={onDuplicate}
+      atTop={atTop}
     >
       <BlockView
         block={block}
@@ -171,9 +185,10 @@ export function SortableContainer({
         <EmptyHint active={drop.isOver} nodeRef={drop.setNodeRef} text={emptyHint} />
       ) : (
         <div className="space-y-3">
-          {blocks.map((b) => (
+          {blocks.map((b, i) => (
             <SortableBlock
               key={b.id}
+              atTop={containerId === "page" && i === 0}
               block={b}
               onChange={updateChild}
               onSelect={() => onSelect(b.id)}
