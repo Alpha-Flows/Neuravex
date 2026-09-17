@@ -142,4 +142,21 @@ test.describe("The editor canvas", () => {
 
     await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
+
+  test("takes the room a large window gives it", async ({ page, request }) => {
+    const { site, page: p } = await siteWith(request, [text("a", "on the page")]);
+    await page.setViewportSize({ width: 2560, height: 900 });
+    await page.goto(`/admin/sites/${site.id}/pages/${p.id}`);
+    await page.waitForTimeout(600);
+
+    const canvas = await page.evaluate(() => {
+      const el = document.querySelector(".public-canvas")!.parentElement!;
+      return Math.round(el.getBoundingClientRect().width);
+    });
+    // It used to stop at 1024px whatever the window, so on a large screen the
+    // page was laid out at a width no visitor would see.
+    expect(canvas).toBeGreaterThan(1300);
+
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
+  });
 });
