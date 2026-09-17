@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { NewSiteButton } from "@/components/admin/NewSiteButton";
+import { TrashPanel } from "@/components/admin/TrashPanel";
+import { NetworkNotice } from "@/components/admin/NetworkNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,7 @@ export default async function AdminHome() {
 
   return (
     <div className="min-h-screen">
+      <NetworkNotice />
       <header className="border-b border-bg-border">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -70,6 +73,8 @@ export default async function AdminHome() {
             ))}
           </div>
         )}
+
+        <TrashPanel />
       </main>
 
       <footer className="max-w-6xl mx-auto px-6 py-10 text-xs text-fg-subtle">

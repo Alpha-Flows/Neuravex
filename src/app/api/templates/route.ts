@@ -11,6 +11,8 @@ export async function GET() {
       description: t.description,
       category: t.category,
       cover: t.cover,
+      // The brand colour a site made from this template starts on.
+      accent: t.accent,
       pageCount: t.pages.length,
     })),
   );

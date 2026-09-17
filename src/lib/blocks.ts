@@ -26,7 +26,9 @@ export const BLOCKS: BlockDefinition[] = [
       text: "A great headline",
       level: 2,
       align: "left",
-      color: "#0f172a",
+      // Empty means "whatever the site says" — the block inherits the page's
+      // text colour, and the inspector offers a colour of its own.
+      color: "",
       weight: "bold",
     } satisfies HeadingProps,
   },
@@ -40,7 +42,7 @@ export const BLOCKS: BlockDefinition[] = [
       text: "Write something compelling about your business, your story, or this page. Click to edit.",
       align: "left",
       size: "base",
-      color: "#334155",
+      color: "",
     } satisfies TextProps,
   },
   {
@@ -72,8 +74,9 @@ export const BLOCKS: BlockDefinition[] = [
       variant: "primary",
       size: "md",
       align: "left",
-      color: "#6366f1",
-      textColor: "#ffffff",
+      // The site's accent, until someone picks a colour for this one button.
+      color: "",
+      textColor: "",
     } satisfies ButtonProps,
   },
   {
@@ -84,7 +87,7 @@ export const BLOCKS: BlockDefinition[] = [
     description: "A horizontal line.",
     defaultProps: {
       style: "solid",
-      color: "#e2e8f0",
+      color: "",
       thickness: 1,
     } satisfies DividerProps,
   },

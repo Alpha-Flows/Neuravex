@@ -193,7 +193,11 @@ export function SortableContainer({
       {blocks.length === 0 && !disabled ? (
         <EmptyHint active={drop.isOver} nodeRef={drop.setNodeRef} text={emptyHint} />
       ) : (
-        <div className="space-y-3">
+        // No gap between blocks: the published page stacks them flush, and a
+        // canvas that spaced them out by 12px was showing a layout nobody would
+        // ever get. Hovering outlines a block, which is what makes one
+        // distinguishable from the next.
+        <div>
           {blocks.map((b, i) => (
             <SortableBlock
               key={b.id}

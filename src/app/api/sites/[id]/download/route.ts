@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { createZip, ZipEntry } from "@/lib/zip";
 import { buildExportCss } from "@/lib/export-css";
 import { pageFileName, prepareExportedPage } from "@/lib/static-export";
+import { robotsTxt } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const css = await buildExportCss(documents);
   entries.push({ path: STYLESHEET_PATH, data: Buffer.from(css, "utf8") });
+  // A crawler looks for this the moment the folder is hosted. The sitemap is
+  // left out on purpose: its entries have to be absolute, and the address this
+  // ends up on is not known here.
+  entries.push({ path: "robots.txt", data: Buffer.from(robotsTxt(true), "utf8") });
   entries.push({
     path: "README.txt",
     data: Buffer.from(readme(site.name, [...pageFiles.values()], missingAssets), "utf8"),
@@ -116,6 +121,7 @@ function readme(siteName: string, files: string[], missingAssets: string[]): str
     ...files.filter((f) => f !== "index.html").map((f) => `  ${f.padEnd(18)} a page of the site`),
     "  assets/site.css    every style the pages use",
     "  uploads/, stock/   the images the pages point at",
+    "  robots.txt         tells search engines they may read the site",
     "",
     "PUTTING IT ONLINE",
     "",
@@ -131,6 +137,9 @@ function readme(siteName: string, files: string[], missingAssets: string[]): str
     "  - Images added by URL rather than uploaded still load from wherever",
     "    they live, so those pages need an internet connection.",
     "  - Only published pages are exported. Drafts stay in the builder.",
+    "  - A sitemap is not included: its entries must be full addresses, and",
+    "    the address this folder ends up on is not known yet. Neuravex serves",
+    "    one at /sites/<site>/sitemap.xml while you are building.",
   ];
   if (missingAssets.length > 0) {
     lines.push(

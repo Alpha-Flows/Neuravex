@@ -114,14 +114,108 @@ differently, so reordering pages did not show up consistently.
   video in the editor and renders nothing on a published page. A unit test fails if any
   block default or template ever names a remote address again.
 
+### Round 5 — the branding cascade
+
+- **P1-6 (branding does not cascade)** — a site's accent reached the admin card and the
+  header logo square and nothing else. Every button carried its own hex, so changing a
+  brand colour meant opening every button on every page. A site's accent, fonts and
+  corner radius are now emitted as CSS custom properties, and a block with no colour of
+  its own reads them. Changing the accent in Settings recolours the whole site in one go,
+  filled and outline buttons alike.
+  - **New blocks ship unset** — a heading, text, button or divider added today inherits
+    rather than pinning itself to a hex.
+  - **Templates declare their brand colour.** All 28 carry an `accent`, a new site starts
+    on it (a green restaurant no longer opens with indigo buttons), and 71 of the 75
+    template buttons read the site accent instead of repeating a hex. The four that do
+    not are deliberate — a light button on a dark hero — and keep their own.
+  - **There is a way back.** Each colour field in the inspector offers "Use site accent"
+    (or the page's text colour), so a block pinned to a hex can be handed back to the
+    site's branding. Without it, picking a colour once was permanent.
+  - **The editor canvas finally shows the site's branding**, scoped so it does not repaint
+    the builder's own chrome — a step towards P1-5, since the canvas and the published
+    page now agree on colour, font and radius.
+- A bug found while doing it: **every template button was given `textColor: "#ffffff"`
+  whatever its variant**, so the 9 outline and ghost buttons across the templates drew
+  white text on a white page. A button now works out a readable label from its own
+  colour, and an outline button draws its label in that colour rather than in white.
+- The header settings help text told people to add a Spacer block under a fixed header.
+  Round 3 made the page leave room for it, so the advice was stale.
+
+### Round 6 — publishing basics
+
+- **P1-8 (SEO and publishing basics)** — a published site now says what it is to anything
+  that reads it.
+  - **`sitemap.xml` and `robots.txt` per site.** Published pages only; a site with nothing
+    published asks not to be indexed rather than offering an empty map. The download
+    carries a `robots.txt` too — not a sitemap, whose entries have to be full addresses,
+    and the address a downloaded folder ends up on is not known when it is built.
+  - **Canonical addresses**, so a home page reached both as `/sites/x` and `/sites/x/index`
+    is not counted as two pages with the same content.
+  - **A favicon setting**, and **a language setting**: `<html lang>` was hardcoded to `en`
+    for every site in every language, which is what a screen reader announces in and what
+    a browser offers to translate from.
+  - **Images load lazily** and decode off the main thread.
+- Making the language settable meant splitting the app into two root layouts — `(builder)`
+  and `(published)`. They were always two different documents: the builder's dark theme
+  classes used to ride along on every published page, and the download had to strip them
+  off again. A visitor's page now carries the site's styling and nothing else.
+- Still open here: images carry no `width`/`height`, so a page can still shift while it
+  loads. That needs the dimensions captured when a picture is chosen, which is its own
+  piece of work.
+
+### Round 7 — deleting, with a way back
+
+- **P2-15 (destructive actions have thin rails)** — deleting was final. A browser
+  `confirm()` said "this cannot be undone" and nothing else, then took the site's pages,
+  their history and every form submission with it.
+  - **A trash.** Deleting a site or a page writes it away whole first — settings, pages,
+    revisions and the answers people sent through forms — and "Put back" rebuilds it. The
+    50 most recent deletions are kept; the trash sits under the sites list.
+  - **The confirmation says what goes.** It counts the pages, saved versions and form
+    submissions attached, warns separately about submissions (nobody else has a copy of
+    those), and offers a JSON copy before deleting a site.
+  - **A caller that means it** can still delete outright with `?permanent=1`.
+  - **The builder says when it is reachable over the network.** The API asks nobody who
+    they are — reasonable on your own machine, which is the design — but nothing said so
+    when the address in the bar was not localhost, and anyone on the same Wi-Fi could edit
+    or delete these sites.
+- A bug found on the way: **the JSON export had fallen behind the schema.** It listed
+  fields by hand, so header styling, per-page SEO and the site's own social image were
+  dropped — "export and re-import" quietly gave back a different site. Export, import and
+  the trash now share one archive format, and a test reads `schema.prisma` and fails when
+  a field is added to the schema and not to the archive.
+
+### Round 8 — the canvas shows what ships
+
+- **P1-5 (the editor is not WYSIWYG)** — the canvas rendered the block tree and nothing
+  else, so you laid a page out against a blank top edge and found out what it sat under
+  after publishing.
+  - **The site header, its nav and the footer are drawn in the canvas**, by the same
+    components the published page uses — extracted so there is one implementation rather
+    than two to drift apart.
+  - **The site's custom CSS applies in the canvas**, scoped to it so a rule on `body`
+    styles the page being edited and not the builder around it. A guard after it keeps a
+    broad rule from hiding the controls you need to edit with.
+  - **A fixed header is held inside the canvas.** Fixed means fixed to the window, so it
+    covered the builder's own toolbar and spanned the whole app.
+  - **The editor's own controls left the layout.** "Upload image", "Use URL" and the link
+    under a button each took a line of their own and pushed everything below them down.
+    They float over their block now, and appear when it is hovered or selected.
+  - **Blocks are no longer spaced differently from the published page.** The canvas put
+    12px between every block; a published page stacks them flush. Nothing in the review
+    named this one — it turned up measuring the gap above a heading in both places.
+- `headerOffset` moved out of the header's module on the way: the component is a client
+  one, and a plain function exported across that boundary is not callable from the server
+  page that renders it. The published page threw until it moved.
+
 ### Still open from this review
 
 P0-1 (no way to publish off the machine) is answered in part by **Download files** — a
 site now leaves the machine as plain HTML, CSS and images — but there is still no
 hosting step.
-Also open: P1-5 (editor is not WYSIWYG), P1-6 (branding does not cascade), P1-8 (no
-sitemap/robots/favicon, images without dimensions — template images also carry no alt
-text), P2-13 (no reusable blocks), P2-15 (thin rails on destructive actions).
+Also open: the last of P1-8 (images carry no width/height, and template images no alt
+text), and P2-13 (no reusable blocks — no saved sections, no copy-paste between pages, no
+outline tree).
 
 ---
 
@@ -143,7 +237,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 146 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults) — all passing; 38 Playwright specs |
+| Quality | 195 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping) — all passing; 66 Playwright specs |
 
 ---
 

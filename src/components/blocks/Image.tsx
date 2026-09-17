@@ -39,15 +39,22 @@ export function Image({ props, onChange, disabled }: Props) {
   const [editingUrl, setEditingUrl] = useState(false);
 
   return (
-    <figure className={cn("mx-auto", widthClass[props.width])}>
+    // `relative` so the editor's own controls can hang over the picture rather
+    // than sit in the flow: in the flow they pushed everything below them down,
+    // so the canvas showed a layout the published page never has.
+    <figure className={cn("mx-auto relative", widthClass[props.width])}>
       {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
       <img
         src={props.src || PLACEHOLDER}
         alt={props.alt || ""}
+        // Below-the-fold images should not hold up the first paint. Decoding
+        // off the main thread keeps a long page scrolling smoothly.
+        loading="lazy"
+        decoding="async"
         className={cn("w-full h-auto block", roundedClass[props.rounded], !disabled && "cursor-pointer hover:opacity-95")}
       />
       {!disabled && onChange ? (
-        <div className="mt-2 flex items-center gap-2">
+        <div className="nvx-block-chrome absolute left-2 bottom-2 z-10 flex items-center gap-2 rounded-md bg-bg-card/95 border border-bg-border px-2 py-1 shadow-lg">
           <button onClick={() => setPickerOpen(true)} className="text-xs text-fg-muted hover:text-fg underline">Upload image</button>
           <div className="relative">
             <button onClick={(e) => { e.stopPropagation(); setEditingUrl(true); }} className="text-xs text-fg-muted hover:text-fg underline">Use URL</button>

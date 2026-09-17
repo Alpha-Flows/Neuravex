@@ -46,7 +46,7 @@ test.describe("Downloading a site", () => {
     expect(raw).toContain("README.txt");
     expect(raw).not.toContain("draft.html");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("refuses a site with nothing published, and says why", async ({ request }) => {
@@ -58,7 +58,7 @@ test.describe("Downloading a site", () => {
     expect(res.status()).toBe(409);
     expect((await res.json()).error).toContain("no published pages");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("the button is offered on the site page", async ({ page, request }) => {
@@ -77,6 +77,6 @@ test.describe("Downloading a site", () => {
     const download = await Promise.all([page.waitForEvent("download"), button.click()]);
     expect(download[0].suggestedFilename()).toBe(`${site.slug}.zip`);
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });

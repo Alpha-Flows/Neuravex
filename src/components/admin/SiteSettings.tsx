@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
+import { ConfirmDelete } from "./ConfirmDelete";
 
 interface SiteInfo {
   id: string;
@@ -46,11 +47,13 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [ogImage, setOgImage] = useState("");
+  const [favicon, setFavicon] = useState("");
+  const [language, setLanguage] = useState("en");
   // Advanced
   const [customCss, setCustomCss] = useState("");
   // State
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [asking, setAsking] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const router = useRouter();
 
@@ -76,6 +79,8 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           setMetaTitle(s.metaTitle ?? "");
           setMetaDescription(s.metaDescription ?? "");
           setOgImage(s.ogImage ?? "");
+          setFavicon(s.favicon ?? "");
+          setLanguage(s.language ?? "en");
           setCustomCss(s.customCss ?? "");
           setLoaded(true);
         })
@@ -100,6 +105,8 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           metaTitle: metaTitle || null,
           metaDescription: metaDescription || null,
           ogImage: ogImage || null,
+          favicon: favicon || null,
+          language: language.trim() || "en",
           customCss: customCss || null,
         }),
       });
@@ -111,14 +118,9 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
   }
 
   async function destroy() {
-    if (!confirm("Delete this site and all its pages? This cannot be undone.")) return;
-    setDeleting(true);
-    try {
-      await fetch(`/api/sites/${site.id}`, { method: "DELETE" });
-      router.push("/");
-    } finally {
-      setDeleting(false);
-    }
+    const res = await fetch(`/api/sites/${site.id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("delete failed");
+    router.push("/");
   }
 
   return (
@@ -155,6 +157,10 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                       ))}
                       <input type="color" value={accent} onChange={(e) => setAccent(e.target.value)} className="w-7 h-7 rounded-md bg-transparent border border-bg-border" />
                     </div>
+                    <p className="text-xs text-fg-subtle mt-1.5">
+                      Used by every button that has not been given a colour of its own. A block keeps any colour you set
+                      on it — the inspector&apos;s &quot;Use site accent&quot; hands it back.
+                    </p>
                   </div>
                 </div>
               )}
@@ -208,9 +214,8 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                       ))}
                     </div>
                     <p className="text-xs text-fg-subtle mt-1">
-                      Text color switches automatically for light or dark backgrounds. &quot;Fixed&quot; floats the header
-                      on top of your page — content starts at the very top behind it, so add a Spacer block at the top
-                      of the page if you want breathing room underneath.
+                      Text color switches automatically for light or dark backgrounds. &quot;Sticky&quot; keeps the header
+                      in view as the page scrolls; &quot;Fixed&quot; floats it on top, and the page leaves room for it.
                     </p>
                   </div>
                   <div className="pt-3 border-t border-bg-border">
@@ -230,6 +235,17 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                   <div><Label>Meta title (site default)</Label><Input value={metaTitle} onChange={(e) => setMetaTitle(e.target.value)} placeholder="My Site" /></div>
                   <div><Label>Meta description</Label><Textarea rows={3} value={metaDescription} onChange={(e) => setMetaDescription(e.target.value)} placeholder="A description for search engines." /></div>
                   <div><Label>OG Image URL</Label><Input value={ogImage} onChange={(e) => setOgImage(e.target.value)} placeholder="https://…/og.png" /></div>
+                  <div>
+                    <Label>Favicon URL</Label>
+                    <Input value={favicon} onChange={(e) => setFavicon(e.target.value)} placeholder="/uploads/icon.png" />
+                    <p className="text-xs text-fg-subtle mt-1">The small icon in a browser tab. Upload one in a page&apos;s media library, then paste its address here.</p>
+                  </div>
+                  <div>
+                    <Label>Language</Label>
+                    <Input value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="en" className="font-mono text-xs" />
+                    <p className="text-xs text-fg-subtle mt-1">The language this site is written in, as a code like <code>en</code>, <code>de</code> or <code>pt-BR</code>. Screen readers and translation tools read it.</p>
+                  </div>
+                  <p className="text-xs text-fg-subtle pt-1">Every published page also carries a canonical address and appears in the site&apos;s <code>sitemap.xml</code>.</p>
                 </div>
               )}
               {tab === "advanced" && (
@@ -245,7 +261,7 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
               )}
             </div>
             <div className="px-5 pb-5 flex items-center justify-between">
-              <Button variant="danger" onClick={destroy} loading={deleting}>Delete site</Button>
+              <Button variant="danger" onClick={() => setAsking(true)}>Delete site</Button>
               <div className="flex gap-2">
                 <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
                 <Button onClick={save} loading={saving}>Save</Button>
@@ -254,6 +270,15 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           </div>
         </div>
       )}
+      <ConfirmDelete
+        open={asking}
+        onClose={() => setAsking(false)}
+        kind="site"
+        name={site.name}
+        costUrl={`/api/sites/${site.id}?cost=1`}
+        backupUrl={`/api/sites/${site.id}/export`}
+        onConfirm={destroy}
+      />
     </>
   );
 }

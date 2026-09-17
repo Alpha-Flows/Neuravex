@@ -34,7 +34,7 @@ test.describe("Editing text in a block", () => {
     await expect(page.locator(".editor-block")).toHaveCount(1);
     await expect(text).toHaveText("Hell");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("text typed but not blurred still reaches the server", async ({ page, request }) => {
@@ -51,7 +51,7 @@ test.describe("Editing text in a block", () => {
     const saved = await (await request.get(`/api/pages/${p.id}`)).json();
     expect(saved.content).toContain("Hello World");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("a run of keystrokes is one undo step, and undo puts the text back", async ({ page, request }) => {
@@ -67,7 +67,7 @@ test.describe("Editing text in a block", () => {
     await page.getByTitle("Undo (Cmd+Z)").click();
     await expect(text).toHaveText("Hello");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -98,7 +98,7 @@ test.describe("The formatting toolbar", () => {
     const saved = await (await request.get(`/api/pages/${p.id}`)).json();
     expect(saved.content).toContain("<b>Alpha</b>");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -115,7 +115,7 @@ test.describe("The page address", () => {
     const saved = await (await request.get(`/api/pages/${p.id}`)).json();
     expect(saved.slug).toBe("about-us");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 
   test("a slug another page already owns gets a suffix, and the editor shows it", async ({ page, request }) => {
@@ -127,7 +127,7 @@ test.describe("The page address", () => {
     await page.getByLabel("Page URL").blur();
     await expect(page.getByLabel("Page URL")).toHaveValue("about-1", { timeout: 10000 });
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -146,7 +146,7 @@ test.describe("Publishing", () => {
     const live = await request.get(`/sites/${site.slug}`);
     expect(await live.text()).toContain("Brand new headline");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -163,6 +163,6 @@ test.describe("A fixed header", () => {
     expect(h1).not.toBeNull();
     expect(h1!.y).toBeGreaterThanOrEqual(header!.y + header!.height);
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });

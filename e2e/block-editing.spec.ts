@@ -23,6 +23,8 @@ test.describe("Setting a button's link", () => {
     const { site, page: p } = await seed(request, [button]);
     await page.goto(`/admin/sites/${site.id}/pages/${p.id}`);
 
+    // Selecting the block brings up the controls that belong to the editor.
+    await page.locator(".editor-block").first().click();
     await page.getByRole("button", { name: "# ↗" }).click();
     const field = page.getByRole("textbox", { name: "Link URL" });
     await expect(field).toBeFocused();
@@ -40,7 +42,7 @@ test.describe("Setting a button's link", () => {
     const saved = await (await request.get(`/api/pages/${p.id}`)).json();
     expect(saved.content).toContain("https://example.com/pricing");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -54,12 +56,13 @@ test.describe("Pointing an image at a URL", () => {
     const img = page.locator("figure img");
     await expect(img).toHaveAttribute("src", /^data:image\/svg\+xml/);
 
+    await page.locator(".editor-block").first().click();
     await page.getByRole("button", { name: "Use URL" }).click();
     await page.getByRole("textbox", { name: "Image URL" }).fill("https://example.com/photo.jpg");
     await page.keyboard.press("Enter");
     await expect(img).toHaveAttribute("src", "https://example.com/photo.jpg");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -78,7 +81,7 @@ test.describe("Editing custom HTML", () => {
     const saved = await (await request.get(`/api/pages/${p.id}`)).json();
     expect(saved.content).toContain("<p>two</p>");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -105,7 +108,7 @@ test.describe("Linking selected text", () => {
     const saved = await (await request.get(`/api/pages/${p.id}`)).json();
     expect(saved.content).toContain("https://example.com");
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
 
@@ -124,6 +127,6 @@ test.describe("A video block with nothing in it", () => {
     await expect(page.getByText("No video yet")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Below" })).toBeVisible();
 
-    await request.delete(`/api/sites/${site.id}`);
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
