@@ -47,6 +47,11 @@ export function Image({ props, onChange, disabled }: Props) {
       <img
         src={props.src || PLACEHOLDER}
         alt={props.alt || ""}
+        // Given the picture's own size, the browser holds its space before the
+        // bytes arrive. Without it the page shifts under the reader as each
+        // image lands. The CSS below keeps it fluid; these are only a ratio.
+        width={props.naturalWidth}
+        height={props.naturalHeight}
         // Below-the-fold images should not hold up the first paint. Decoding
         // off the main thread keeps a long page scrolling smoothly.
         loading="lazy"
@@ -64,7 +69,10 @@ export function Image({ props, onChange, disabled }: Props) {
                 value={props.src}
                 placeholder="https://example.com/photo.jpg"
                 hint="An address on the web. A picture from your library travels with the site; one from the web needs a connection."
-                onSave={(src) => { onChange({ ...props, src }); setEditingUrl(false); }}
+                onSave={(src) => {
+                  onChange({ ...props, src, naturalWidth: undefined, naturalHeight: undefined });
+                  setEditingUrl(false);
+                }}
                 onCancel={() => setEditingUrl(false)}
                 className="left-0 top-full"
               />
@@ -75,7 +83,14 @@ export function Image({ props, onChange, disabled }: Props) {
       {props.caption ? (
         <figcaption className="text-sm text-slate-500 mt-2 text-center">{props.caption}</figcaption>
       ) : null}
-      <MediaPicker open={pickerOpen} onClose={() => setPickerOpen(false)} onSelect={(url) => { onChange?.({ ...props, src: url }); setPickerOpen(false); }} />
+      <MediaPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(url, size) => {
+          onChange?.({ ...props, src: url, naturalWidth: size?.naturalWidth, naturalHeight: size?.naturalHeight });
+          setPickerOpen(false);
+        }}
+      />
     </figure>
   );
 }

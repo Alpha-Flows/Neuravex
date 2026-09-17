@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { BLOCKS, getBlockDefinition } from "@/lib/blocks";
 import { TEMPLATES } from "@/lib/templates";
 import { parseHex } from "@/lib/site-theme";
+import { imageSize } from "@/lib/image-size";
 import { BaseBlock } from "@/types";
 
 /** Every string anywhere in a block tree, so nothing hides in a nested prop. */
@@ -104,5 +105,38 @@ describe("site branding", () => {
         ["#ffffff", "#fff"].includes(((b.props as { textColor?: string }).textColor ?? "").toLowerCase()),
     );
     expect(invisible.map((x) => `${x.t}: ${(x.b.props as { label?: string }).label}`)).toEqual([]);
+  });
+});
+
+const templateImages = TEMPLATES.flatMap((t) =>
+  t.pages.flatMap((p) => allBlocks(p.blocks).filter((b) => b.type === "image").map((b) => ({ t: t.id, b }))),
+);
+
+describe("template images", () => {
+  it("all describe themselves to a reader who cannot see them", () => {
+    // Every template image used to ship with alt="".
+    const silent = templateImages.filter(({ b }) => !((b.props as { alt?: string }).alt ?? "").trim());
+    expect(silent.map((x) => `${x.t}: ${(x.b.props as { src?: string }).src}`)).toEqual([]);
+  });
+
+  it("all carry the file's own size, so a page holds its space while they load", () => {
+    const unsized = templateImages.filter(({ b }) => {
+      const p = b.props as { naturalWidth?: number; naturalHeight?: number };
+      return !p.naturalWidth || !p.naturalHeight;
+    });
+    expect(unsized.map((x) => `${x.t}: ${(x.b.props as { src?: string }).src}`)).toEqual([]);
+  });
+
+  it("states a size that matches the file on disk", () => {
+    // A wrong ratio reserves the wrong space, which is worse than none.
+    const wrong: string[] = [];
+    for (const { t, b } of templateImages.slice(0, 12)) {
+      const p = b.props as { src: string; naturalWidth: number; naturalHeight: number };
+      const actual = imageSize(readFileSync(join(process.cwd(), "public", p.src)));
+      if (!actual || actual.width !== p.naturalWidth || actual.height !== p.naturalHeight) {
+        wrong.push(`${t}: ${p.src} says ${p.naturalWidth}x${p.naturalHeight}, file is ${actual?.width}x${actual?.height}`);
+      }
+    }
+    expect(wrong).toEqual([]);
   });
 });

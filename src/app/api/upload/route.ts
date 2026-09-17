@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { validateUploadFile, isDangerousExtension, sanitizeSvg } from "@/lib/security";
+import { imageSize } from "@/lib/image-size";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
     const uploadDir = join(process.cwd(), "public", "uploads");
     await mkdir(uploadDir, { recursive: true });
     await writeFile(join(uploadDir, filename), sanitizedBuf);
+    // An SVG scales to whatever box it is given, so there is nothing to report.
     return NextResponse.json({ url: `/uploads/${filename}`, name: file.name });
   }
 
@@ -37,5 +39,7 @@ export async function POST(req: NextRequest) {
   await mkdir(uploadDir, { recursive: true });
   await writeFile(join(uploadDir, filename), bytes);
 
-  return NextResponse.json({ url: `/uploads/${filename}`, name: file.name });
+  // The size travels with the picture so a page can reserve its space.
+  const size = imageSize(bytes);
+  return NextResponse.json({ url: `/uploads/${filename}`, name: file.name, ...(size ?? {}) });
 }

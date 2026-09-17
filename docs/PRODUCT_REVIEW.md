@@ -284,6 +284,25 @@ complaint applied to itself.
 Checked by updating a copy that still had the column and a seeded site in it: the column
 goes, the message says what happened, and the site and its pages come through.
 
+### Round 12 — the last of P1-8
+
+- **Images reserve their space.** An `<img>` with no width and height leaves the browser
+  nothing to hold, so a page jumped as each picture arrived — the heading you were reading
+  slid away under you. Measured: with a picture held back, the heading beneath it moved
+  **1152px** when it landed. It now moves 0.
+  - The size is read from the file itself — a small header reader for PNG, JPEG, GIF and
+    WebP rather than an image library for four numbers — when a picture is uploaded, and
+    measured in the browser when one is chosen from the library.
+  - All 29 template images carry their real size, checked against the files on disk.
+  - A picture with no known size still renders as before; nothing regressed for existing
+    pages.
+- **Template images say what they show.** Every one shipped with `alt=""`, so a screen
+  reader got 67 silent images across the 28 templates. Each of the 29 now has a
+  description written against the photograph.
+
+Tests fail if a template image loses its alt text, loses its size, or states a size that
+does not match the file.
+
 ### Still open from this review
 
 P0-1 is **closed**: **Download files** takes a site off the machine as plain HTML, CSS and
@@ -313,7 +332,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 208 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run) — all passing; 66 Playwright specs |
+| Quality | 215 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes) — all passing; 71 Playwright specs |
 
 ---
 
