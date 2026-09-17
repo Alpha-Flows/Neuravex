@@ -23,9 +23,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { PrismaClient } from "@prisma/client";
 import { slugify } from "./src/lib/utils";
-import { getTemplate } from "./src/lib/templates";
+import { getTemplate, resolveSiteAccent } from "./src/lib/templates";
+// The app's client, not a fresh one: it is the connection that sets WAL and a
+// busy timeout, which is what keeps this process and the web app off each
+// other's toes on the same SQLite file. A bare PrismaClient here had neither,
+// so this side was the one that threw SQLITE_BUSY under contention.
+import { prisma } from "./src/lib/prisma";
+import { trashSite, trashPage } from "./src/lib/trash";
 
 // ── Block structure validation ────────────────────────────────────
 
@@ -47,7 +52,6 @@ const blockTreeSchema = z.array(blockSchema);
 
 // ── DB ────────────────────────────────────────────────────────────
 
-const prisma = new PrismaClient();
 
 // Enable WAL mode + busy timeout so the MCP server and web app can share the DB
 async function initDb() {
@@ -151,7 +155,7 @@ server.tool(
     name: z.string().describe("The site name, e.g. 'My Bakery'"),
     description: z.string().optional().describe("A short description of the site"),
     templateId: z.string().optional().describe("Template id from list_templates. If omitted, creates a blank site."),
-    accent: z.string().optional().describe("Hex accent color, e.g. '#10b981'. Defaults to '#6366f1'"),
+    accent: z.string().optional().describe("Hex accent color, e.g. '#10b981'. Defaults to the template's own brand colour, or '#6366f1' for a blank site. Every button without a colour of its own follows it."),
   },
   async ({ name, description, templateId, accent }) => {
     let slug = slugify(name);
@@ -161,23 +165,21 @@ server.tool(
       suffix += 1;
       slug = `${base}-${suffix}`;
     }
+    const tpl = templateId ? getTemplate(templateId) : null;
     const site = await prisma.site.create({
-      data: { name, slug, description: description ?? null, accent: accent ?? "#6366f1" },
+      data: { name, slug, description: description ?? null, accent: resolveSiteAccent(accent, tpl) },
     });
 
-    if (templateId) {
-      const tpl = getTemplate(templateId);
-      if (tpl) {
-        for (let i = 0; i < tpl.pages.length; i++) {
-          await prisma.page.create({
-            data: {
-              siteId: site.id, title: tpl.pages[i].title, slug: tpl.pages[i].slug,
-              isHome: !!tpl.pages[i].isHome, sortOrder: i,
-              published: tpl.pages[i].published !== false,
-              content: JSON.stringify(tpl.pages[i].blocks),
-            },
-          });
-        }
+    if (tpl) {
+      for (let i = 0; i < tpl.pages.length; i++) {
+        await prisma.page.create({
+          data: {
+            siteId: site.id, title: tpl.pages[i].title, slug: tpl.pages[i].slug,
+            isHome: !!tpl.pages[i].isHome, sortOrder: i,
+            published: tpl.pages[i].published !== false,
+            content: JSON.stringify(tpl.pages[i].blocks),
+          },
+        });
       }
     } else {
       await prisma.page.create({
@@ -204,13 +206,21 @@ server.tool(
 // 5. Delete a site
 server.tool(
   "delete_site",
-  "Permanently delete a site and all its pages. Requires the site id.",
+  "Delete a site and all its pages. It goes to the trash, where the person using Neuravex can put it back.",
   { id: z.string().describe("The site id") },
   async ({ id }) => {
     const site = await prisma.site.findUnique({ where: { id } });
     if (!site) return { content: [{ type: "text", text: `Site ${id} not found.` }] };
-    await prisma.site.delete({ where: { id } });
-    return { content: [{ type: "text", text: `Deleted site "${site.name}" (${site.slug}).` }] };
+    // The same trash the builder uses. An agent deleting a site used to
+    // destroy it outright — pages, history and form submissions — while a
+    // person doing the same thing could undo it.
+    await trashSite(id);
+    return {
+      content: [{
+        type: "text",
+        text: `Deleted site "${site.name}" (${site.slug}). It is in the trash on the Neuravex home page and can be put back from there.`,
+      }],
+    };
   },
 );
 
@@ -412,13 +422,18 @@ server.tool(
 // 11. Delete a page
 server.tool(
   "delete_page",
-  "Permanently delete a page.",
+  "Delete a page. It goes to the trash, where the person using Neuravex can put it back.",
   { pageId: z.string().describe("The page id") },
   async ({ pageId }) => {
     const page = await prisma.page.findUnique({ where: { id: pageId } });
     if (!page) return { content: [{ type: "text", text: "Page not found." }] };
-    await prisma.page.delete({ where: { id: pageId } });
-    return { content: [{ type: "text", text: `Deleted page "${page.title}".` }] };
+    await trashPage(pageId);
+    return {
+      content: [{
+        type: "text",
+        text: `Deleted page "${page.title}". It is in the trash on the Neuravex home page and can be put back from there.`,
+      }],
+    };
   },
 );
 

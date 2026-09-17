@@ -2180,3 +2180,16 @@ export const TEMPLATES: Template[] = [
 export function getTemplate(id: string): Template | undefined {
   return TEMPLATES.find((t) => t.id === id);
 }
+
+/**
+ * The accent a new site starts on.
+ *
+ * A template's buttons read the site accent rather than carrying a colour
+ * each, so a site made from one has to start on that template's palette or a
+ * green restaurant opens with indigo buttons. Both the web app and the MCP
+ * server create sites, and they have to agree about this.
+ */
+export function resolveSiteAccent(requested: string | undefined | null, template?: Template | null): string {
+  const asked = typeof requested === "string" ? requested.trim() : "";
+  return asked || template?.accent || "#6366f1";
+}

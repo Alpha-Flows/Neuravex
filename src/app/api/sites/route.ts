@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
-import { getTemplate } from "@/lib/templates";
+import { getTemplate, resolveSiteAccent } from "@/lib/templates";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +23,7 @@ export async function POST(req: NextRequest) {
   const templateId: string | null = body.templateId ? String(body.templateId) : null;
   const theme: string = body.theme ? String(body.theme) : "light";
   const tpl = templateId ? getTemplate(templateId) : null;
-  // A site starts on its template's brand colour, since the template's buttons
-  // read the site accent rather than carrying a colour each. Without this a
-  // green restaurant would open with indigo buttons.
-  const accent: string = body.accent ? String(body.accent) : tpl?.accent ?? "#6366f1";
+  const accent = resolveSiteAccent(body.accent ? String(body.accent) : null, tpl);
 
   // Ensure unique slug
   let suffix = 0;
