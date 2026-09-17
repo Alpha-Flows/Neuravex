@@ -15,7 +15,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { BaseBlock, BlockType } from "@/types";
 import { getBlockDefinition } from "@/lib/blocks";
 import { uid, slugify, cn } from "@/lib/utils";
-import { siteThemeCss, headerOffset, SiteThemeInput } from "@/lib/site-theme";
+import { siteThemeCss, SiteThemeInput } from "@/lib/site-theme";
 import { scopeCss } from "@/lib/scope-css";
 import { readClipboard, writeClipboard, pasteable } from "@/lib/clipboard";
 import { readRails, writeRails, RailState, RAILS_OPEN } from "@/lib/rails";
@@ -580,16 +580,13 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
   // canvas grew, every line re-wrapped and blocks landed somewhere else.
   const canvasWidth = VIEWPORTS.find((v) => v.key === viewport)?.width ?? null;
 
-  // The page has to leave room for a fixed header here too, or the canvas
-  // shows the first block in a place the published page never puts it.
-  const canvasStyle =
-    chrome.site.headerPosition === "fixed" ? { paddingTop: headerOffset(chrome.site) } : undefined;
-
   /** The header and footer, exactly as a visitor gets them. */
   const siteChrome = (inner: React.ReactNode) => (
-    // `relative` so a fixed header is held inside the canvas instead of
-    // floating over the whole builder.
-    <div className="public-canvas relative" style={canvasStyle}>
+    // The canvas used to reserve room at the top for a fixed header, which
+    // was drawn out of the flow. It is sticky in here now and takes its own
+    // room — the padding on top of that put the first block lower than the
+    // published page puts it.
+    <div className="public-canvas relative">
       <SiteHeader site={chrome.site} pages={chrome.pages} activeSlug={slug} contained />
       <main>{inner}</main>
       <SiteFooter site={chrome.site} />
@@ -778,7 +775,17 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
             </div>
           )}
 
-          <main className="flex-1 overflow-y-auto" onClick={() => setSelectedId(null)}>
+          {/*
+            The canvas is a viewport, not a tall strip on a scrolling page.
+            The pane used to do the scrolling and the frame was clipped with
+            `overflow-hidden`, which made the frame a scroll container that
+            never scrolled — so `position: sticky` inside it never engaged and
+            a sticky or fixed header slid away as you scrolled, which is not
+            what any visitor gets. Scrolling inside the frame makes it the
+            scrollport, and a header holds its place there the way it does in
+            a window.
+          */}
+          <main className="flex-1 min-h-0 flex py-8" onClick={() => setSelectedId(null)}>
             {/*
               The canvas takes the room it is given. It used to stop at 1024px
               whatever the window, so on a large screen you laid the page out
@@ -789,13 +796,15 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
             */}
             <div
               data-canvas-frame
-              className="mx-auto my-8 w-full rounded-xl shadow-2xl border border-bg-border overflow-hidden"
+              className="mx-auto w-full rounded-xl shadow-2xl border border-bg-border overflow-y-auto overflow-x-hidden"
               style={canvasWidth ? { maxWidth: canvasWidth } : undefined}
             >
               {/* One wrapper for both modes. Preview used to drop it, which
                   changed the shape of the tree around the page and gave the
-                  browser a reason to lay it out afresh. */}
-              <div onClick={(e) => e.stopPropagation()}>
+                  browser a reason to lay it out afresh. `h-full` gives the
+                  page inside it a height to measure itself against, so it can
+                  fill the frame instead of the window. */}
+              <div className="h-full" onClick={(e) => e.stopPropagation()}>
                 {siteChrome(
                   preview ? (
                     <PublicBlocks blocks={blocks} />
@@ -819,7 +828,6 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
                 )}
               </div>
             </div>
-            <div className="h-12" />
           </main>
 
           {/*

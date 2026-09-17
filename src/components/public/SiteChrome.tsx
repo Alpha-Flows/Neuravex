@@ -89,10 +89,23 @@ export function SiteHeader({
    * stay at 0.
    */
   const stickyOffset = site.headerShape === "pill" ? "top-4" : "top-0";
-  const positionClass =
-    site.headerPosition === "fixed"
-      ? contained ? "absolute top-0 left-0 right-0" : "fixed top-0 left-0 right-0"
-      : site.headerPosition === "sticky" ? `sticky ${stickyOffset}` : "";
+  /**
+   * In the canvas a fixed header is drawn sticky.
+   *
+   * It used to be `absolute`, which pinned it to the top of the page rather
+   * than to the top of the view: scroll the canvas and it slid away, so the
+   * editor showed a header behaving in a way no visitor will ever see. The
+   * canvas is a framed viewport that scrolls on its own, and sticky is what
+   * holds a header still inside one. It sits in the flow, which is exactly
+   * the room the published page reserves for a fixed header with its own
+   * padding — so the two come out in the same place.
+   */
+  const fixedHere = site.headerPosition === "fixed" && !contained;
+  const positionClass = fixedHere
+    ? "fixed top-0 left-0 right-0"
+    : site.headerPosition === "fixed" || site.headerPosition === "sticky"
+      ? `sticky ${stickyOffset}`
+      : "";
   const shapeClass =
     site.headerShape === "pill" ? "mx-4 mt-4 rounded-full shadow-lg" :
     site.headerShape === "rounded" ? "rounded-b-2xl shadow-sm" :

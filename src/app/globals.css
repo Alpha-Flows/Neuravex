@@ -84,6 +84,14 @@ html, body {
 }
 .public-canvas a { color: inherit; }
 
+/* In the builder the page fills its frame rather than the window. The canvas
+ * is a viewport of its own there, and a 100vh page inside a frame shorter
+ * than the window left every page — an empty one included — with a hundred
+ * stray pixels to scroll through. */
+.editor-mode .public-canvas {
+  min-height: 100%;
+}
+
 /* ---------------------------------------------------------------------
  * Reusable entrance/ambient animations for template content.
  * Applied via className on custom-HTML block markup (see templates.ts) —
