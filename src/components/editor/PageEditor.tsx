@@ -670,7 +670,14 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
           )}
 
           <main className="flex-1 overflow-y-auto" onClick={() => setSelectedId(null)}>
-            <div className="mx-auto my-8 max-w-5xl rounded-xl shadow-2xl border border-bg-border overflow-hidden"
+            {/*
+              The canvas takes the room it is given. It used to stop at 1024px
+              whatever the window, so on a large screen you laid the page out
+              at a width no visitor would see — and most of the monitor sat
+              empty. The viewport buttons in preview still pin it to a size on
+              purpose.
+            */}
+            <div className="mx-auto my-8 w-full rounded-xl shadow-2xl border border-bg-border overflow-hidden"
               style={preview && viewport !== "full" ? { maxWidth: viewport === "lg" ? 1024 : viewport === "md" ? 768 : 480 } : undefined}>
               {preview ? (
                 siteChrome(<PublicBlocks blocks={blocks} />)

@@ -346,6 +346,13 @@ the edge of the screen, another most of the way across it.
   alignment lives on the text. That pair is how a paragraph set to "left" ended up on the
   right with nothing explaining it.
 
+### Round 15 — the editor's own canvas
+
+Verifying round 14 across four window widths turned up the same fault one level up: the
+editor canvas stopped at 1024px whatever the window. On a large screen you laid the page
+out at a width no visitor would ever see, and most of the monitor sat empty. It takes the
+room it is given now; the viewport buttons in preview still pin it to a size on purpose.
+
 ### Still open from this review
 
 P0-1 is **closed**: **Download files** takes a site off the machine as plain HTML, CSS and
@@ -375,7 +382,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 225 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes, clipboard) — all passing; 82 Playwright specs |
+| Quality | 225 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes, clipboard) — all passing; 83 Playwright specs |
 
 ---
 
