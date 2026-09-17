@@ -192,7 +192,8 @@ Neuravex has no sign-in and no access control — it's meant to run locally on y
 - Requests that change something are refused when they come from another site. There is no sign-in to protect, but any page you have open elsewhere can post to `localhost` in the background, and it should not be able to delete your work. A request with no `Origin` at all — curl, a script of your own — is left alone
 - User-provided HTML (custom headers, footers, rich text, HTML blocks) is sanitized with [sanitize-html](https://github.com/apostrophecms/sanitize-html), which parses the markup rather than matching text against it
 - Uploaded SVGs are parsed and reduced to the elements that draw. `<script>`, `<style>`, `<foreignObject>`, `<use>` and the animation elements are dropped, along with every event handler and any URL that is not a page, a fragment or an inline picture
-- Custom CSS is sanitized to strip `url()`, `@import`, `expression()`, and other exfiltration vectors
+- Custom CSS is parsed rather than pattern-matched, and anything that reaches off the page — `@import`, a `url()` naming somewhere other than this document, `expression()`, `behavior` — is dropped. A stylesheet also cannot close the `<style>` element it is written into
+- A Content-Security-Policy names each page's scripts by a nonce that changes every request, so a `<script>` arriving inside someone's content cannot run even if it gets past a sanitizer. The page can only talk back to this server, which is what stops anything it did find being sent elsewhere
 - File uploads are restricted to a safe allowlist of extensions with a 10MB size limit
 - Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) are set on all responses
 

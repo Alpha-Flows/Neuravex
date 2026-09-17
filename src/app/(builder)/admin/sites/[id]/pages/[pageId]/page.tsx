@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { sanitizeCss } from "@/lib/security";
 import { prisma } from "@/lib/prisma";
 import { PageEditor } from "@/components/editor/PageEditor";
 import { BaseBlock } from "@/types";
@@ -58,7 +59,11 @@ export default async function PageEditorRoute({
           headerPosition: site.headerPosition,
         },
         pages: site.pages,
-        customCss: site.customCss,
+        // Sanitised here rather than in the editor. The sanitiser parses CSS
+        // with postcss, which is a Node library — imported from a client
+        // component it goes into the browser bundle, and the bundle does not
+        // survive it. The canvas only has to place the result.
+        customCss: site.customCss ? sanitizeCss(site.customCss) : null,
       }}
       initial={{
         title: page.title,

