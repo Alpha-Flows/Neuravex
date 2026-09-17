@@ -1,0 +1,65 @@
+/**
+ * Background layers shared by the blocks that can sit behind content.
+ *
+ * A section and a single column paint the same thing — a colour, or an image
+ * with an optional tint over it for legibility — so they build it here rather
+ * than each growing their own copy that drifts.
+ */
+import type { CSSProperties } from "react";
+
+export interface BackgroundLayer {
+  /** Flat colour. Used only when there is no image. */
+  background?: string;
+  /** Image URL. Takes priority over `background`. */
+  backgroundImage?: string;
+  /** rgba() tint layered over the image so text stays readable. */
+  backgroundOverlay?: string;
+}
+
+/**
+ * Quote an image URL for CSS.
+ *
+ * A file named `hero (1).jpg` ends the `url(...)` early unquoted, which threw
+ * away the rest of the declaration; a quote in the name would do the same to a
+ * quoted one. Newlines cannot appear in a CSS string at all, so they go.
+ */
+export function cssUrl(src: string): string {
+  const safe = src.replace(/[\r\n]+/g, "").replace(/["\\]/g, (c) => `\\${c}`);
+  return `url("${safe}")`;
+}
+
+/**
+ * The style for one background layer. Empty when nothing is set, so the
+ * element keeps whatever it inherits instead of being painted transparent.
+ */
+export function backgroundStyle(layer: BackgroundLayer | undefined): CSSProperties {
+  if (!layer) return {};
+  if (layer.backgroundImage) {
+    const image = cssUrl(layer.backgroundImage);
+    return {
+      backgroundImage: layer.backgroundOverlay
+        ? `linear-gradient(${layer.backgroundOverlay}, ${layer.backgroundOverlay}), ${image}`
+        : image,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+    };
+  }
+  return layer.background ? { background: layer.background } : {};
+}
+
+/**
+ * The style for one column of a columns block: its background, plus the inset
+ * and rounding that make a column with an image behind it read as a card.
+ *
+ * Padding matters more here than on a section — without it the words sit hard
+ * against the edge of the image.
+ */
+export function columnBoxStyle(
+  style: (BackgroundLayer & { padding?: number; radius?: number }) | undefined,
+): CSSProperties {
+  if (!style) return {};
+  const out: CSSProperties = { ...backgroundStyle(style) };
+  if (style.padding) out.padding = style.padding;
+  if (style.radius) out.borderRadius = style.radius;
+  return out;
+}

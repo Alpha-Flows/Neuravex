@@ -47,9 +47,28 @@ export interface SectionProps {
   align: "left" | "center" | "right";
 }
 
+/**
+ * One column's own backdrop. Same pieces as a section — colour, or image with
+ * an optional tint — so a single column can carry an image behind its text
+ * without the whole row taking it.
+ */
+export interface ColumnStyle {
+  background?: string; // hex / rgba / "transparent" — used when no backgroundImage is set
+  backgroundImage?: string; // optional image URL, takes priority over background
+  backgroundOverlay?: string; // optional rgba() tint layered over backgroundImage for legibility
+  padding?: number; // px of space between the column's edge and its blocks
+  radius?: number; // px corner rounding
+}
+
 export interface ColumnsProps {
   count: 2 | 3 | 4;
   gap: number; // px
+  /**
+   * Per-column backdrops, index-aligned with the columns: `columnStyles[1]`
+   * is the second column. Absent, or an absent entry, means the column is
+   * plain and shows whatever is behind the block.
+   */
+  columnStyles?: ColumnStyle[];
 }
 
 export interface HeadingProps {

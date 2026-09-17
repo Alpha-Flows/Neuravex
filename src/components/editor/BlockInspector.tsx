@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { BaseBlock, HeadingProps, TextProps, ImageProps, ButtonProps, DividerProps, SpacerProps, SectionProps, ColumnsProps, VideoProps, QuoteProps, ListProps, FormProps, HtmlProps } from "@/types";
+import { BaseBlock, HeadingProps, TextProps, ImageProps, ButtonProps, DividerProps, SpacerProps, SectionProps, ColumnsProps, ColumnStyle, VideoProps, QuoteProps, ListProps, FormProps, HtmlProps } from "@/types";
+import { clampColumnCount } from "@/lib/tree-utils";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { MediaPicker } from "./MediaPicker";
@@ -320,6 +321,7 @@ function InspectorBody({ block, onChange }: { block: BaseBlock; onChange: (next:
             <SegBtns value={String(p.count)} options={["2", "3", "4"]} onChange={(v) => set("count", Number(v) as any)} />
           </Field>
           <Field label="Gap (px)"><Input type="number" value={p.gap} onChange={(e) => set("gap", Number(e.target.value))} /></Field>
+          <ColumnBackground props={p} onChange={(next) => onChange({ ...block, props: next })} />
         </>
       );
     }
@@ -422,6 +424,86 @@ function InspectorBody({ block, onChange }: { block: BaseBlock; onChange: (next:
   }
 }
 
+/**
+ * Backdrop for one column at a time.
+ *
+ * The block itself has nothing to show — it is the columns that carry the
+ * image — so the picker names the column first and then edits that one. A
+ * column with no backdrop stores nothing, which keeps pages that never use
+ * this exactly as they were.
+ */
+function ColumnBackground({ props, onChange }: { props: ColumnsProps; onChange: (next: ColumnsProps) => void }) {
+  const count = clampColumnCount(props.count);
+  const [picked, setPicked] = useState(0);
+  // Dropping from four columns to two while the fourth was selected would
+  // otherwise leave the fields editing a column that is no longer on screen.
+  const index = Math.min(picked, count - 1);
+  const style: ColumnStyle = props.columnStyles?.[index] ?? {};
+
+  function set<K extends keyof ColumnStyle>(key: K, value: ColumnStyle[K]) {
+    const list = (props.columnStyles ?? []).slice();
+    while (list.length <= index) list.push({});
+    const next: ColumnStyle = { ...list[index], [key]: value };
+    // A backdrop with no inset puts the words hard against the edge of the
+    // image, which is never what someone reaches for this to get.
+    if ((key === "backgroundImage" || key === "background") && value && next.padding == null) next.padding = 24;
+    list[index] = next;
+    const used = list.some((s) => Object.values(s).some((v) => v !== undefined && v !== "" && v !== 0));
+    onChange({ ...props, columnStyles: used ? list : undefined });
+  }
+
+  return (
+    <div className="pt-4 border-t border-bg-border space-y-4">
+      <Field label="Column backdrop">
+        <SegBtns
+          value={String(index + 1)}
+          options={Array.from({ length: count }, (_, i) => String(i + 1))}
+          onChange={(v) => setPicked(Number(v) - 1)}
+          nameFor={(v) => `Column ${v}`}
+        />
+        <p className="text-[11px] text-fg-subtle mt-1">
+          Pick a column, then give that one its own image or colour. The others stay as they are.
+        </p>
+      </Field>
+      <Field label="Background image">
+        <BackgroundImageField value={style.backgroundImage} onChange={(v) => set("backgroundImage", v)} />
+      </Field>
+      {style.backgroundImage ? (
+        <Field label="Overlay">
+          <Select
+            value={style.backgroundOverlay || ""}
+            onChange={(v) => set("backgroundOverlay", v || undefined)}
+            options={OVERLAY_PRESETS}
+          />
+        </Field>
+      ) : (
+        <Field label="Background color">
+          <ColorInput
+            value={style.background ?? ""}
+            allowTransparent
+            inherit="No background"
+            onChange={(v) => set("background", v || undefined)}
+          />
+        </Field>
+      )}
+      <Field label="Inner padding (px)">
+        <Input
+          type="number"
+          value={style.padding ?? 0}
+          onChange={(e) => set("padding", Number(e.target.value) || undefined)}
+        />
+      </Field>
+      <Field label="Corner radius (px)">
+        <Input
+          type="number"
+          value={style.radius ?? 0}
+          onChange={(e) => set("radius", Number(e.target.value) || undefined)}
+        />
+      </Field>
+    </div>
+  );
+}
+
 const OVERLAY_PRESETS = [
   { value: "", label: "None" },
   { value: "rgba(0,0,0,0.25)", label: "Dark — light" },
@@ -476,13 +558,30 @@ function Select({ value, onChange, options }: { value: string; onChange: (v: str
   );
 }
 
-function SegBtns<T extends string>({ value, options, onChange }: { value: T; options: readonly T[]; onChange: (v: T) => void }) {
+function SegBtns<T extends string>({
+  value,
+  options,
+  onChange,
+  nameFor,
+}: {
+  value: T;
+  options: readonly T[];
+  onChange: (v: T) => void;
+  /**
+   * What the button is called when the label alone does not say — a bare "2"
+   * means nothing read out on its own, and there is more than one row of
+   * numbers in the columns inspector.
+   */
+  nameFor?: (v: T) => string;
+}) {
   return (
     <div className="inline-flex rounded-md border border-bg-border overflow-hidden w-full">
       {options.map((o) => (
         <button
           key={o}
           onClick={() => onChange(o)}
+          aria-label={nameFor ? nameFor(o) : undefined}
+          aria-pressed={value === o}
           className={`flex-1 h-8 text-xs capitalize ${value === o ? "bg-brand text-white" : "text-fg-muted hover:text-fg hover:bg-bg-card"}`}
         >
           {o.replace("/", " / ")}
