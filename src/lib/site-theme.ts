@@ -12,7 +12,7 @@
  * the site says", which is the default for new blocks.
  */
 
-import { sanitizeCssValue } from "./security";
+import { sanitizeCssValue } from "./css-value";
 
 export interface SiteThemeInput {
   accent?: string | null;

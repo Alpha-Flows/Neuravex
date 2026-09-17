@@ -19,7 +19,6 @@ import { siteThemeCss, SiteThemeInput } from "@/lib/site-theme";
 import { scopeCss } from "@/lib/scope-css";
 import { readClipboard, writeClipboard, pasteable } from "@/lib/clipboard";
 import { readRails, writeRails, RailState, RAILS_OPEN } from "@/lib/rails";
-import { sanitizeCss } from "@/lib/security";
 import { SiteHeader, SiteFooter, SiteChrome, NavPage } from "@/components/public/SiteChrome";
 import { mapBlocks, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount, removeBlock, withFreshIds } from "@/lib/tree-utils";
 import { BlockPalette } from "./BlockPalette";
@@ -40,7 +39,7 @@ interface Props {
   siteSlug: string;
   /** The site's branding, so the canvas shows the colours the page will ship with. */
   theme: SiteThemeInput;
-  /** The header, footer and custom CSS a visitor gets around this page. */
+  /** The header, footer and custom CSS a visitor gets around this page. The CSS arrives sanitised. */
   chrome: { site: SiteChrome; pages: NavPage[]; customCss: string | null };
   initial: {
     title: string;
@@ -580,8 +579,10 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
   // site's own CSS is scoped the same way, for the same reason — a rule on
   // `body` would otherwise reach the builder's chrome.
   const themeCss = useMemo(() => siteThemeCss(theme, ".public-canvas"), [theme]);
+  // Already sanitised by the page that rendered this, so all that is left is
+  // to hold it inside the canvas.
   const customCss = useMemo(
-    () => (chrome.customCss ? scopeCss(sanitizeCss(chrome.customCss), ".public-canvas") : ""),
+    () => (chrome.customCss ? scopeCss(chrome.customCss, ".public-canvas") : ""),
     [chrome.customCss],
   );
 
