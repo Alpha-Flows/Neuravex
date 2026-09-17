@@ -43,6 +43,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (typeof body.metaTitle === "string" || body.metaTitle === null) data.metaTitle = body.metaTitle;
   if (typeof body.metaDescription === "string" || body.metaDescription === null) data.metaDescription = body.metaDescription;
   if (typeof body.ogImage === "string" || body.ogImage === null) data.ogImage = body.ogImage;
+  if (typeof body.favicon === "string" || body.favicon === null) data.favicon = body.favicon;
+  // A BCP 47 tag, loosely: letters and dashes, which is what <html lang> takes.
+  if (typeof body.language === "string" && /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/.test(body.language.trim())) {
+    data.language = body.language.trim();
+  }
   if (typeof body.slug === "string" && body.slug.trim()) {
     let newSlug = slugify(body.slug);
     let suffix = 0;

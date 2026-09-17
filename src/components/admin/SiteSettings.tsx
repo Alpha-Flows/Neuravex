@@ -46,6 +46,8 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [ogImage, setOgImage] = useState("");
+  const [favicon, setFavicon] = useState("");
+  const [language, setLanguage] = useState("en");
   // Advanced
   const [customCss, setCustomCss] = useState("");
   // State
@@ -76,6 +78,8 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           setMetaTitle(s.metaTitle ?? "");
           setMetaDescription(s.metaDescription ?? "");
           setOgImage(s.ogImage ?? "");
+          setFavicon(s.favicon ?? "");
+          setLanguage(s.language ?? "en");
           setCustomCss(s.customCss ?? "");
           setLoaded(true);
         })
@@ -100,6 +104,8 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           metaTitle: metaTitle || null,
           metaDescription: metaDescription || null,
           ogImage: ogImage || null,
+          favicon: favicon || null,
+          language: language.trim() || "en",
           customCss: customCss || null,
         }),
       });
@@ -233,6 +239,17 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                   <div><Label>Meta title (site default)</Label><Input value={metaTitle} onChange={(e) => setMetaTitle(e.target.value)} placeholder="My Site" /></div>
                   <div><Label>Meta description</Label><Textarea rows={3} value={metaDescription} onChange={(e) => setMetaDescription(e.target.value)} placeholder="A description for search engines." /></div>
                   <div><Label>OG Image URL</Label><Input value={ogImage} onChange={(e) => setOgImage(e.target.value)} placeholder="https://…/og.png" /></div>
+                  <div>
+                    <Label>Favicon URL</Label>
+                    <Input value={favicon} onChange={(e) => setFavicon(e.target.value)} placeholder="/uploads/icon.png" />
+                    <p className="text-xs text-fg-subtle mt-1">The small icon in a browser tab. Upload one in a page&apos;s media library, then paste its address here.</p>
+                  </div>
+                  <div>
+                    <Label>Language</Label>
+                    <Input value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="en" className="font-mono text-xs" />
+                    <p className="text-xs text-fg-subtle mt-1">The language this site is written in, as a code like <code>en</code>, <code>de</code> or <code>pt-BR</code>. Screen readers and translation tools read it.</p>
+                  </div>
+                  <p className="text-xs text-fg-subtle pt-1">Every published page also carries a canonical address and appears in the site&apos;s <code>sitemap.xml</code>.</p>
                 </div>
               )}
               {tab === "advanced" && (

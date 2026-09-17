@@ -44,6 +44,10 @@ export function Image({ props, onChange, disabled }: Props) {
       <img
         src={props.src || PLACEHOLDER}
         alt={props.alt || ""}
+        // Below-the-fold images should not hold up the first paint. Decoding
+        // off the main thread keeps a long page scrolling smoothly.
+        loading="lazy"
+        decoding="async"
         className={cn("w-full h-auto block", roundedClass[props.rounded], !disabled && "cursor-pointer hover:opacity-95")}
       />
       {!disabled && onChange ? (

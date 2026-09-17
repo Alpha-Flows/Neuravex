@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { sanitizeCss } from "@/lib/security";
 import { siteThemeCss, isDarkColor } from "@/lib/site-theme";
+import { pageUrl } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -19,12 +20,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const site = await prisma.site.findUnique({ where: { slug: params.siteSlug } });
   if (!site) return {};
   const pageSlug = params.pageSlug?.join("/");
-  const pages = await prisma.page.findMany({ where: { siteId: site.id, published: true } });
+  const pages = await prisma.page.findMany({
+    where: { siteId: site.id, published: true },
+    orderBy: [{ sortOrder: "asc" }, { isHome: "desc" }],
+  });
   const page = pageSlug ? pages.find((p) => p.slug === pageSlug) : pages.find((p) => p.isHome) ?? pages[0];
   const title = page?.metaTitle || site.metaTitle || page?.title || site.name;
   const desc = page?.metaDescription || site.metaDescription || site.description || undefined;
   const og = page?.ogImage || site.ogImage || undefined;
-  return { title, description: desc, openGraph: og ? { images: [og] } : undefined };
+
+  // A canonical address, so the home page reached at /sites/x and
+  // /sites/x/index is not counted as two pages with the same content.
+  const canonical = page ? pageUrl("", site.slug, page.slug, page.isHome) : undefined;
+
+  return {
+    title,
+    description: desc,
+    openGraph: { title, description: desc, type: "website", ...(og ? { images: [og] } : {}) },
+    alternates: canonical ? { canonical } : undefined,
+    icons: site.favicon ? { icon: site.favicon } : undefined,
+  };
 }
 
 export default async function PublicSitePage({ params }: Props) {

@@ -141,15 +141,36 @@ differently, so reordering pages did not show up consistently.
 - The header settings help text told people to add a Spacer block under a fixed header.
   Round 3 made the page leave room for it, so the advice was stale.
 
+### Round 6 — publishing basics
+
+- **P1-8 (SEO and publishing basics)** — a published site now says what it is to anything
+  that reads it.
+  - **`sitemap.xml` and `robots.txt` per site.** Published pages only; a site with nothing
+    published asks not to be indexed rather than offering an empty map. The download
+    carries a `robots.txt` too — not a sitemap, whose entries have to be full addresses,
+    and the address a downloaded folder ends up on is not known when it is built.
+  - **Canonical addresses**, so a home page reached both as `/sites/x` and `/sites/x/index`
+    is not counted as two pages with the same content.
+  - **A favicon setting**, and **a language setting**: `<html lang>` was hardcoded to `en`
+    for every site in every language, which is what a screen reader announces in and what
+    a browser offers to translate from.
+  - **Images load lazily** and decode off the main thread.
+- Making the language settable meant splitting the app into two root layouts — `(builder)`
+  and `(published)`. They were always two different documents: the builder's dark theme
+  classes used to ride along on every published page, and the download had to strip them
+  off again. A visitor's page now carries the site's styling and nothing else.
+- Still open here: images carry no `width`/`height`, so a page can still shift while it
+  loads. That needs the dimensions captured when a picture is chosen, which is its own
+  piece of work.
+
 ### Still open from this review
 
 P0-1 (no way to publish off the machine) is answered in part by **Download files** — a
 site now leaves the machine as plain HTML, CSS and images — but there is still no
 hosting step.
 Also open: P1-5 (editor is not WYSIWYG — closer now that the canvas carries the site
-theme), P1-8 (no
-sitemap/robots/favicon, images without dimensions — template images also carry no alt
-text), P2-13 (no reusable blocks), P2-15 (thin rails on destructive actions).
+theme), the last of P1-8 (no
+images without dimensions — template images also carry no alt text), P2-13 (no reusable blocks), P2-15 (thin rails on destructive actions).
 
 ---
 
@@ -171,7 +192,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 160 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme) — all passing; 45 Playwright specs |
+| Quality | 172 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO) — all passing; 54 Playwright specs |
 
 ---
 

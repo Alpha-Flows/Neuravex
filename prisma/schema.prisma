@@ -35,6 +35,10 @@ model Site {
   metaTitle       String?
   metaDescription String?
   ogImage         String?
+  // The tab icon, and the language the site is written in. The language ends
+  // up on <html lang>, which is what a screen reader and a translator read.
+  favicon         String?
+  language        String   @default("en")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
