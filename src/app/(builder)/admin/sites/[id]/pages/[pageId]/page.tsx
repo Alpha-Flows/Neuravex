@@ -43,6 +43,7 @@ export default async function PageEditorRoute({
         fontFamily: site.fontFamily,
         headingFont: site.headingFont,
         borderRadius: site.borderRadius,
+        contentWidth: site.contentWidth,
       }}
       chrome={{
         site: {

@@ -20,6 +20,10 @@ model Site {
   fontFamily  String?  // e.g. "Inter, sans-serif"
   headingFont String?  // e.g. "Georgia, serif"
   borderRadius String? @default("0.5rem")
+  /// How wide the page's content column is, as a CSS length. Empty means the
+  /// standard 72rem. It governs the header, the footer, blocks placed straight
+  /// on the page, and every section that follows the site.
+  contentWidth String?
   // Header style (used by the default header; ignored once headerHtml is set)
   headerBackground String  @default("#ffffff")
   headerOpacity    Int     @default(80)

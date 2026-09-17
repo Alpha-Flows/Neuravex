@@ -284,17 +284,28 @@ function InspectorBody({ block, onChange }: { block: BaseBlock; onChange: (next:
           ) : (
             <Field label="Background color"><ColorInput value={p.background} allowTransparent onChange={(v) => set("background", v)} /></Field>
           )}
-          <Field label="Max width">
+          <Field label="Width">
             <Select value={p.maxWidth} onChange={(v) => set("maxWidth", v)} options={[
-              { value: "full", label: "Full bleed" },
-              { value: "7xl", label: "7XL" },
-              { value: "6xl", label: "6XL" },
-              { value: "5xl", label: "5XL" },
-              { value: "4xl", label: "4XL" },
+              { value: "site", label: "Follow the site" },
+              { value: "full", label: "Edge to edge" },
+              { value: "7xl", label: "Wide — 1280px" },
+              { value: "6xl", label: "Standard — 1152px" },
+              { value: "5xl", label: "Narrow — 1024px" },
+              { value: "4xl", label: "Reading — 896px" },
             ]} />
           </Field>
-          <Field label="Align">
+          {/*
+            Not "Align": a text block has one of those too, and it means the
+            words. This moves the whole block of content within the page's
+            column, which is how a paragraph set to "left" ended up on the
+            right of a wide screen with nothing explaining it.
+          */}
+          <Field label="Content position">
             <SegBtns value={p.align} options={["left", "center", "right"]} onChange={(v) => set("align", v)} />
+            <p className="text-[11px] text-fg-subtle mt-1">
+              Where this section&apos;s contents sit in the page column. Text alignment is set on the text
+              itself.
+            </p>
           </Field>
           <Field label="Vertical padding"><Input type="number" value={p.paddingY} onChange={(e) => set("paddingY", Number(e.target.value))} /></Field>
           <Field label="Horizontal padding"><Input type="number" value={p.paddingX} onChange={(e) => set("paddingX", Number(e.target.value))} /></Field>

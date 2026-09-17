@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { ConfirmDelete } from "./ConfirmDelete";
+import { CONTENT_WIDTHS, THEME_FALLBACK } from "@/lib/site-theme";
 
 interface SiteInfo {
   id: string;
@@ -35,6 +36,7 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
   const [fontFamily, setFontFamily] = useState("");
   const [headingFont, setHeadingFont] = useState("");
   const [borderRadius, setBorderRadius] = useState("0.5rem");
+  const [contentWidth, setContentWidth] = useState<string>(THEME_FALLBACK.contentWidth);
   // Layout
   const [headerBackground, setHeaderBackground] = useState("#ffffff");
   const [headerOpacity, setHeaderOpacity] = useState(80);
@@ -69,6 +71,7 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           setFontFamily(s.fontFamily ?? "");
           setHeadingFont(s.headingFont ?? "");
           setBorderRadius(s.borderRadius ?? "0.5rem");
+          setContentWidth(s.contentWidth || THEME_FALLBACK.contentWidth);
           setHeaderBackground(s.headerBackground ?? "#ffffff");
           setHeaderOpacity(typeof s.headerOpacity === "number" ? s.headerOpacity : 80);
           setHeaderShape(s.headerShape ?? "bar");
@@ -98,6 +101,7 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           fontFamily: fontFamily || null,
           headingFont: headingFont || null,
           borderRadius: borderRadius || null,
+          contentWidth,
           headerBackground, headerOpacity, headerShape, headerPosition,
           headerHtml: headerHtml || null,
           footerHtml: footerHtml || null,
@@ -168,6 +172,29 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                   <div><Label>Body font</Label><Input value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} placeholder="Inter, system-ui, sans-serif" /></div>
                   <div><Label>Heading font</Label><Input value={headingFont} onChange={(e) => setHeadingFont(e.target.value)} placeholder="Georgia, serif" /></div>
                   <div><Label>Border radius</Label><Input value={borderRadius} onChange={(e) => setBorderRadius(e.target.value)} placeholder="0.5rem" /></div>
+                  <div>
+                    <Label>Content width</Label>
+                    <div className="grid grid-cols-5 gap-1">
+                      {CONTENT_WIDTHS.map((w) => (
+                        <button
+                          key={w.value}
+                          onClick={() => setContentWidth(w.value)}
+                          title={w.hint}
+                          className={`h-8 rounded-md text-[11px] border ${
+                            contentWidth === w.value
+                              ? "bg-brand text-white border-brand"
+                              : "border-bg-border text-fg-muted hover:text-fg hover:bg-bg-card"
+                          }`}
+                        >
+                          {w.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-fg-subtle mt-1">
+                      How wide the page runs on a large screen. It governs the header, the footer, and every
+                      section set to follow the site.
+                    </p>
+                  </div>
                   <p className="text-xs text-fg-subtle">Fonts must be available on the visitor&apos;s system or loaded via a Google Fonts link in Advanced → Custom CSS.</p>
                 </div>
               )}

@@ -37,7 +37,13 @@ export interface SectionProps {
   backgroundOverlay?: string; // optional rgba() tint layered over backgroundImage for legibility
   paddingY: number; // px
   paddingX: number; // px
-  maxWidth: "full" | "7xl" | "6xl" | "5xl" | "4xl";
+  /**
+   * "site" follows the site's own content width, so widening the site in
+   * Settings widens the section with it. The rest are fixed reading widths,
+   * and "full" spans the window.
+   */
+  maxWidth: "site" | "full" | "7xl" | "6xl" | "5xl" | "4xl";
+  /** Where the content sits inside the page's column, not inside the window. */
   align: "left" | "center" | "right";
 }
 

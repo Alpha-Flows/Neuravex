@@ -47,6 +47,26 @@ html, body {
   border-radius: 4px;
 }
 
+/*
+ * The page's content column.
+ *
+ * The header and footer always sat in one; blocks placed straight on the page
+ * did not, so on a wide window they ran hard against the edge while everything
+ * else stopped in the middle. One column, used by all of them, and its width is
+ * a site setting — which is what makes a site usable on a large monitor rather
+ * than a strip down the middle of it.
+ */
+.nvx-site-column {
+  width: 100%;
+  /* The content width plus this element's own gutters, so what is inside ends
+     up exactly as wide as a section's contents and starts in the same place. */
+  max-width: var(--site-column-max, 75rem);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
 /* Public site defaults — light, readable */
 .public-canvas {
   background: #ffffff;

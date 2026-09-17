@@ -17,6 +17,7 @@ interface Props {
 }
 
 const maxClass: Record<SectionProps["maxWidth"], string> = {
+  site: "max-w-full",
   full: "max-w-full",
   "7xl": "max-w-7xl",
   "6xl": "max-w-6xl",
@@ -71,7 +72,20 @@ export function Section({
         paddingRight: props.paddingX,
       }}
     >
-      <div className={cn("w-full", maxClass[props.maxWidth], alignClass[props.align])}>{inner}</div>
+      {/*
+        Everything but a full-width section sits inside the page's content
+        column, so a left-aligned section lines up with the header instead of
+        hugging the edge of the window — which is what made a wide window look
+        as though the page had come apart. `align` then places the content
+        inside that column.
+      */}
+      {props.maxWidth === "full" ? (
+        <div className="w-full">{inner}</div>
+      ) : (
+        <div className="mx-auto w-full" style={{ maxWidth: "var(--site-content-width, 72rem)" }}>
+          <div className={cn("w-full", maxClass[props.maxWidth], alignClass[props.align])}>{inner}</div>
+        </div>
+      )}
     </div>
   );
 }

@@ -320,6 +320,32 @@ does not match the file.
   - **Saved blocks.** Name a block from the inspector and it is offered in the palette on
     every page of every site, inserted with fresh ids.
 
+### Round 14 — wide windows
+
+Reported from real use, not from the review: on a large monitor the page came apart, and
+text set to "left" turned up in the middle or on the right.
+
+One cause behind both: **there was no page content column.** The header and footer each
+sat in their own 1152px box, a section positioned its contents inside the *window*, and a
+block placed straight on the page had no constraint at all. Measured at 2560px, four
+left-aligned paragraphs started at **0, 24, 704 and 1384** — one of them jammed against
+the edge of the screen, another most of the way across it.
+
+- **One column, used by everything.** Header, footer, blocks on the page and every section
+  that follows the site all sit in it. The same four paragraphs now start at 704, to the
+  pixel.
+- **A section's position is relative to that column**, not the window, so a section set to
+  "left" lines up with the header instead of hugging the screen edge. A section asked for
+  edge to edge still spans the window.
+- **The width is a setting** — Narrow, Standard, Wide, Extra wide, Full — because the real
+  complaint about a big monitor is that 1152px is a strip down the middle of it. The 55
+  template sections that used the old page width now follow the site, so changing it
+  widens the whole site at once.
+- **The two "Align" controls are no longer both called Align.** A section's is "Content
+  position", with a line saying it moves the contents within the page column and that text
+  alignment lives on the text. That pair is how a paragraph set to "left" ended up on the
+  right with nothing explaining it.
+
 ### Still open from this review
 
 P0-1 is **closed**: **Download files** takes a site off the machine as plain HTML, CSS and
@@ -349,7 +375,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 225 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes, clipboard) — all passing; 77 Playwright specs |
+| Quality | 225 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes, clipboard) — all passing; 82 Playwright specs |
 
 ---
 

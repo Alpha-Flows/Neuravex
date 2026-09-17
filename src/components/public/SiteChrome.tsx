@@ -99,7 +99,7 @@ export function SiteHeader({
       className={cn("z-20 backdrop-blur", positionClass, shapeClass, dark ? "text-white" : "text-slate-900")}
       style={{ background: hexToRgba(site.headerBackground, site.headerOpacity) }}
     >
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-6">
+      <div className="nvx-site-column h-16 flex items-center gap-6">
         <Link href={`/sites/${site.slug}`} className="flex items-center gap-2 font-semibold tracking-tight">
           <span className="w-5 h-5 rounded" style={{ background: site.accent }} />
           {site.name}
@@ -147,7 +147,7 @@ export function SiteFooter({ site }: { site: { name: string; footerHtml: string 
 
   return (
     <footer className="border-t border-slate-200 mt-16">
-      <div className="max-w-6xl mx-auto px-6 py-10 text-sm text-slate-500 flex items-center justify-between">
+      <div className="nvx-site-column py-10 text-sm text-slate-500 flex items-center justify-between">
         <span>© {new Date().getFullYear()} {site.name}</span>
         <span>Built with Neuravex</span>
       </div>
