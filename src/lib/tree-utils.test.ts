@@ -11,6 +11,8 @@ import {
   resolveDrop,
   groupIntoColumns,
   flattenColumns,
+  removeBlock,
+  withFreshIds,
   columnCount,
   clampColumn,
 } from "@/lib/tree-utils";
@@ -343,5 +345,58 @@ describe("insertAfterInTree", () => {
     const blocks = [b("a")];
     const result = insertAfterInTree(blocks, "x", b("y"));
     expect(result).toEqual(blocks);
+  });
+});
+
+describe("removeBlock", () => {
+  it("removes a top-level block", () => {
+    const blocks = [b("a"), b("b"), b("c")];
+    expect(removeBlock(blocks, "b").map((x) => x.id)).toEqual(["a", "c"]);
+  });
+
+  it("removes a nested block", () => {
+    const blocks = [b("sec", "section", {}, [b("x"), b("y")])];
+    expect(removeBlock(blocks, "x")[0].children!.map((c) => c.id)).toEqual(["y"]);
+  });
+
+  it("never invents a children array on leaf blocks", () => {
+    const blocks = [b("a"), b("sec", "section", {}, [b("x")])];
+    const result = removeBlock(blocks, "x");
+    expect("children" in result[0] && result[0].children !== undefined).toBe(false);
+  });
+
+  it("returns the same array when the id is not there", () => {
+    const blocks = [b("a"), b("sec", "section", {}, [b("x")])];
+    expect(removeBlock(blocks, "nope")).toBe(blocks);
+  });
+
+  it("leaves untouched branches identical", () => {
+    const untouched = b("sec", "section", {}, [b("x")]);
+    const result = removeBlock([untouched, b("gone")], "gone");
+    expect(result[0]).toBe(untouched);
+  });
+});
+
+describe("withFreshIds", () => {
+  it("gives the block and every descendant a new id", () => {
+    const source = b("sec", "section", {}, [b("x"), b("col", "columns", {}, [b("deep")])]);
+    const copy = withFreshIds(source);
+    const ids = (blk: BaseBlock): string[] => [blk.id, ...(blk.children ?? []).flatMap(ids)];
+    const before = ids(source);
+    const after = ids(copy);
+    expect(after).toHaveLength(before.length);
+    expect(after.some((id) => before.includes(id))).toBe(false);
+    expect(new Set(after).size).toBe(after.length);
+  });
+
+  it("keeps props and column placement", () => {
+    const source: BaseBlock = { ...b("a", "text", { text: "hi" }), column: 2 };
+    const copy = withFreshIds(source);
+    expect(copy.props).toEqual({ text: "hi" });
+    expect(copy.column).toBe(2);
+  });
+
+  it("leaves a leaf block without a children array", () => {
+    expect(withFreshIds(b("a")).children).toBeUndefined();
   });
 });

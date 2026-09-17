@@ -9,15 +9,18 @@ interface Rev {
   id: string;
   title: string;
   content: string;
+  manual: boolean;
   createdAt: string;
 }
 
 interface Props {
   pageId: string;
+  /** Changes after each save so the list reloads instead of going stale. */
+  refreshKey?: number;
   onRestore?: () => void;
 }
 
-export function RevisionsPanel({ pageId, onRestore }: Props) {
+export function RevisionsPanel({ pageId, refreshKey = 0, onRestore }: Props) {
   const [revs, setRevs] = useState<Rev[]>([]);
   const [previewing, setPreviewing] = useState<Rev | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
@@ -27,7 +30,7 @@ export function RevisionsPanel({ pageId, onRestore }: Props) {
       .then((r) => r.json())
       .then(setRevs)
       .catch(() => {});
-  }, [pageId]);
+  }, [pageId, refreshKey]);
 
   async function restore(revId: string) {
     setRestoring(revId);
@@ -58,13 +61,16 @@ export function RevisionsPanel({ pageId, onRestore }: Props) {
     <div>
       <div className="text-xs uppercase tracking-wide text-fg-muted font-semibold mb-3">Revisions</div>
       {revs.length === 0 ? (
-        <div className="text-xs text-fg-muted">No revisions yet. Revisions are created when you save.</div>
+        <div className="text-xs text-fg-muted">No revisions yet. One is kept each time you save, and autosaves within five minutes of each other share one.</div>
       ) : (
         <div className="space-y-2">
           {revs.map((r) => (
             <div key={r.id} className="flex items-center justify-between rounded-lg border border-bg-border bg-bg p-2 text-xs">
               <div className="min-w-0">
-                <div className="text-fg truncate">{r.title}</div>
+                <div className="text-fg truncate">
+                  {r.title}
+                  {r.manual ? <span className="ml-1.5 text-[10px] text-brand uppercase tracking-wide">saved</span> : null}
+                </div>
                 <div className="text-fg-subtle">{new Date(r.createdAt).toLocaleString()}</div>
               </div>
               <Button size="sm" variant="outline" onClick={() => setPreviewing(r)} className="shrink-0">

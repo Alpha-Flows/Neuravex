@@ -1,4 +1,5 @@
 import { BaseBlock } from "@/types";
+import { uid } from "@/lib/utils";
 
 export function mapBlocks(blocks: BaseBlock[], fn: (b: BaseBlock) => BaseBlock): BaseBlock[] {
   return blocks.map((b) => {
@@ -138,4 +139,45 @@ export function flattenColumns(buckets: BaseBlock[][]): BaseBlock[] {
     for (const b of bucket) out.push(b.column === col ? b : { ...b, column: col });
   });
   return out;
+}
+
+/**
+ * Drop a block by id from anywhere in the tree.
+ *
+ * Branches that do not contain the block are returned as-is. The previous
+ * implementation rebuilt every block with `children: (b.children ?? [])`,
+ * which stamped an empty `children` array onto every heading, text and image
+ * on the page each time anything was deleted, and that bloat was then saved.
+ */
+export function removeBlock(list: BaseBlock[], id: string): BaseBlock[] {
+  let changed = false;
+  const out: BaseBlock[] = [];
+  for (const b of list) {
+    if (b.id === id) {
+      changed = true;
+      continue;
+    }
+    if (b.children?.length) {
+      const nextChildren = removeBlock(b.children, id);
+      if (nextChildren !== b.children) {
+        changed = true;
+        out.push({ ...b, children: nextChildren });
+        continue;
+      }
+    }
+    out.push(b);
+  }
+  return changed ? out : list;
+}
+
+/**
+ * Copy a block with a fresh id for it and every descendant.
+ *
+ * Duplicates used to keep the original id as a prefix and prefix children with
+ * their parent's new id, so duplicating a duplicate grew ids without bound.
+ */
+export function withFreshIds(block: BaseBlock): BaseBlock {
+  const copy: BaseBlock = { ...block, id: uid() };
+  if (block.children) copy.children = block.children.map(withFreshIds);
+  return copy;
 }

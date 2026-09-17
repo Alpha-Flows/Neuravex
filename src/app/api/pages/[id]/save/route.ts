@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { snapshotRevision } from "@/lib/revisions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,8 @@ interface SaveBody {
   published?: boolean;
   isHome?: boolean;
   content?: unknown; // BaseBlock[] tree
+  /** "manual" for Cmd+S / the Save button, "autosave" for the timer. */
+  reason?: "manual" | "autosave";
 }
 
 // Persist the full page (title, slug, flags, and the entire block tree as JSON).
@@ -38,14 +41,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const updated = await prisma.page.update({ where: { id: params.id }, data });
 
-  // Snapshot a revision after every save
   if (body.content !== undefined || typeof body.title === "string") {
-    await prisma.revision.create({
-      data: {
-        pageId: page.id,
-        title: (typeof body.title === "string" ? body.title.trim() : page.title) || "Untitled",
-        content: body.content !== undefined ? JSON.stringify(body.content) : page.content,
-      },
+    await snapshotRevision(page.id, {
+      title: (typeof body.title === "string" ? body.title.trim() : page.title) || "Untitled",
+      content: body.content !== undefined ? JSON.stringify(body.content) : page.content,
+      manual: body.reason === "manual",
     });
   }
 
