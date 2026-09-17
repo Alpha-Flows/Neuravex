@@ -258,13 +258,39 @@ to work — and it did not.
 - `npm run setup` does the same steps for anyone using the dev server, and the README's
   quick start is now the two commands the launcher actually supports.
 
+### Round 11 — the rest of P1-7
+
+Round 2 closed two of this finding's four rows and left two, which is the finding's own
+complaint applied to itself.
+
+- **Dark mode is gone.** `Site.theme` was stored, settable through the API and carried in
+  the export, and **no renderer ever read it**: a site set to dark rendered light. Removed
+  rather than built, which is the owner's call — Neuravex has one look for published
+  sites.
+- **`Page.scheduledAt` is gone too.** Scheduled publishing was never written; the column
+  sat in the schema, and the new archive format had started carrying it with a comment
+  admitting it was unused. Removed on the same grounds *(my call, not asked for — say the
+  word and it comes back with scheduling attached)*.
+- **Removing a column had to be shippable.** `prisma db push` refuses to lose data, which
+  is right on a machine holding someone's only copy and was exactly what the launcher
+  relied on — so a dead column could never be taken out. Intentional removals are now
+  written down in `prisma/intentional-drops.json` with what they held and why, and the
+  launcher accepts a loss only when **every** warning names a column on that list.
+  Anything else still stops, untouched.
+- A bug from the round before, found here: the launcher pushed with `--skip-generate`, so
+  after a schema change the generated client still expected the old columns and the app
+  queried what the database no longer had. It regenerates now.
+
+Checked by updating a copy that still had the column and a seeded site in it: the column
+goes, the message says what happened, and the site and its pages come through.
+
 ### Still open from this review
 
 P0-1 is **closed**: **Download files** takes a site off the machine as plain HTML, CSS and
 images, and hosting is not something Neuravex does — it is downloaded software, and the
 customer hosts where they already do.
-Also open: the last of P1-8 (images carry no width/height, and template images no alt
-text), and P2-13 (no reusable blocks — no saved sections, no copy-paste between pages, no
+P1-7 is now closed. Also open: the last of P1-8 (images carry no width/height, and
+template images no alt text), and P2-13 (no reusable blocks — no saved sections, no copy-paste between pages, no
 outline tree).
 
 ---
@@ -287,7 +313,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 206 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run) — all passing; 66 Playwright specs |
+| Quality | 208 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run) — all passing; 66 Playwright specs |
 
 ---
 
@@ -402,9 +428,9 @@ style, no design tokens.
 
 | Field | Status |
 | --- | --- |
-| `Site.theme` (light/dark) | Stored, editable via API, **never read by any renderer** |
+| `Site.theme` (light/dark) | Stored, editable via API, **never read by any renderer** — *removed in round 11* |
 | `Site.headHtml` | Writable via `PATCH /api/sites/[id]`, **never rendered**, no UI — so the documented "load Google Fonts / add analytics" path does not exist |
-| `Page.scheduledAt` | In the schema, **no scheduling logic anywhere** |
+| `Page.scheduledAt` | In the schema, **no scheduling logic anywhere** — *removed in round 11* |
 | `Page.metaTitle` / `metaDescription` / `ogImage` | **Read** by `generateMetadata`, but no UI and `PATCH /api/pages/[id]` refuses to set them — per-page SEO is impossible from inside the app |
 
 ### P1-8. SEO and publishing basics are missing

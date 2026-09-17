@@ -21,7 +21,6 @@ export async function POST(req: NextRequest) {
   let slug = slugify(name);
   const description: string | null = body.description ? String(body.description) : null;
   const templateId: string | null = body.templateId ? String(body.templateId) : null;
-  const theme: string = body.theme ? String(body.theme) : "light";
   const tpl = templateId ? getTemplate(templateId) : null;
   const accent = resolveSiteAccent(body.accent ? String(body.accent) : null, tpl);
 
@@ -34,7 +33,7 @@ export async function POST(req: NextRequest) {
   }
 
   const site = await prisma.site.create({
-    data: { name, slug, description, accent, theme },
+    data: { name, slug, description, accent },
   });
 
   if (tpl) {

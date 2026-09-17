@@ -26,11 +26,35 @@ describe("a downloaded copy can start itself", () => {
     expect(pkg.scripts.setup).toBe("node scripts/first-run.js");
   });
 
-  it("never applies a schema change that would cost data", () => {
-    // `prisma db push` refuses rather than dropping a column; it must not be
-    // talked out of that on a machine holding someone's only copy.
-    expect(setup).not.toContain("--accept-data-loss");
+  it("only accepts a loss that was written down and reviewed first", () => {
+    // `prisma db push` refuses rather than dropping a column, which is right on
+    // a machine holding someone's only copy — but it makes removing a dead
+    // column unshippable. The flag is reachable, and only behind the gate.
     expect(setup).not.toContain("--force-reset");
+    const flagAt = setup.indexOf("--accept-data-loss");
+    const gateAt = setup.indexOf("lossIsIntentional(");
+    expect(gateAt).toBeGreaterThan(-1);
+    expect(flagAt).toBeGreaterThan(gateAt);
+  });
+
+  it("accepts a drop only for a column listed as intentional", async () => {
+    const { lossIsIntentional } = await import("../../scripts/first-run.js");
+    const drop = (table: string, column: string) =>
+      `  • You are about to drop the column \`${column}\` on the \`${table}\` table, which still contains 42 non-null values.`;
+
+    expect(lossIsIntentional(drop("Site", "theme"))).toBe(true);
+    // Anything else, including a table full of someone's form submissions.
+    expect(lossIsIntentional(drop("Page", "content"))).toBe(false);
+    expect(lossIsIntentional("  • You are about to drop the `Submission` table, which is not empty.")).toBe(false);
+    expect(lossIsIntentional(`${drop("Site", "theme")}\n  • You are about to drop the \`Revision\` table.`)).toBe(false);
+    expect(lossIsIntentional("Error: something else entirely")).toBe(false);
+  });
+
+  it("regenerates the client when it changes the database", () => {
+    // db push --skip-generate leaves the generated client behind, and the app
+    // then queries columns the database no longer has.
+    // The comment explaining why may mention it; the argument list may not.
+    expect(setup).not.toMatch(/"--skip-generate"/);
   });
 
   it("keeps its own state file out of the repository", () => {

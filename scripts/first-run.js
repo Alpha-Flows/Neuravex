@@ -28,6 +28,8 @@ const ENV_EXAMPLE = path.join(ROOT, ".env.example");
 const SCHEMA = path.join(ROOT, "prisma", "schema.prisma");
 /** Remembers the schema we last applied, so a normal start does no work. */
 const STATE_FILE = path.join(ROOT, "prisma", ".neuravex-state.json");
+/** Columns we removed on purpose, and may therefore drop from a database. */
+const DROPS_FILE = path.join(ROOT, "prisma", "intentional-drops.json");
 
 const DEFAULT_ENV = `# Where Neuravex keeps your sites. The path is relative to prisma/.
 DATABASE_URL="file:./dev.db"
@@ -60,6 +62,51 @@ function run(command, args) {
     stdio: "inherit",
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
     shell: process.platform === "win32",
+  });
+}
+
+/** Runs a command and hands back everything it said, failure included. */
+function capture(command, args) {
+  try {
+    const out = execFileSync(command, args, {
+      cwd: ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
+      shell: process.platform === "win32",
+    });
+    return { ok: true, output: out };
+  } catch (err) {
+    return { ok: false, output: `${err.stdout || ""}${err.stderr || ""}` };
+  }
+}
+
+function intentionalDrops() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(DROPS_FILE, "utf8"));
+    return new Set((parsed.columns || []).map((c) => c.column));
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Whether the only thing standing in the way is dropping a column we removed
+ * on purpose.
+ *
+ * `prisma db push` refuses to lose data, which is the right default on a
+ * machine holding someone's only copy — but it makes removing a dead column
+ * impossible to ship. So the loss is read line by line, and accepted only when
+ * every line names a column listed in prisma/intentional-drops.json.
+ */
+function lossIsIntentional(output) {
+  const warnings = output.split("\n").filter((line) => line.trim().startsWith("•"));
+  if (warnings.length === 0) return false;
+
+  const allowed = intentionalDrops();
+  return warnings.every((line) => {
+    const m = /drop the column `([^`]+)` on the `([^`]+)` table/.exec(line);
+    return m ? allowed.has(`${m[2]}.${m[1]}`) : false;
   });
 }
 
@@ -97,13 +144,28 @@ function ensureDatabase() {
   if (dbExists && state.schema === fingerprint) return { created: false, changed: false };
 
   say(dbExists ? "Applying the latest database changes…" : "Setting up the database…");
-  try {
-    run("npx", ["prisma", "db", "push", "--skip-generate"]);
-  } catch {
-    // db push refuses rather than destroying data it cannot keep.
-    say("Could not update the database automatically.");
-    say("Your data is untouched. Run `npx prisma db push` to see what it needs.");
-    throw new Error("database not ready");
+
+  // Not --skip-generate: a schema change leaves the generated client behind,
+  // and the app then queries columns the database no longer has. This only
+  // runs when the schema has actually moved, so it costs nothing on a normal
+  // start.
+  const first = capture("npx", ["prisma", "db", "push"]);
+  if (!first.ok) {
+    if (!lossIsIntentional(first.output)) {
+      // db push refuses rather than destroying data it cannot keep, and so
+      // does this: whatever it is, it is not something we said was worthless.
+      process.stdout.write(first.output);
+      say("Could not update the database automatically.");
+      say("Your data is untouched. Run `npx prisma db push` to see what it needs.");
+      throw new Error("database not ready");
+    }
+    say("Removing settings that were taken out of Neuravex. Your sites are not affected.");
+    const second = capture("npx", ["prisma", "db", "push", "--accept-data-loss"]);
+    if (!second.ok) {
+      process.stdout.write(second.output);
+      say("Could not update the database automatically. Your data is untouched.");
+      throw new Error("database not ready");
+    }
   }
   writeState({ ...state, schema: fingerprint });
   return { created: !dbExists, changed: dbExists };
@@ -127,7 +189,7 @@ function firstRun() {
   return { created };
 }
 
-module.exports = { firstRun, ensureEnv, ensureDatabase, databaseFile, schemaFingerprint, STATE_FILE };
+module.exports = { firstRun, ensureEnv, ensureDatabase, databaseFile, schemaFingerprint, lossIsIntentional, STATE_FILE };
 
 if (require.main === module) {
   try {

@@ -1,0 +1,15 @@
+{
+  "note": "Columns deliberately removed from the schema, whose data is worth nothing. The first-run setup may apply these drops on an existing database; it will not apply any other loss. Add a column here only after checking what it holds.",
+  "columns": [
+    {
+      "column": "Site.theme",
+      "removedIn": "0.1.0",
+      "why": "A light/dark setting no renderer ever read. Every row holds the default 'light', so there is nothing in it to keep."
+    },
+    {
+      "column": "Page.scheduledAt",
+      "removedIn": "0.1.0",
+      "why": "Scheduled publishing was never built. Every row is null."
+    }
+  ]
+}

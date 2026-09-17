@@ -136,7 +136,7 @@ server.tool(
         type: "text",
         text: JSON.stringify({
           id: site.id, name: site.name, slug: site.slug,
-          description: site.description, accent: site.accent, theme: site.theme,
+          description: site.description, accent: site.accent,
           pages: site.pages.map((p) => ({
             id: p.id, title: p.title, slug: p.slug,
             isHome: p.isHome, published: p.published, sortOrder: p.sortOrder,
