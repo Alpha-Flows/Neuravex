@@ -2,6 +2,7 @@
 import { BaseBlock, ColumnsProps } from "@/types";
 import { SortableContainer } from "./Sortable";
 import { clampColumnCount, cloneTree, flattenColumns, groupIntoColumns, withFreshIds } from "@/lib/tree-utils";
+import { columnBoxStyle } from "@/lib/block-style";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -74,8 +75,14 @@ export function Columns({
         data-cols={cols}
         style={{ ["--nvx-cols" as string]: String(cols), gap: props.gap }}
       >
+        {/*
+          A column paints its own backdrop, so one column of a row can carry an
+          image behind its text while the others stay plain. The grid stretches
+          every item, so two columns of different length still end up the same
+          height and their backgrounds line up.
+        */}
         {buckets.map((bucket, i) => (
-          <div key={i} className="min-w-0">
+          <div key={i} className="min-w-0" style={columnBoxStyle(props.columnStyles?.[i])}>
             <SortableContainer
               containerId={`col-${blockId}-${i}`}
               blocks={bucket}

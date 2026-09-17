@@ -1,6 +1,7 @@
 "use client";
 import { BaseBlock, SectionProps } from "@/types";
 import { SortableContainer } from "./Sortable";
+import { backgroundStyle } from "@/lib/block-style";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -52,15 +53,7 @@ export function Section({
     />
   );
 
-  const bgStyle = props.backgroundImage
-    ? {
-        backgroundImage: props.backgroundOverlay
-          ? `linear-gradient(${props.backgroundOverlay}, ${props.backgroundOverlay}), url(${props.backgroundImage})`
-          : `url(${props.backgroundImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }
-    : { background: props.background };
+  const bgStyle = backgroundStyle(props);
 
   return (
     <div
