@@ -1921,7 +1921,7 @@ export const TEMPLATES: Template[] = [
             `<div style="position:relative;max-width:620px;margin:0 auto;">
               <div class="anim-float-slow">
                 <div style="position:relative;border-radius:20px;overflow:hidden;box-shadow:0 30px 80px -20px rgba(129,140,248,0.45), 0 0 0 1px rgba(148,163,184,0.15);transform:rotate(-4deg);">
-                  <div style="background-image:linear-gradient(115deg, rgba(236,72,153,0.55), rgba(56,189,248,0.55)), url('${IMG.abstract}');background-size:cover;background-position:center;width:100%;aspect-ratio:16/10;"></div>
+                  <div style="background-image:linear-gradient(115deg, rgba(236,72,153,0.55), rgba(56,189,248,0.55)), url('${IMG.abstract.src}');background-size:cover;background-position:center;width:100%;aspect-ratio:16/10;"></div>
                   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:999px;background:rgba(10,14,26,0.85);border:2px solid rgba(255,255,255,0.6);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;">↔</div>
                 </div>
               </div>
@@ -1951,7 +1951,7 @@ export const TEMPLATES: Template[] = [
             b("html", { html:
               `<div style="position:relative;height:340px;">
                 <div class="anim-float" style="position:absolute;top:40px;right:40px;">
-                  <div style="width:220px;height:270px;border-radius:16px;transform:rotate(11deg);box-shadow:0 25px 60px -15px rgba(236,72,153,0.4);background-image:linear-gradient(160deg, rgba(244,114,182,0.65), rgba(56,189,248,0.65)), url('${IMG.abstract}');background-size:cover;background-position:center;border:1px solid rgba(255,255,255,0.15);"></div>
+                  <div style="width:220px;height:270px;border-radius:16px;transform:rotate(11deg);box-shadow:0 25px 60px -15px rgba(236,72,153,0.4);background-image:linear-gradient(160deg, rgba(244,114,182,0.65), rgba(56,189,248,0.65)), url('${IMG.abstract.src}');background-size:cover;background-position:center;border:1px solid rgba(255,255,255,0.15);"></div>
                 </div>
                 <div class="anim-float-slow" style="position:absolute;top:20px;left:20px;width:52px;height:52px;border-radius:14px;background:rgba(129,140,248,0.15);border:1px solid rgba(129,140,248,0.4);display:flex;align-items:center;justify-content:center;font-size:22px;">📷</div>
                 <div class="anim-float" style="position:absolute;bottom:30px;left:60px;width:48px;height:48px;border-radius:999px;background:rgba(236,72,153,0.15);border:1px solid rgba(236,72,153,0.4);display:flex;align-items:center;justify-content:center;font-size:20px;">☁️</div>
@@ -1996,7 +1996,7 @@ export const TEMPLATES: Template[] = [
                     <div style="flex:1;padding:10px 0;text-align:center;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(90deg,#22c55e,#4ade80);">Edit</div>
                     <div style="flex:1;padding:10px 0;text-align:center;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(90deg,#3b82f6,#22d3ee);">Upscale</div>
                   </div>
-                  <div style="background-image:linear-gradient(180deg, rgba(15,20,36,0.4), rgba(15,20,36,0.85)), url('${IMG.graph}');background-size:cover;background-position:center;aspect-ratio:16/9;"></div>
+                  <div style="background-image:linear-gradient(180deg, rgba(15,20,36,0.4), rgba(15,20,36,0.85)), url('${IMG.graph.src}');background-size:cover;background-position:center;aspect-ratio:16/9;"></div>
                 </div>
               </div>
             </div>`
@@ -2078,7 +2078,7 @@ export const TEMPLATES: Template[] = [
             `<div style="position:relative;max-width:620px;margin:0 auto;">
               <div class="anim-float-slow">
                 <div style="position:relative;border-radius:20px;overflow:hidden;box-shadow:0 20px 50px -15px rgba(15,23,42,0.12), 0 30px 80px -25px rgba(99,102,241,0.35);transform:rotate(-4deg);">
-                  <div style="background-image:linear-gradient(115deg, rgba(236,72,153,0.4), rgba(56,189,248,0.4)), url('${IMG.abstract}');background-size:cover;background-position:center;width:100%;aspect-ratio:16/10;"></div>
+                  <div style="background-image:linear-gradient(115deg, rgba(236,72,153,0.4), rgba(56,189,248,0.4)), url('${IMG.abstract.src}');background-size:cover;background-position:center;width:100%;aspect-ratio:16/10;"></div>
                   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:999px;background:rgba(255,255,255,0.9);border:2px solid rgba(15,23,42,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;color:#0f172a;">↔</div>
                 </div>
               </div>
@@ -2108,7 +2108,7 @@ export const TEMPLATES: Template[] = [
             b("html", { html:
               `<div style="position:relative;height:340px;">
                 <div class="anim-float" style="position:absolute;top:40px;right:40px;">
-                  <div style="width:220px;height:270px;border-radius:16px;transform:rotate(11deg);box-shadow:0 20px 45px -15px rgba(15,23,42,0.12), 0 25px 60px -20px rgba(236,72,153,0.3);background-image:linear-gradient(160deg, rgba(244,114,182,0.45), rgba(56,189,248,0.45)), url('${IMG.abstract}');background-size:cover;background-position:center;border:1px solid rgba(15,23,42,0.08);"></div>
+                  <div style="width:220px;height:270px;border-radius:16px;transform:rotate(11deg);box-shadow:0 20px 45px -15px rgba(15,23,42,0.12), 0 25px 60px -20px rgba(236,72,153,0.3);background-image:linear-gradient(160deg, rgba(244,114,182,0.45), rgba(56,189,248,0.45)), url('${IMG.abstract.src}');background-size:cover;background-position:center;border:1px solid rgba(15,23,42,0.08);"></div>
                 </div>
                 <div class="anim-float-slow" style="position:absolute;top:20px;left:20px;width:52px;height:52px;border-radius:14px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);display:flex;align-items:center;justify-content:center;font-size:22px;">📷</div>
                 <div class="anim-float" style="position:absolute;bottom:30px;left:60px;width:48px;height:48px;border-radius:999px;background:rgba(236,72,153,0.1);border:1px solid rgba(236,72,153,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;">☁️</div>
@@ -2153,7 +2153,7 @@ export const TEMPLATES: Template[] = [
                     <div style="flex:1;padding:10px 0;text-align:center;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(90deg,#22c55e,#4ade80);">Edit</div>
                     <div style="flex:1;padding:10px 0;text-align:center;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(90deg,#3b82f6,#22d3ee);">Upscale</div>
                   </div>
-                  <div style="background-image:linear-gradient(180deg, rgba(255,255,255,0.25), rgba(255,255,255,0.8)), url('${IMG.graph}');background-size:cover;background-position:center;aspect-ratio:16/9;"></div>
+                  <div style="background-image:linear-gradient(180deg, rgba(255,255,255,0.25), rgba(255,255,255,0.8)), url('${IMG.graph.src}');background-size:cover;background-position:center;aspect-ratio:16/9;"></div>
                 </div>
               </div>
             </div>`
