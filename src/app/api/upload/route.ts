@@ -3,6 +3,22 @@ import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { validateUploadFile, isDangerousExtension, sanitizeSvg, isRenderableSvg } from "@/lib/security";
 import { imageSize } from "@/lib/image-size";
+import { prisma } from "@/lib/prisma";
+import { cleanName, fileNameFromUrl } from "@/lib/media";
+
+/**
+ * Remember what the file was called when it arrived. It is stored under a
+ * generated name so two uploads cannot collide, which used to mean the
+ * library listed "mu59seflqpe0.png" and the customer's own name for the
+ * picture was thrown away at the door.
+ */
+async function remember(url: string, original: string) {
+  const name = cleanName(original) || fileNameFromUrl(url);
+  await prisma.mediaFile.create({ data: { url, name } }).catch(() => {
+    // A library entry is a convenience; an upload that cannot be described
+    // is still an upload, and the file is already on disk.
+  });
+}
 
 export const dynamic = "force-dynamic";
 
@@ -37,8 +53,10 @@ export async function POST(req: NextRequest) {
     const uploadDir = join(process.cwd(), "public", "uploads");
     await mkdir(uploadDir, { recursive: true });
     await writeFile(join(uploadDir, filename), sanitizedBuf);
+    const svgUrl = `/uploads/${filename}`;
+    await remember(svgUrl, file.name);
     // An SVG scales to whatever box it is given, so there is nothing to report.
-    return NextResponse.json({ url: `/uploads/${filename}`, name: file.name });
+    return NextResponse.json({ url: svgUrl, name: cleanName(file.name) || filename });
   }
 
   const base = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -47,7 +65,9 @@ export async function POST(req: NextRequest) {
   await mkdir(uploadDir, { recursive: true });
   await writeFile(join(uploadDir, filename), bytes);
 
+  const url = `/uploads/${filename}`;
+  await remember(url, file.name);
   // The size travels with the picture so a page can reserve its space.
   const size = imageSize(bytes);
-  return NextResponse.json({ url: `/uploads/${filename}`, name: file.name, ...(size ?? {}) });
+  return NextResponse.json({ url, name: cleanName(file.name) || filename, ...(size ?? {}) });
 }
