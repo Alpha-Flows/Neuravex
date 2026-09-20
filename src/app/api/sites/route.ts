@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
+import { resolveSiteToken } from "@/lib/page-links";
 import { getTemplate, resolveSiteAccent } from "@/lib/templates";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +48,9 @@ export async function POST(req: NextRequest) {
           isHome: !!page.isHome,
           published: page.published !== false,
           sortOrder: i,
-          content: JSON.stringify(page.blocks),
+          // A template links between its own pages with a stand-in for the
+          // site address, which only exists now that the site does.
+          content: resolveSiteToken(JSON.stringify(page.blocks), slug),
         },
       });
     }

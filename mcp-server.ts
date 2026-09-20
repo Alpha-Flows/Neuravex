@@ -31,6 +31,8 @@ import { getTemplate, resolveSiteAccent } from "./src/lib/templates";
 // so this side was the one that threw SQLITE_BUSY under contention.
 import { prisma } from "./src/lib/prisma";
 import { trashSite, trashPage } from "./src/lib/trash";
+import { PAGE_STARTERS, startingContent } from "./src/lib/page-starters";
+import { resolveSiteToken } from "./src/lib/page-links";
 
 // ── Block structure validation ────────────────────────────────────
 
@@ -177,7 +179,7 @@ server.tool(
             siteId: site.id, title: tpl.pages[i].title, slug: tpl.pages[i].slug,
             isHome: !!tpl.pages[i].isHome, sortOrder: i,
             published: tpl.pages[i].published !== false,
-            content: JSON.stringify(tpl.pages[i].blocks),
+            content: resolveSiteToken(JSON.stringify(tpl.pages[i].blocks), slug),
           },
         });
       }
@@ -288,8 +290,11 @@ server.tool(
     siteId: z.string().optional().describe("The site id"),
     title: z.string().describe("Page title, e.g. 'About Us'"),
     slug: z.string().optional().describe("URL slug, auto-generated if omitted"),
+    starter: z.string().optional().describe(
+      `What the page starts as, drawn in the site's own colours and section style: ${PAGE_STARTERS.map((s) => s.id).join(", ")}. Defaults to a title and intro; use "blank" for an empty page.`,
+    ),
   },
-  async ({ siteSlug, siteId, title, slug }) => {
+  async ({ siteSlug, siteId, title, slug, starter }) => {
     const site = siteId
       ? await prisma.site.findUnique({ where: { id: siteId } })
       : siteSlug
@@ -309,8 +314,17 @@ server.tool(
       orderBy: { sortOrder: "desc" },
       select: { sortOrder: true },
     });
+    // The same starter the New page dialog uses, read off the same sibling
+    // pages, so a page an agent makes arrives dressed like the site too.
+    const siblings = await prisma.page.findMany({ where: { siteId: site.id }, select: { content: true } });
     const page = await prisma.page.create({
-      data: { siteId: site.id, title, slug: finalSlug, sortOrder: (max?.sortOrder ?? -1) + 1 },
+      data: {
+        siteId: site.id,
+        title,
+        slug: finalSlug,
+        sortOrder: (max?.sortOrder ?? -1) + 1,
+        content: startingContent(starter, siblings.map((p) => p.content), title),
+      },
     });
     return {
       content: [{

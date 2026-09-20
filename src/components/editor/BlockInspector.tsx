@@ -6,6 +6,7 @@ import { Input, Label, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { MediaPicker } from "./MediaPicker";
 import { getBlockDefinition } from "@/lib/blocks";
+import { isInternalLink, pagePath, targetOf, type LinkTarget } from "@/lib/page-links";
 
 interface Placement {
   /** Zero-based column this block currently sits in. */
@@ -22,9 +23,12 @@ interface Props {
   placement?: Placement;
   /** Keeps this block, under a name, for use on any page. */
   onSaveForReuse?: (name: string) => Promise<void> | void;
+  /** Every page of this site, so a link can be picked instead of typed. */
+  linkTargets?: LinkTarget[];
+  siteSlug?: string;
 }
 
-export function BlockInspector({ block, onChange, onClose, placement, onSaveForReuse }: Props) {
+export function BlockInspector({ block, onChange, onClose, placement, onSaveForReuse, linkTargets, siteSlug }: Props) {
   if (!block) {
     return (
       <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full p-4 text-sm text-fg-muted">
@@ -48,7 +52,7 @@ export function BlockInspector({ block, onChange, onClose, placement, onSaveForR
       </div>
       <div className="p-4 space-y-4">
         {placement ? <ColumnPlacement placement={placement} /> : null}
-        <InspectorBody block={block} onChange={onChange} />
+        <InspectorBody block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />
         {onSaveForReuse ? <SaveForReuse block={block} onSave={onSaveForReuse} /> : null}
       </div>
     </aside>
@@ -148,7 +152,17 @@ function ColumnPlacement({ placement }: { placement: Placement }) {
   );
 }
 
-function InspectorBody({ block, onChange }: { block: BaseBlock; onChange: (next: BaseBlock) => void }) {
+function InspectorBody({
+  block,
+  onChange,
+  linkTargets,
+  siteSlug,
+}: {
+  block: BaseBlock;
+  onChange: (next: BaseBlock) => void;
+  linkTargets?: LinkTarget[];
+  siteSlug?: string;
+}) {
   const set = <K extends keyof any>(key: string, value: any) => onChange({ ...block, props: { ...block.props, [key]: value } });
   switch (block.type) {
     case "heading": {
@@ -234,7 +248,9 @@ function InspectorBody({ block, onChange }: { block: BaseBlock; onChange: (next:
       return (
         <>
           <Field label="Label"><Input value={p.label} onChange={(e) => set("label", e.target.value)} /></Field>
-          <Field label="Link URL"><Input value={p.href} onChange={(e) => set("href", e.target.value)} /></Field>
+          <Field label="Link">
+            <LinkField value={p.href} onChange={(v) => set("href", v)} pages={linkTargets} siteSlug={siteSlug} />
+          </Field>
           <Field label="Style">
             <Select value={p.variant} onChange={(v) => set("variant", v)} options={[
               { value: "primary", label: "Primary" },
@@ -653,6 +669,71 @@ function ColorInput({
         >
           {inheriting ? `Using ${inherit.toLowerCase()}` : `Use ${inherit.toLowerCase()}`}
         </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Where a link goes.
+ *
+ * This was a bare text box, and the only way to link to your own Contact page
+ * was to remember that it lives at `/sites/<site>/contact` and type it without
+ * a slip — in a field that would not have told you either way. The pages of
+ * the site are listed now, drafts included, and picking one writes the address
+ * the server actually stores. An address typed by hand still works, and a path
+ * into this site that matches no page says so instead of waiting to be found
+ * by a visitor.
+ */
+function LinkField({
+  value,
+  onChange,
+  pages,
+  siteSlug,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  pages?: LinkTarget[];
+  siteSlug?: string;
+}) {
+  const href = value ?? "";
+  const target = pages && siteSlug ? targetOf(href, siteSlug, pages) : null;
+  const internal = siteSlug ? isInternalLink(href, siteSlug) : false;
+  const broken = internal && !target;
+
+  return (
+    <div className="space-y-1.5">
+      <Input
+        value={href}
+        placeholder="https://example.com, /sites/…, #anchor or mailto:"
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {pages && siteSlug && pages.length > 0 ? (
+        <select
+          // The value is never the current href when the link points outside
+          // the site, so the select shows its own first option rather than
+          // claiming the link goes to a page it does not.
+          value={target ? target.slug : ""}
+          onChange={(e) => {
+            const page = pages.find((p) => p.slug === e.target.value);
+            if (page) onChange(pagePath(siteSlug, page.slug, page.isHome));
+          }}
+          className="h-9 w-full px-2 rounded-md bg-bg border border-bg-border text-fg text-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
+        >
+          <option value="">Link to a page in this site…</option>
+          {pages.map((p) => (
+            <option key={p.slug} value={p.slug}>
+              {p.title}
+              {p.isHome ? " (home)" : ""}
+              {p.published ? "" : " — draft"}
+            </option>
+          ))}
+        </select>
+      ) : null}
+      {broken ? (
+        <p className="text-xs text-amber-400">No page of this site is at that address — this link will 404.</p>
+      ) : target && !target.published ? (
+        <p className="text-xs text-fg-subtle">{target.title} is a draft, so visitors get a 404 until it is published.</p>
       ) : null}
     </div>
   );

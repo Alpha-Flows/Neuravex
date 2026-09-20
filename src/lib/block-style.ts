@@ -6,6 +6,19 @@
  * than each growing their own copy that drifts.
  */
 import type { CSSProperties } from "react";
+import { parseHex, readableTextOn } from "./site-theme";
+
+/**
+ * Readable text for a backdrop, or null when the backdrop cannot say.
+ *
+ * Only a plain hex colour is answered for. "transparent", an rgba() with an
+ * alpha, or a gradient all show something this function cannot see through,
+ * so it declines rather than pinning the text to a colour that might be
+ * wrong — and the block keeps whatever it was inheriting before.
+ */
+export function readableTextOnFlat(background: string): string | null {
+  return parseHex(background) ? readableTextOn(background) : null;
+}
 
 export interface BackgroundLayer {
   /** Flat colour. Used only when there is no image. */
@@ -31,6 +44,17 @@ export function cssUrl(src: string): string {
 /**
  * The style for one background layer. Empty when nothing is set, so the
  * element keeps whatever it inherits instead of being painted transparent.
+ *
+ * A flat colour also sets the text colour, because a block is allowed to have
+ * none of its own: an empty colour on a heading or a paragraph means "whatever
+ * the page says", and on a dark backdrop the page said near-black. Dropping a
+ * heading onto a dark section wrote #0f172a on #0b0f1e — the words were on the
+ * page, at the right size, in the right place, and invisible. A block that
+ * does carry a colour is untouched, so nothing already written moves.
+ *
+ * Only a flat colour can answer this. Behind a photograph the light is
+ * whatever the photograph is, so nothing is claimed and the text keeps the
+ * colour it was given.
  */
 export function backgroundStyle(layer: BackgroundLayer | undefined): CSSProperties {
   if (!layer) return {};
@@ -44,7 +68,9 @@ export function backgroundStyle(layer: BackgroundLayer | undefined): CSSProperti
       backgroundPosition: "center",
     };
   }
-  return layer.background ? { background: layer.background } : {};
+  if (!layer.background) return {};
+  const text = readableTextOnFlat(layer.background);
+  return text ? { background: layer.background, color: text } : { background: layer.background };
 }
 
 /**

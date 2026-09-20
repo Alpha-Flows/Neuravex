@@ -25,6 +25,7 @@ import { BlockPalette } from "./BlockPalette";
 import { BlockOutline } from "./BlockOutline";
 import { SavedBlocks } from "./SavedBlocks";
 import { BlockInspector } from "./BlockInspector";
+import type { LinkTarget } from "@/lib/page-links";
 import { RevisionsPanel } from "./RevisionsPanel";
 import { PageSettingsPanel, PageSeo } from "./PageSettingsPanel";
 import { SortableContainer } from "../blocks/Sortable";
@@ -41,6 +42,8 @@ interface Props {
   theme: SiteThemeInput;
   /** The header, footer and custom CSS a visitor gets around this page. The CSS arrives sanitised. */
   chrome: { site: SiteChrome; pages: NavPage[]; customCss: string | null };
+  /** Every page of this site, drafts included, for the inspector's link picker. */
+  linkTargets: LinkTarget[];
   initial: {
     title: string;
     slug: string;
@@ -84,7 +87,7 @@ export function isTextEntry(el: Element | null): boolean {
   return (el as HTMLElement).isContentEditable === true;
 }
 
-export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }: Props) {
+export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTargets, initial }: Props) {
   const [blocks, setBlocks] = useState<BaseBlock[]>(initial.blocks);
   const [title, setTitle] = useState(initial.title);
   const [slug, setSlug] = useState(initial.slug);
@@ -882,6 +885,8 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, initial }:
                   : undefined
               }
               onSaveForReuse={saveForReuse}
+              linkTargets={linkTargets}
+              siteSlug={siteSlug}
             />
           ) : (
             <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full overflow-y-auto p-4">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
+import { startingContent } from "@/lib/page-starters";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,26 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     select: { sortOrder: true },
   });
 
+  /**
+   * What the page opens on.
+   *
+   * Content handed in wins — that is a duplicate, an import or an agent
+   * writing a page it has already composed. Otherwise the page is built from
+   * a starter, drawn in the look read off the site's existing pages, so a new
+   * page arrives dressed like the site it was made in instead of as the bare
+   * `[]` it used to be.
+   */
+  let content: string;
+  if (typeof body.content === "string") {
+    content = body.content;
+  } else {
+    const siblings = await prisma.page.findMany({
+      where: { siteId: params.id },
+      select: { content: true },
+    });
+    content = startingContent(body.starter, siblings.map((p) => p.content), title);
+  }
+
   const page = await prisma.page.create({
     data: {
       siteId: params.id,
@@ -42,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       slug,
       isHome: false,
       sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
-      content: typeof body.content === "string" ? body.content : "[]",
+      content,
     },
   });
   return NextResponse.json(page, { status: 201 });

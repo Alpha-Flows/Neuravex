@@ -479,6 +479,77 @@ photographs apart except by squinting at a 96px thumbnail.
 What is left of P2-12 is the part a file cannot answer for itself: there is still no
 description on an upload until someone writes one.
 
+### Round 22 — the multi-page story
+
+P2-11's last open half: 27 of the 28 templates were single-page, and "+ New page" gave you
+a blank page with none of the site's styling. Driving it showed that the blank page was the
+smaller problem. A site with a second page needs three things that were not there — a page
+that starts looking like the site, a way to link to it, and links that survive being
+renamed — and on the way to them the blank page turned up a bug that had nothing to do with
+new pages at all.
+
+- **A heading dropped onto a dark section was invisible.** The palette inserts blocks with
+  an empty colour, which the code is explicit about meaning "whatever the page says". A
+  section painted `#0b0f1e` never said anything, so the page said near-black and the
+  heading was written in `#0f172a` on `#0b0f1e` — on the canvas, on the published page and
+  in the downloaded copy. It affected every template with a dark band the moment you added
+  a block to one. A flat backdrop now carries a readable text colour with it, by the same
+  rule the site header has always used. A block with a colour of its own is untouched, and
+  a backdrop this cannot see through — a photograph, an `rgba()` with an alpha — claims
+  nothing rather than guessing.
+- **A new page arrives dressed like the site it was made in.** "+ New page" handed over
+  `[]`. On a site built from a template that is a jarring thing to receive: every other
+  page sits in a contained column with its own background and 80-odd pixels of air, and the
+  first block dropped onto the new one lands flush in the corner at the full width of the
+  window. The dialog now offers a layout — title and intro, About, Contact, Services,
+  Pricing, or a genuinely empty page for anyone who wants one — and builds it out of the
+  site's own pages rather than a house style: the background its bands actually use, the
+  padding they carry, the width they run to, and the colours its headings and body copy are
+  actually written in. A page made in a dark site comes out dark. An agent gets the same
+  thing through MCP.
+  - Reading a site's look turned out to be two judgement calls. Only a page's own bands
+    count, not the strips nested inside them — four decorative rows at 24px inside one band
+    outvoted every band on the blog template and produced a starter 24px tall and
+    edge-to-edge. And body copy is told from small print by the size the author already
+    chose, because a landing page carries one paragraph per section and three or four
+    eyebrows, so the quietest grey on the page was winning the vote for body text.
+- **Pick a page to link to, instead of remembering its path.** Linking to your own Contact
+  page meant typing `/sites/<site>/contact` from memory into a box that would not have told
+  you either way. The button inspector lists the site's pages now, drafts included, and
+  picking one writes the address the server stores. An address typed by hand still works; a
+  path into this site that matches no page says so, and a link to a page that is still a
+  draft says that too — both cheaper to hear now than from a visitor.
+- **Renaming takes the links with it.** Changing a page's address in Settings left every
+  link written to the old one pointing at a 404, silently and site-wide. The nav survived
+  because it is rebuilt from the pages each time; nothing anyone had typed by hand did.
+  Renaming the site was the same bug several times over — it moved every page at once, and
+  every internal link on the site broke together. Both sweeps now move the links with the
+  page: across every page's blocks, into custom HTML blocks, and through the site's own
+  header and footer HTML, keeping a `#fragment` or a query string and leaving alone a link
+  that only looks similar.
+- **Eleven of the 28 templates are multi-page now**, up from one. Agency, Restaurant,
+  Corporate, Consulting, Law Firm, Nonprofit, Real Estate, Architect, Docs and Storefront
+  each gained the two pages that site would really have — Services and Contact, Menu and
+  Visit, Practice areas and Contact, and so on — with working contact forms on them, and
+  their home pages' calls to action now go to those pages instead of `#`. A template cannot
+  know the slug of a site nobody has created yet, so it writes `{{site}}/contact` and that
+  is resolved when the site is made; a test fails if a template ever points at a page it
+  does not have, which it caught once while this was being written.
+- **Three columns inside a section set to the 5xl reading width came out two-up on a
+  desktop.** The tablet rule halves dense layouts up to and including 1024px, and 5xl is
+  exactly 1024px — so every three- and four-column row inside one halved at any window
+  width. The band now stops just short of 1024px, mirroring the 640.05px on its other edge.
+- **A form's field labels were hard-coded near-black.** A Contact page is the page most
+  likely to sit on a site's dark band, and `text-slate-700` on `#0b0f1e` is a field nobody
+  can read the name of. The label follows the backdrop now, which on a light page lands
+  within a shade of where it was.
+- Two smaller things found on the way: seven sections across the templates were painted
+  `#transparent`, which is not a colour — browsers drop the declaration, so it happened to
+  look right while every piece of code that reads a background had to survive it. And a row
+  of headings written as one `cols` with the paragraphs under them as a second came apart
+  the moment the row halved, because the two rows wrap independently; cells that hold both
+  keep each pair together.
+
 ### Still open from this review
 
 P0-1 is **closed**: **Download files** takes a site off the machine as plain HTML, CSS and
@@ -487,12 +558,20 @@ customer hosts where they already do. P1-4 through P1-8 are closed (an autosave 
 behind another replaces it, the newest 50 are kept, and a save you made by hand is kept
 apart from them; the canvas is the published page; branding cascades; the half-built
 settings are gone; SEO, sitemap, robots, canonical, language and favicon all ship), as
-are P2-9, P2-11's remote images, P2-13, P2-14 and P2-15.
+are P2-9, P2-11, P2-13, P2-14 and P2-15.
+
+P2-11 is **closed**: the templates are bundled and offline, 11 of the 28 are multi-page with
+their pages linked to each other, a new page starts in the site's own look rather than
+blank, and the links between pages can be picked rather than typed and survive a rename.
 
 Still open:
 
-- **P2-11, the multi-page story.** 27 of the 28 templates are single-page, and "+ New page"
-  still opens a blank page carrying none of the site's styling.
+- **Seventeen templates are still single-page**, which for most of them is the right shape —
+  a coming-soon page, a résumé, a newsletter sign-up and a product launch are one page by
+  nature. The multi-page story is exercised by the eleven that gained pages and by the
+  starters, which any site can reach whatever template it began from. What a further pass
+  could add is a second page to the handful where one is arguable rather than obvious:
+  Journal, Photographer, Videographer and Conference.
 - **P2-12's last corner.** Names, descriptions, search, rename and usage are all there
   now; what remains is that an upload has no description until a person writes one. A
   picture cannot say what it shows, so this is a prompt-at-the-right-moment problem — most
@@ -512,8 +591,8 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | --- | --- |
 | Editor | 3-pane editor: block palette, canvas, inspector. Drag & drop inside and across containers, inline text editing, undo/redo (80 steps), autosave + `Cmd/Ctrl+S`, unsaved-changes guard, preview with 4 viewport widths |
 | Blocks | 13 types — heading, text, image, button, divider, spacer, section, columns, video, quote, list, form, custom HTML |
-| Templates | 28 starter templates across landing / portfolio / business / blog / minimal |
-| Content | Multi-page sites, home-page routing, publish/unpublish per page, page duplicate & reorder |
+| Templates | 28 starter templates across landing / portfolio / business / blog / minimal, 11 of them multi-page with their pages linked to each other |
+| Content | Multi-page sites, home-page routing, publish/unpublish per page, page duplicate & reorder. A new page starts from a chosen layout drawn in the site's own colours, padding and width; links between pages are picked from a list and follow a page or site rename |
 | History | Revision snapshots with read-only preview and restore |
 | Media | Upload library + 74 bundled stock photos in 10 categories (53 MB, fully offline) |
 | Forms | Form block with submissions stored in the CMS and a per-page submissions viewer |
@@ -521,7 +600,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 225 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes, clipboard) — all passing; 83 Playwright specs |
+| Quality | 346 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes, clipboard, page starters, page links) — all passing; 133 Playwright specs |
 
 ---
 
@@ -770,8 +849,9 @@ local-first alone is not.
 pages, edit once. Add copy/paste of blocks between pages and a layer/outline tree for
 selection.
 
-**R11. Internal link picker.** Pick a page from a dropdown instead of typing a path, and
-rewrite links automatically when a slug changes.
+**R11. Internal link picker.** *Done in round 22.* Pick a page from a dropdown instead of
+typing a path; a page or site rename moves every link that pointed at the old address, and
+a path into this site that matches no page is flagged while it can still be fixed.
 
 **R12. Real asset pipeline.** Resize and compress on upload, emit `width`/`height` and
 `srcset`, convert to WebP, lazy-load by default. Repoint every template at the bundled

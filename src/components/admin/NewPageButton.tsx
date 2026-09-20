@@ -4,11 +4,13 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { slugify } from "@/lib/utils";
+import { PAGE_STARTERS, DEFAULT_STARTER } from "@/lib/page-starters";
 
 export function NewPageButton({ siteId, siteSlug }: { siteId: string; siteSlug: string }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
+  const [starter, setStarter] = useState(DEFAULT_STARTER);
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
@@ -24,7 +26,7 @@ export function NewPageButton({ siteId, siteSlug }: { siteId: string; siteSlug: 
       const res = await fetch(`/api/sites/${siteId}/pages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, slug: slug || slugify(title) }),
+        body: JSON.stringify({ title, slug: slug || slugify(title), starter }),
       });
       const page = await res.json();
       router.push(`/admin/sites/${siteId}/pages/${page.id}`);
@@ -60,6 +62,38 @@ export function NewPageButton({ siteId, siteSlug }: { siteId: string; siteSlug: 
                   URL: /sites/{siteSlug}/{preview || <span className="text-fg-muted">…</span>}
                 </p>
               </div>
+            </div>
+            <div className="mt-4">
+              <Label>Start from</Label>
+              {/*
+                A new page used to be handed over empty, which on a site built
+                from a template meant the one page that looked like nothing
+                else in it. Each of these is drawn in the site's own colours,
+                section padding and column width, read off the pages it
+                already has.
+              */}
+              <div className="grid grid-cols-2 gap-1.5">
+                {PAGE_STARTERS.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setStarter(s.id)}
+                    aria-pressed={starter === s.id}
+                    title={s.description}
+                    className={
+                      "text-left text-sm px-3 py-2 rounded-md border transition-colors " +
+                      (starter === s.id
+                        ? "border-brand bg-brand/15 text-fg"
+                        : "border-bg-border text-fg-muted hover:text-fg hover:border-fg-subtle")
+                    }
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-fg-subtle mt-1.5">
+                {PAGE_STARTERS.find((s) => s.id === starter)?.description}
+              </p>
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>

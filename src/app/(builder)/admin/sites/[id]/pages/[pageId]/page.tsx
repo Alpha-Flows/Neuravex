@@ -26,6 +26,15 @@ export default async function PageEditorRoute({
   });
   if (!page || !site || page.siteId !== site.id) notFound();
 
+  // Everywhere in this site a link can point. Unlike the nav above, drafts are
+  // in it: a Contact page you have not published yet is still the page you
+  // mean to link to, and typing its path from memory is what this replaces.
+  const linkTargets = await prisma.page.findMany({
+    where: { siteId: site.id },
+    orderBy: [{ isHome: "desc" }, { sortOrder: "asc" }],
+    select: { slug: true, title: true, isHome: true, published: true },
+  });
+
   let blocks: BaseBlock[] = [];
   try {
     const parsed = JSON.parse(page.content || "[]");
@@ -65,6 +74,7 @@ export default async function PageEditorRoute({
         // survive it. The canvas only has to place the result.
         customCss: site.customCss ? sanitizeCss(site.customCss) : null,
       }}
+      linkTargets={linkTargets}
       initial={{
         title: page.title,
         slug: page.slug,
