@@ -53,7 +53,7 @@ export default async function SiteAdmin({ params }: { params: { id: string } }) 
             <h1 className="text-2xl font-semibold">Pages</h1>
             <p className="text-fg-muted mt-1">Edit a page to open the visual editor.</p>
           </div>
-          <NewPageButton siteId={site.id} />
+          <NewPageButton siteId={site.id} siteSlug={site.slug} />
         </div>
 
         <Card>
