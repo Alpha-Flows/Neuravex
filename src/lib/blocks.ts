@@ -56,7 +56,10 @@ export const BLOCKS: BlockDefinition[] = [
       // remote Unsplash address, which is a broken image on a machine that is
       // offline and an outside dependency in a downloaded site.
       src: "/stock/nature/pietro-de-grandi-Q5dMq3cKqec-unsplash.jpg",
-      alt: "",
+      // The picture it starts on is one the library can describe, so a block
+      // dragged onto the page and left alone is not a silent image.
+      alt: "A lake below mountains",
+      altFromLibrary: true,
       rounded: "xl",
       width: "large",
       caption: "",

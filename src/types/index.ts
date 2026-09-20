@@ -101,6 +101,13 @@ export interface ImageProps {
    */
   naturalWidth?: number;
   naturalHeight?: number;
+  /**
+   * True while `alt` is the description the picture library holds for this
+   * file rather than words written here. Choosing another picture replaces a
+   * borrowed description — it described the old photograph — and leaves an
+   * author's own words alone.
+   */
+  altFromLibrary?: boolean;
 }
 
 export interface ButtonProps {

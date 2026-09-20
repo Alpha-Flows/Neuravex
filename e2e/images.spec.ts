@@ -99,3 +99,38 @@ test.describe("Uploading a picture", () => {
     expect(info.height).toBe(5);
   });
 });
+
+test.describe("Choosing a picture from the library", () => {
+  test("brings the description the library has for it", async ({ page, request }) => {
+    // The library knew what every photograph showed and kept it to itself:
+    // the picker handed back a URL and a size, so the picture landed on the
+    // page with nothing for a screen reader to read.
+    const site = await (
+      await request.post("/api/sites", { data: { name: `Alt ${Date.now()}`, templateId: "blank" } })
+    ).json();
+    const pages = await (await request.get(`/api/sites/${site.id}/pages?all=1`)).json();
+    await page.goto(`/admin/sites/${site.id}/pages/${pages[0].id}`);
+
+    await page.locator("button", { hasText: "Image" }).first().click();
+    const altField = page.locator('xpath=//label[normalize-space()="Alt text"]/following-sibling::input[1]');
+    await expect(altField).toBeVisible();
+
+    await page.locator("text=Upload image").first().click();
+    await page.getByRole("button", { name: "Stock photos" }).click();
+    const photo = page.locator("div.grid img").first();
+    const described = await photo.getAttribute("alt");
+    expect(described?.trim()).toBeTruthy();
+    await photo.click();
+
+    await expect(altField).toHaveValue(described!);
+
+    // Words written by hand are not overwritten by the next picture.
+    await altField.fill("My own words about this picture");
+    await page.locator("text=Upload image").first().click();
+    await page.getByRole("button", { name: "Stock photos" }).click();
+    await page.locator("div.grid img").nth(1).click();
+    await expect(altField).toHaveValue("My own words about this picture");
+
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
+  });
+});

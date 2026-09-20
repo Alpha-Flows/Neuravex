@@ -14,7 +14,7 @@
     "test:all": "vitest run && playwright test",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
+    "db:reset": "node scripts/db-reset.js",
     "desktop": "node electron/server.js",
     "mcp": "npx tsx mcp-server.ts",
     "postinstall": "prisma generate"
