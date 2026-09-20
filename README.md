@@ -133,7 +133,11 @@ npm run lint       # Lint
 npm run db:reset
 ```
 
-This deletes `prisma/dev.db` and re-seeds the demo site.
+This replaces `prisma/dev.db` with a fresh copy holding the demo site. The new
+database is built and seeded beside the old one and only put in its place once
+it works, so a reset that cannot finish leaves your sites exactly as they were.
+Quit Neuravex first if it is open — and restart it afterwards, since a running
+copy keeps serving the database it started with.
 
 ## Adding a new block type
 

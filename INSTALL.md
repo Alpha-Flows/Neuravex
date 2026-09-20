@@ -409,7 +409,11 @@ To completely reset the database and start fresh:
 npm run db:reset
 ```
 
-This drops all tables, recreates the schema, and re-seeds the demo site.
+This builds a fresh database beside the current one, seeds it with the demo
+site, and puts it in place. If any step fails — most often because Neuravex is
+still running and holding the file — nothing is replaced and your sites survive
+untouched. Quit Neuravex before running it, and start it again afterwards: a
+running copy keeps serving the database it opened at launch.
 
 To also clear uploaded files:
 
