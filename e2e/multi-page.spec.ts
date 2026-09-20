@@ -220,6 +220,24 @@ test.describe("A multi-page template", () => {
     await expect(page.locator("h1")).toContainText("The menu");
   });
 
+  test("downloads as files that link to each other, with no site address left in them", async ({ request }) => {
+    // The templates carry links between their own pages for the first time.
+    // A downloaded site has no /sites/<slug> to be at, so every one of them
+    // has to come out as the file sitting next to the page.
+    const site = await makeSite(request, "restaurant");
+    const res = await request.get(`/api/sites/${site.id}/download`);
+    expect(res.status()).toBe(200);
+
+    const raw = (await res.body()).toString("binary");
+    expect(raw).toContain("index.html");
+    expect(raw).toContain("menu.html");
+    expect(raw).toContain("visit.html");
+    // Neither the stand-in a template writes nor the address it resolved to
+    // means anything once the site is a folder of files.
+    expect(raw).not.toContain("{{site}}");
+    expect(raw).not.toContain(`/sites/${site.slug}`);
+  });
+
   test("shows every published page in the site nav", async ({ page, request }) => {
     const site = await makeSite(request, "agency");
     await page.goto(`/sites/${site.slug}`);
