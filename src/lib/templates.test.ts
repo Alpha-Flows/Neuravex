@@ -43,3 +43,61 @@ describe("what a template puts on the page", () => {
     }
   });
 });
+
+describe("a template with more than one page", () => {
+  it("links only to pages it actually has", () => {
+    // A template writes a link to its own pages as a stand-in for the site
+    // address, resolved when a site is created. A stand-in pointing at a slug
+    // no page in the template carries would ship a 404 into every site made
+    // from it.
+    const broken: string[] = [];
+    for (const template of TEMPLATES) {
+      const slugs = new Set(template.pages.map((p) => p.slug));
+      const home = template.pages.find((p) => p.isHome);
+      for (const match of JSON.stringify(template.pages).matchAll(/\{\{site\}\}(\/[a-z0-9-]*)?/g)) {
+        const slug = match[1]?.slice(1);
+        // The bare stand-in is the home page, which every template has.
+        if (!slug) {
+          if (!home) broken.push(`${template.id}: links home, but has no home page`);
+          continue;
+        }
+        if (!slugs.has(slug)) broken.push(`${template.id}: links to /${slug}, which it has no page for`);
+      }
+    }
+    expect(broken).toEqual([]);
+  });
+
+  it("gives every page a slug of its own", () => {
+    for (const template of TEMPLATES) {
+      const slugs = template.pages.map((p) => p.slug);
+      expect(new Set(slugs).size, `template "${template.id}" slugs`).toBe(slugs.length);
+      for (const slug of slugs) expect(slug, `template "${template.id}"`).toMatch(/^[a-z0-9-]+$/);
+    }
+  });
+
+  it("gives every template exactly one home page", () => {
+    for (const template of TEMPLATES) {
+      expect(template.pages.filter((p) => p.isHome).length, `template "${template.id}"`).toBe(1);
+    }
+  });
+});
+
+describe("the colours a template paints with", () => {
+  it("writes every section background as a colour a browser understands", () => {
+    // Seven sections were written `#transparent`, which is not a colour: the
+    // browser drops the declaration, so it happened to look right, and every
+    // piece of code that reads a background had to be taught to survive it.
+    const bad: string[] = [];
+    const walk = (blocks: unknown[], id: string) => {
+      for (const block of blocks as { type?: string; props?: Record<string, unknown>; children?: unknown[] }[]) {
+        const background = block.props?.background;
+        if (typeof background === "string" && background && background !== "transparent") {
+          if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(background)) bad.push(`${id}: ${background}`);
+        }
+        if (block.children) walk(block.children, id);
+      }
+    };
+    for (const template of TEMPLATES) template.pages.forEach((p) => walk(p.blocks, template.id));
+    expect(bad).toEqual([]);
+  });
+});

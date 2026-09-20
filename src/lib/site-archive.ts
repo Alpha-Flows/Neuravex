@@ -11,7 +11,9 @@
  * test fails when a field is added to the schema and not to this file.
  */
 
-export const ARCHIVE_VERSION = 2;
+import { isLegalKind } from "./legal/pages";
+
+export const ARCHIVE_VERSION = 3;
 
 /** Site columns that describe the site, excluding ids and timestamps. */
 export const SITE_FIELDS = [
@@ -35,6 +37,7 @@ export const SITE_FIELDS = [
   "ogImage",
   "favicon",
   "language",
+  "legal",
 ] as const;
 
 /** Page columns worth carrying. */
@@ -48,6 +51,7 @@ export const PAGE_FIELDS = [
   "metaTitle",
   "metaDescription",
   "ogImage",
+  "legalKind",
 ] as const;
 
 type Row = Record<string, unknown>;
@@ -148,6 +152,8 @@ export interface PageCreateData {
   metaTitle: string | null;
   metaDescription: string | null;
   ogImage: string | null;
+  /** "impressum" or "datenschutz" on a generated legal page; null otherwise. */
+  legalKind: string | null;
 }
 
 /** One page, ready to be written. Dates come back as dates. */
@@ -162,6 +168,10 @@ export function pageCreateData(page: Row): PageCreateData {
     metaTitle: (page.metaTitle as string) ?? null,
     metaDescription: (page.metaDescription as string) ?? null,
     ogImage: (page.ogImage as string) ?? null,
+    // An imported site keeps the link between its details and its legal
+    // pages, so re-importing does not turn the Impressum into an ordinary
+    // page that the footer can no longer find.
+    legalKind: isLegalKind(page.legalKind) ? page.legalKind : null,
   };
 }
 

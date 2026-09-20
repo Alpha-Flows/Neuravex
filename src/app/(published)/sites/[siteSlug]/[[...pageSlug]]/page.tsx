@@ -7,6 +7,7 @@ import { sanitizeCss } from "@/lib/security";
 import { siteThemeCss, headerOffset } from "@/lib/site-theme";
 import { pageUrl } from "@/lib/seo";
 import { SiteHeader, SiteFooter } from "@/components/public/SiteChrome";
+import { isLegalKind } from "@/lib/legal/pages";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,13 @@ export default async function PublicSitePage({ params }: Props) {
     : site.pages.find((p) => p.isHome) ?? site.pages[0];
   if (!page) notFound();
 
+  // The Impressum and the Datenschutzerklärung belong in the footer of every
+  // page, not in the nav beside About and Contact — placed rather than
+  // offered, because § 5 DDG asks for "ständig verfügbar" and a visitor
+  // should not have to hunt for either.
+  const legal = site.pages.filter((p) => isLegalKind(p.legalKind));
+  const navPages = site.pages.filter((p) => !isLegalKind(p.legalKind));
+
   let blocks: BaseBlock[] = [];
   try {
     const parsed = JSON.parse(page.content || "[]");
@@ -71,11 +79,11 @@ export default async function PublicSitePage({ params }: Props) {
           every page starts underneath it and its top is unreadable. The pill
           shape floats on a 1rem margin, so it needs that much more. */}
       <div className="public-canvas" style={site.headerPosition === "fixed" ? { paddingTop: headerOffset(site) } : undefined}>
-        <SiteHeader site={site} pages={site.pages} activeSlug={page.slug} />
+        <SiteHeader site={site} pages={navPages} activeSlug={page.slug} />
         <main>
           <PublicBlocks blocks={blocks} pageId={page.id} />
         </main>
-        <SiteFooter site={site} />
+        <SiteFooter site={site} legal={legal} />
       </div>
     </>
   );

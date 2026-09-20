@@ -159,8 +159,15 @@ html, body {
   }
 }
 
-/* Tablets: halve the dense layouts instead of dropping straight to one. */
-@container (min-width: 640.05px) and (max-width: 1024px) {
+/* Tablets: halve the dense layouts instead of dropping straight to one.
+ *
+ * The upper bound stops just short of 1024px rather than including it. A
+ * section set to the 5xl reading width is exactly 1024px across, so an
+ * inclusive bound made every three- and four-column row inside one halve on
+ * a full desktop — a row of three came out two-up and one-below at any window
+ * width, which is not what "tablets" was meant to catch. It mirrors the
+ * 640.05px above: each band starts just past where the last one ended. */
+@container (min-width: 640.05px) and (max-width: 1023.95px) {
   .nvx-columns-grid[data-cols="3"],
   .nvx-columns-grid[data-cols="4"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));

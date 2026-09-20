@@ -34,7 +34,10 @@ export function Heading({ props, onChange, disabled }: Props) {
       value={props.text}
       onChange={(text) => onChange?.({ ...props, text })}
       placeholder="Heading"
-      className={cn(sizeClass[props.level], weightClass[props.weight], alignClass[props.align])}
+      // The tag comes from `level`; how big it is drawn can be set apart from
+      // it, so a heading can be an h2 in the outline without being 48px on
+      // the page. Unset, the two stay the same thing.
+      className={cn(sizeClass[props.size ?? props.level], weightClass[props.weight], alignClass[props.align])}
       // An empty colour is deliberate: the heading then inherits the page's
       // own text colour instead of pinning itself to a hex.
       style={{ color: props.color || undefined }}

@@ -35,6 +35,28 @@ describe("the MCP server agrees with the app", () => {
     expect(source).toContain("resolveSiteAccent(");
   });
 
+  it("starts a new page the same way the New page dialog does", () => {
+    // An agent's page used to be created with no content at all, which is the
+    // blank page a person no longer gets. Both go through the same starter,
+    // read off the same sibling pages.
+    expect(source).toContain("startingContent(");
+    expect(source).not.toMatch(/data: \{ siteId: site\.id, title, slug: finalSlug, sortOrder/);
+  });
+
+  it("refuses to write a legal page with a blank where a fact belongs, like the app does", () => {
+    // The web route answers 422 on a half-filled profile. The agent path has
+    // to refuse too, or an agent becomes the way to publish an Impressum with
+    // no address on it.
+    expect(source).toContain("missingFor(");
+    expect(source).toContain("generated: false");
+  });
+
+  it("resolves a template's links to the site it is creating", () => {
+    // A template links between its own pages with a stand-in for the site
+    // address. Left unresolved it ships `{{site}}/contact` into every page.
+    expect(source).toContain("resolveSiteToken(");
+  });
+
   it("shares the connection that sets WAL and a busy timeout", () => {
     // Its own bare PrismaClient had neither, so this was the side that threw
     // SQLITE_BUSY when the builder and an agent touched the file at once.

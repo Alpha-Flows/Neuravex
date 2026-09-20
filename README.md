@@ -13,8 +13,9 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 18+).
 - **Container blocks** (Section, Columns) with their own drag-and-droppable child lists
 - **Responsive columns** — published pages stack columns on phones and halve 3/4-column
   layouts on tablets, and each block stays in the column you put it in
-- **28 starter templates** across landing, portfolio, business, blog, and minimal, filterable by category
-- **Multi-page sites** with home page routing
+- **28 starter templates** across landing, portfolio, business, blog, and minimal, filterable by category — 11 of them multi-page, with their pages already linked to each other
+- **Multi-page sites** with home page routing. A new page starts from a layout you choose, drawn in the colours, section padding and column width read off the pages the site already has — not as a blank sheet
+- **Links between your own pages** — pick a page from a list instead of typing its path, and renaming a page or the whole site moves every link that pointed at it
 - **Per-block inspector** for fine-grained control of every property (colors, sizes, alignment, spacing, etc.)
 - **Publish / unpublish** workflow — unpublished pages are drafts
 - **Download the site as files** — plain HTML, CSS and images you can open or host anywhere
@@ -24,6 +25,7 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 18+).
 - **A picture library you can search** — uploads keep the name they arrived with, can be renamed and described in place, and are found by either; the 74 bundled photographs are searchable by what they show
 - **Form submissions** stored in the CMS, viewable per page
 - **Per-page and per-site SEO** — search title, description, and social image
+- **German legal pages** — a guided flow collects what § 5 DDG and Art. 13 DSGVO ask for, writes an Impressum and a Datenschutzerklärung as editable pages, and links both in the footer of every page and subpage. The privacy notice describes what your site actually does: the builder reads your pages and only mentions third-party content it finds
 - **No external services** — no accounts, no sign-in, and no analytics in your published sites
 
 ## Tech stack

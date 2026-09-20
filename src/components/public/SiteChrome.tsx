@@ -31,6 +31,18 @@ export interface NavPage {
   isHome: boolean;
 }
 
+/**
+ * A page § 5 DDG requires to be reachable from wherever a visitor happens to
+ * be — the Impressum, and the Datenschutzerklärung that Art. 13 DSGVO asks
+ * for. "Ständig verfügbar" is the wording, and a footer on every page is how
+ * a website answers it, so these are not part of the nav the operator curates:
+ * they are placed, not offered.
+ */
+export interface LegalPage {
+  slug: string;
+  title: string;
+}
+
 // Parses a #rgb / #rrggbb hex color into an rgba() string at the given
 // opacity. Falls back to opaque white for anything that isn't valid hex, so
 // an unvalidated stored value can never smuggle something else into the
@@ -164,16 +176,74 @@ export function SiteHeader({
   );
 }
 
-export function SiteFooter({ site }: { site: { name: string; footerHtml: string | null } }) {
+/** The legal links as anchors, for a custom footer written as HTML. */
+function legalHtml(site: { slug: string }, legal: LegalPage[]): string {
+  return legal
+    .map((p) => `<a href="/sites/${site.slug}/${p.slug}">${p.title}</a>`)
+    .join(" · ");
+}
+
+/**
+ * True once a custom footer already links to every legal page itself, in
+ * which case it is left alone — somebody who placed the links by hand does
+ * not want a second row of them underneath.
+ */
+function customFooterCoversLegal(html: string, site: { slug: string }, legal: LegalPage[]): boolean {
+  return legal.every((p) => html.includes(`/sites/${site.slug}/${p.slug}`));
+}
+
+export function SiteFooter({
+  site,
+  legal = [],
+}: {
+  site: { name: string; slug: string; footerHtml: string | null };
+  legal?: LegalPage[];
+}) {
+  const links = legal.map((p) => ({ ...p, href: `/sites/${site.slug}/${p.slug}` }));
+
   if (site.footerHtml) {
-    const html = site.footerHtml.replace(/\{name\}/g, site.name).replace(/\{year\}/g, String(new Date().getFullYear()));
-    return <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />;
+    const html = site.footerHtml
+      .replace(/\{name\}/g, site.name)
+      .replace(/\{year\}/g, String(new Date().getFullYear()))
+      .replace(/\{legal\}/g, legalHtml(site, legal));
+    const covered = links.length === 0 || customFooterCoversLegal(html, site, legal);
+    return (
+      <>
+        <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />
+        {/*
+          A custom footer that never mentions them would drop the Impressum
+          off every page at once, which is the one thing this must not let
+          happen. `{legal}` puts the links where the author wants them; without
+          it they are added below rather than quietly lost.
+        */}
+        {covered ? null : (
+          <div className="border-t border-slate-200">
+            <div className="nvx-site-column py-4 text-sm text-slate-500 flex flex-wrap gap-x-4 gap-y-1">
+              {links.map((l) => (
+                <Link key={l.slug} href={l.href} className="hover:text-slate-900 underline underline-offset-2">
+                  {l.title}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+      </>
+    );
   }
 
   return (
     <footer className="border-t border-slate-200 mt-16">
-      <div className="nvx-site-column py-10 text-sm text-slate-500 flex items-center justify-between">
+      <div className="nvx-site-column py-10 text-sm text-slate-500 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <span>© {new Date().getFullYear()} {site.name}</span>
+        {links.length > 0 ? (
+          <span className="flex flex-wrap gap-x-4 gap-y-1 order-last sm:order-none w-full sm:w-auto">
+            {links.map((l) => (
+              <Link key={l.slug} href={l.href} className="hover:text-slate-900 underline underline-offset-2">
+                {l.title}
+              </Link>
+            ))}
+          </span>
+        ) : null}
         <span>Built with Neuravex</span>
       </div>
     </footer>

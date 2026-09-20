@@ -3,6 +3,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import { TEMPLATES, getTemplate } from "../src/lib/templates";
+import { resolveSiteToken } from "../src/lib/page-links";
 
 const prisma = new PrismaClient();
 
@@ -28,7 +29,7 @@ async function main() {
           isHome: !!p.isHome,
           published: true,
           sortOrder: i,
-          content: JSON.stringify(p.blocks),
+          content: resolveSiteToken(JSON.stringify(p.blocks), "demo"),
         })),
       },
     },

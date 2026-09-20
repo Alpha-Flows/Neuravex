@@ -3,6 +3,7 @@ import { sanitizeCss } from "@/lib/security";
 import { prisma } from "@/lib/prisma";
 import { PageEditor } from "@/components/editor/PageEditor";
 import { BaseBlock } from "@/types";
+import { isLegalKind } from "@/lib/legal/pages";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +21,20 @@ export default async function PageEditorRoute({
       pages: {
         where: { published: true },
         orderBy: [{ sortOrder: "asc" }, { isHome: "desc" }],
-        select: { slug: true, title: true, isHome: true },
+        select: { slug: true, title: true, isHome: true, legalKind: true },
       },
     },
   });
   if (!page || !site || page.siteId !== site.id) notFound();
+
+  // Everywhere in this site a link can point. Unlike the nav above, drafts are
+  // in it: a Contact page you have not published yet is still the page you
+  // mean to link to, and typing its path from memory is what this replaces.
+  const linkTargets = await prisma.page.findMany({
+    where: { siteId: site.id },
+    orderBy: [{ isHome: "desc" }, { sortOrder: "asc" }],
+    select: { slug: true, title: true, isHome: true, published: true },
+  });
 
   let blocks: BaseBlock[] = [];
   try {
@@ -58,13 +68,20 @@ export default async function PageEditorRoute({
           headerShape: site.headerShape,
           headerPosition: site.headerPosition,
         },
-        pages: site.pages,
+        // The same split the visitor gets: the legal pages sit in the footer
+        // rather than in the nav, and the canvas has to show that or it is
+        // showing a header nobody gets.
+        pages: site.pages.filter((p) => !isLegalKind(p.legalKind)),
+        legal: site.pages
+          .filter((p) => isLegalKind(p.legalKind))
+          .map((p) => ({ slug: p.slug, title: p.title })),
         // Sanitised here rather than in the editor. The sanitiser parses CSS
         // with postcss, which is a Node library — imported from a client
         // component it goes into the browser bundle, and the bundle does not
         // survive it. The canvas only has to place the result.
         customCss: site.customCss ? sanitizeCss(site.customCss) : null,
       }}
+      linkTargets={linkTargets}
       initial={{
         title: page.title,
         slug: page.slug,

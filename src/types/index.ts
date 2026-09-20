@@ -73,10 +73,21 @@ export interface ColumnsProps {
 
 export interface HeadingProps {
   text: string;
+  /** The tag, and with it the document outline a screen reader reads. */
   level: 1 | 2 | 3 | 4;
   align: "left" | "center" | "right";
   color: string;
   weight: "normal" | "medium" | "semibold" | "bold";
+  /**
+   * How big it is drawn, when that should not follow the level.
+   *
+   * Size and outline are the same choice everywhere else in this app, which
+   * works for a landing page and not for a document: the section headings of
+   * an Impressum are h2 because that is what they are, and setting them at
+   * 48px makes a page of prose read like six stacked heroes. Absent, the
+   * level decides, so nothing already written changes.
+   */
+  size?: 1 | 2 | 3 | 4;
 }
 
 export interface TextProps {

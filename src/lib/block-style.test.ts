@@ -20,7 +20,25 @@ describe("backgroundStyle", () => {
   });
 
   it("paints a flat colour when there is no image", () => {
-    expect(backgroundStyle({ background: "#101010" })).toEqual({ background: "#101010" });
+    expect(backgroundStyle({ background: "#101010" })).toEqual({ background: "#101010", color: "#ffffff" });
+  });
+
+  it("gives a flat backdrop a text colour that reads on it", () => {
+    // A block is allowed to carry no colour of its own, and a dark section
+    // used to leave it inheriting the page's near-black: a heading dropped
+    // onto #0b0f1e was written in #0f172a and could not be read at all.
+    expect(backgroundStyle({ background: "#0b0f1e" }).color).toBe("#ffffff");
+    expect(backgroundStyle({ background: "#ffffff" }).color).toBe("#0f172a");
+    // Perceived brightness, so a saturated yellow counts as light.
+    expect(backgroundStyle({ background: "#facc15" }).color).toBe("#0f172a");
+  });
+
+  it("claims nothing it cannot see through", () => {
+    // Behind a photograph, or through a colour with an alpha, the light is
+    // whatever is underneath — so the text keeps the colour it was given.
+    expect(backgroundStyle({ background: "transparent" }).color).toBeUndefined();
+    expect(backgroundStyle({ background: "rgba(0,0,0,0.4)" }).color).toBeUndefined();
+    expect(backgroundStyle({ background: "#101010", backgroundImage: "/a.jpg" }).color).toBeUndefined();
   });
 
   it("lets the image win over the colour", () => {
@@ -58,6 +76,6 @@ describe("columnBoxStyle", () => {
 
   it("leaves padding and radius off when they are zero", () => {
     const style = columnBoxStyle({ background: "#fff", padding: 0, radius: 0 });
-    expect(style).toEqual({ background: "#fff" });
+    expect(style).toEqual({ background: "#fff", color: "#0f172a" });
   });
 });

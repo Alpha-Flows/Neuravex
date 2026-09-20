@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
+import { moveSite } from "@/lib/page-links";
+import { relinkSite } from "@/lib/relink";
 import { trashSite, siteDeletionCost } from "@/lib/trash";
 
 export const dynamic = "force-dynamic";
@@ -69,8 +71,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
     data.slug = newSlug;
   }
+  const before = await prisma.site.findUnique({ where: { id: params.id }, select: { slug: true } });
   const site = await prisma.site.update({ where: { id: params.id }, data });
-  return NextResponse.json(site);
+
+  // Renaming a site moves every page in it. The links between those pages are
+  // written as full paths, so without this they all still point into the
+  // address the site used to have — which after the rename is nobody's.
+  let relinked = 0;
+  if (before && site.slug !== before.slug) {
+    relinked = await relinkSite(site.id, moveSite(before.slug, site.slug));
+  }
+
+  return NextResponse.json(relinked ? { ...site, relinked } : site);
 }
 
 export async function DELETE(req: NextRequest, { params }: Params) {

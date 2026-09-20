@@ -69,6 +69,7 @@ const site = {
   ogImage: "/uploads/og.png",
   favicon: "/uploads/icon.png",
   language: "pt-BR",
+  legal: '{"version":1,"companyName":"Acme GmbH"}',
   createdAt: new Date(),
   updatedAt: new Date(),
   pages: [
@@ -83,6 +84,7 @@ const site = {
       metaTitle: "Home | Acme",
       metaDescription: null,
       ogImage: null,
+      legalKind: null,
       revisions: [{ title: "Home", content: "[]", manual: true, createdAt: new Date("2026-01-02T03:04:05Z") }],
       submissions: [{ data: '{"field-0":"hi"}', createdAt: new Date("2026-01-02T03:04:05Z") }],
     },
@@ -97,6 +99,20 @@ describe("serializeSite", () => {
       expect(archive.site[f], f).toEqual((site as Record<string, unknown>)[f]);
     }
     expect(archive.pages[0].metaTitle).toBe("Home | Acme");
+  });
+
+  it("keeps a generated legal page tied to its kind", () => {
+    // Without this an exported and re-imported site would come back with the
+    // Impressum as an ordinary page, out of the footer and into the nav.
+    const withLegal = {
+      ...site,
+      pages: [...site.pages, { ...site.pages[0], id: "p2", slug: "impressum", legalKind: "impressum" }],
+    };
+    const archive = serializeSite(withLegal);
+    expect(archive.pages[1].legalKind).toBe("impressum");
+    expect(pageCreateData(archive.pages[1]).legalKind).toBe("impressum");
+    // Anything else on that field is not a kind this app knows how to own.
+    expect(pageCreateData({ ...archive.pages[0], legalKind: "nonsense" }).legalKind).toBeNull();
   });
 
   it("leaves history out of an export and puts it in a trashed copy", () => {

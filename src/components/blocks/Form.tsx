@@ -83,7 +83,14 @@ export function Form({ props, onChange, disabled, pageId }: Props) {
       <form onSubmit={handleSubmit} className="space-y-4">
         {props.fields.map((f, i) => (
           <div key={i}>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            {/*
+              The label reads the colour of whatever the form is standing on
+              rather than pinning itself to slate-700. A Contact page is the
+              page most likely to sit on a site's dark band, and a hard-coded
+              near-black label on #0b0f1e is a field nobody can see the name
+              of. On a light page this lands within a shade of where it was.
+            */}
+            <label className="block text-sm font-medium opacity-80 mb-1">
               <Editable
                 disabled={disabled}
                 value={f.label}
