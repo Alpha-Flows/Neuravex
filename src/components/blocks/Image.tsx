@@ -70,7 +70,7 @@ export function Image({ props, onChange, disabled }: Props) {
                 placeholder="https://example.com/photo.jpg"
                 hint="An address on the web. A picture from your library travels with the site; one from the web needs a connection."
                 onSave={(src) => {
-                  onChange({ ...props, src, naturalWidth: undefined, naturalHeight: undefined });
+                  onChange({ ...props, src, naturalWidth: undefined, naturalHeight: undefined, altFromLibrary: false });
                   setEditingUrl(false);
                 }}
                 onCancel={() => setEditingUrl(false)}
@@ -87,7 +87,18 @@ export function Image({ props, onChange, disabled }: Props) {
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onSelect={(url, size) => {
-          onChange?.({ ...props, src: url, naturalWidth: size?.naturalWidth, naturalHeight: size?.naturalHeight });
+          onChange?.({
+            ...props,
+            src: url,
+            naturalWidth: size?.naturalWidth,
+            naturalHeight: size?.naturalHeight,
+            // The library's description is taken while nothing has been
+            // written here, and replaced when the last one came from the
+            // library too — it described the picture being swapped out.
+            ...(props.alt?.trim() && !props.altFromLibrary
+              ? {}
+              : { alt: size?.alt ?? "", altFromLibrary: !!size?.alt }),
+          });
           setPickerOpen(false);
         }}
       />

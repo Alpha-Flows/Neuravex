@@ -7,6 +7,12 @@ export interface PickedImage {
   /** The picture's own pixel size, when it could be read. */
   naturalWidth?: number;
   naturalHeight?: number;
+  /**
+   * What the picture shows, where the library knows. The bundled photographs
+   * each carry a description; it used to stay in this dialog, so a picture
+   * chosen here landed on the page with nothing for a screen reader to read.
+   */
+  alt?: string;
 }
 
 interface Props {
@@ -209,7 +215,7 @@ export function MediaPicker({ open, onClose, onSelect }: Props) {
                 <div
                   key={p.id}
                   className="group relative rounded-lg overflow-hidden border border-bg-border bg-bg cursor-pointer"
-                  onClick={async () => { const size = await measure(p.url); onSelect(p.url, size); onClose(); }}
+                  onClick={async () => { const size = await measure(p.url); onSelect(p.url, { ...size, alt: p.alt }); onClose(); }}
                   title={p.credit ? `Photo by ${p.credit}${p.license ? ` — ${p.license}` : ""}` : undefined}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}

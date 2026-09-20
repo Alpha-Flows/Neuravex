@@ -201,7 +201,14 @@ function InspectorBody({ block, onChange }: { block: BaseBlock; onChange: (next:
       return (
         <>
           <Field label="Image URL"><Input value={p.src} onChange={(e) => set("src", e.target.value)} /></Field>
-          <Field label="Alt text"><Input value={p.alt} onChange={(e) => set("alt", e.target.value)} /></Field>
+          <Field label="Alt text">
+            <Input
+              value={p.alt}
+              onChange={(e) =>
+                onChange({ ...block, props: { ...block.props, alt: e.target.value, altFromLibrary: false } })
+              }
+            />
+          </Field>
           <Field label="Caption"><Input value={p.caption} onChange={(e) => set("caption", e.target.value)} /></Field>
           <Field label="Width">
             <Select value={p.width} onChange={(v) => set("width", v)} options={[
