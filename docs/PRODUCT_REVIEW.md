@@ -449,6 +449,36 @@ downloaded, and every one of the 28 templates rendered and checked for broken re
   built and seeded beside the old one now and only put in its place once it works, so a
   reset that cannot finish leaves the sites untouched and says so.
 
+### Round 21 — the media library
+
+P2-12 said the library was write-mostly. Driving it showed worse than that: an upload is
+stored under a generated name so two files cannot collide, and the name the picture
+arrived with was thrown away at the door. With 50 uploads the library was a wall of
+`mu59seflqpe0.png` thumbnails — nothing to read, nothing to search, and no way to tell two
+photographs apart except by squinting at a 96px thumbnail.
+
+- **A picture keeps the name it arrived with.** "Café Sunset Hero.png" is stored beside the
+  file and shown under it in the library. The file itself stays where it is: renaming
+  changes what a person reads, never the address, so it cannot break a page that points at
+  the picture. A file uploaded before the library remembered names still lists under the
+  only name there is for it.
+- **Rename and describe in place.** The pencil on a picture opens a panel with its name,
+  what it shows, and where it is used, right under the grid it came from. Renaming a
+  picture out of the search that found it would make the one you were just working on
+  vanish as you saved, so it stays on screen until the next search.
+- **A description that travels.** Round 20 gave the bundled photographs real descriptions
+  and handed them to the page; an upload had none to give, so it still arrived with
+  `alt=""`. It has one now, and it reaches the page the same way — and the same rule holds,
+  so words written on the block are never overwritten.
+- **Search, over both tabs.** Uploads are matched on name and description, the bundled
+  photographs on description, category and photographer. Words count one at a time and in
+  any order, so "dusk boats" finds "Boats moored in a harbour as the sun goes down", and
+  accents are folded on both sides — "cafe" finds "Café", "skagen" finds "Skagén" — using
+  the same folding that round 20 put behind the published address.
+
+What is left of P2-12 is the part a file cannot answer for itself: there is still no
+description on an upload until someone writes one.
+
 ### Still open from this review
 
 P0-1 is **closed**: **Download files** takes a site off the machine as plain HTML, CSS and
@@ -463,9 +493,10 @@ Still open:
 
 - **P2-11, the multi-page story.** 27 of the 28 templates are single-page, and "+ New page"
   still opens a blank page carrying none of the site's styling.
-- **P2-12, the media library.** Usage is shown and deleting a picture in use warns first,
-  but there is still no search, no rename, and no description stored against an upload —
-  the bundled photographs describe themselves, a file you upload does not.
+- **P2-12's last corner.** Names, descriptions, search, rename and usage are all there
+  now; what remains is that an upload has no description until a person writes one. A
+  picture cannot say what it shows, so this is a prompt-at-the-right-moment problem — most
+  likely asking for it as the file lands, when the person still has the picture in mind.
 - **A name in a script with no Latin letters** still slugs to `untitled`, because folding
   accents has nothing to fold. The slug is editable in Settings, which is the answer for
   now; transliterating Cyrillic, Greek or CJK is a bigger piece of work than this round.
