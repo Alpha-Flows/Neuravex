@@ -353,14 +353,122 @@ editor canvas stopped at 1024px whatever the window. On a large screen you laid 
 out at a width no visitor would ever see, and most of the monitor sat empty. It takes the
 room it is given now; the viewport buttons in preview still pin it to a size on purpose.
 
+### Round 16 — the canvas and the preview, one page
+
+Pressing Preview re-laid the whole page out: the inspector's 18rem went away, the canvas
+grew from 1054px to 1342px, and every line re-wrapped. You were editing one layout and
+checking another.
+
+- **The width buttons moved into the toolbar** and apply while editing, so a page can be
+  checked at a phone or tablet width without switching modes.
+- **The side rails stay mounted in preview**, and either one folds away from the toolbar
+  when the page needs the room. With both folded, the canvas column and the published
+  column measure the same, and a paragraph breaks in the same place in both.
+- **The editor's own controls came out of the page's flow**, so the canvas is no longer
+  taller than the page it is showing.
+
+### Round 17 — a header that behaves like a header
+
+A sticky or fixed header held its place on the published page and slid away in the canvas:
+scrolled 186px, the published page kept it at top 16 while the canvas had it at -81.
+
+The pane did the scrolling and the frame was clipped, which made the frame a scroll
+container that never scrolled — and `position: sticky` resolves against the nearest one.
+The frame scrolls itself now, so it is the scrollport a header can hold its place in.
+Measured at 1280px past 1700px of scroll, canvas and published page agree for every
+placement and shape.
+
+A pill also stopped being a pill the moment the page moved: it floats on a 1rem margin at
+rest and snapped flush to the top when stuck. It now comes to rest at the same 1rem, so it
+is the same shape at every scroll position.
+
+### Round 18 — three things the editor did behind your back
+
+Found by driving the real editor and comparing it against the published page. The geometry
+already matched block for block, so these are the other kind of divergence: what the editor
+*does* rather than what it draws.
+
+- **A keystroke changed the page while it was being previewed.** Five blocks before
+  previewing, four after a Delete nobody could see. Only saving still works there.
+- **A link on the canvas walked out of the builder** — the site's nav is drawn for real, so
+  clicking the header left the editor for the published site. The click selects the block
+  underneath now; "View live" is the way out.
+- **Picking a block in the outline selected something off screen.** A selected block is
+  brought into view, and one already on screen is left exactly where it is.
+
+### Round 19 — two holes, and two sanitisers that matched text
+
+Both sanitisers ran regular expressions over text an attacker chooses the shape of.
+
+- **SVG uploads.** `<svg onload=alert(1)>` (no quotes), a newline inside the attribute, and
+  a `<script src=…>` with a closing tag all went through untouched. Uploads are served from
+  this origin, so each was stored XSS in the builder's own window. The file is parsed now
+  and only the elements that draw survive.
+- **Custom CSS.** A browser reads `\75 rl(…)` as `url(…)` and `@im\port` as `@import`; the
+  patterns did not. It parses with postcss now and judges the decoded form of every name
+  and value. `</style>` was untouched by any of it — a stylesheet could close its own tag
+  and open a `<script>`, confirmed running on a published page and inside the editor.
+- **Where a request came from.** Neuravex has no sign-in on purpose, but that only holds
+  for what you type in the address bar. Any page on the web could post to localhost in the
+  background and every route did as it was told. An Origin that is not this server's is
+  refused; no Origin at all means no page was involved.
+
+### Round 20 — a fresh pass over the whole app
+
+A new pass with the app running: a site made from a template, edited, published, viewed and
+downloaded, and every one of the 28 templates rendered and checked for broken references.
+
+- **Two templates shipped a hero with no picture in it.** The AI Upscaler pair built their
+  backgrounds with `url('${IMG.abstract}')` instead of `IMG.abstract.src`, so a StockImage
+  became the string `[object Object]`: the before-and-after photograph the page is about
+  was an empty gradient in the canvas, on the published page and in the downloaded copy,
+  and every visit asked the host for a file called "[object Object]". A test now serialises
+  every template and fails on `[object Object]`, on `undefined`, or on a `/stock/` path
+  with no file behind it.
+- **A name with accents lost its letters in the address.** `slugify` kept `[a-z0-9]` and
+  turned everything else into a dash, so "Résumé" was published at `/sites/r-sum`, "Crème
+  Brûlée" at `/cr-me-br-l-e`, and "Ñandú" at `/and`. Accents are
+  separated from their letters and dropped now, and the letters that carry no accent of
+  their own (ß, ø, æ, ł) are spelled out: `/cafe-noir`, `/bjork-design`,
+  `/weissbier-strasse`. It governs the site address, every page address, and the file names
+  in a downloaded copy.
+- **The New page dialog promised an address nobody has.** It read `URL: /sites/<site>/auto`
+  and stayed that way however much you typed. It shows the site's real slug and the slug
+  the title will produce, as the server will store it. Enter finishes the dialog, which it
+  previously ignored.
+- **Every bundled photograph was described by its credit line.** All 74 read "<Category>
+  background photo by <Name>" — and the picker kept even that to itself: choosing a picture
+  handed the page a URL and a size, so an image block landed with `alt=""`. All 74 are
+  described by what they show now, the description travels with the picture, and words
+  written by hand are never overwritten — a borrowed description goes with the picture it
+  described, an author's does not.
+- **`npm run db:reset` could leave the app with no tables.** The documented way to start
+  over emptied the database first and built the new one second; run with Neuravex open —
+  which is when anyone runs it — SQLite can refuse the schema halfway, and the app comes
+  back throwing "The table `main.Site` does not exist" on every page. The new database is
+  built and seeded beside the old one now and only put in its place once it works, so a
+  reset that cannot finish leaves the sites untouched and says so.
+
 ### Still open from this review
 
 P0-1 is **closed**: **Download files** takes a site off the machine as plain HTML, CSS and
 images, and hosting is not something Neuravex does — it is downloaded software, and the
-customer hosts where they already do.
-P1-7 is now closed. Also open: the last of P1-8 (images carry no width/height, and
-template images no alt text), and P2-13 (no reusable blocks — no saved sections, no copy-paste between pages, no
-outline tree).
+customer hosts where they already do. P1-4 through P1-8 are closed (an autosave close
+behind another replaces it, the newest 50 are kept, and a save you made by hand is kept
+apart from them; the canvas is the published page; branding cascades; the half-built
+settings are gone; SEO, sitemap, robots, canonical, language and favicon all ship), as
+are P2-9, P2-11's remote images, P2-13, P2-14 and P2-15.
+
+Still open:
+
+- **P2-11, the multi-page story.** 27 of the 28 templates are single-page, and "+ New page"
+  still opens a blank page carrying none of the site's styling.
+- **P2-12, the media library.** Usage is shown and deleting a picture in use warns first,
+  but there is still no search, no rename, and no description stored against an upload —
+  the bundled photographs describe themselves, a file you upload does not.
+- **A name in a script with no Latin letters** still slugs to `untitled`, because folding
+  accents has nothing to fold. The slug is editable in Settings, which is the answer for
+  now; transliterating Cyrillic, Greek or CJK is a bigger piece of work than this round.
 
 ---
 
