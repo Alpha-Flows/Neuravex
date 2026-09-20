@@ -21,6 +21,7 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 18+).
 - **SQLite storage** in a single file, zero config
 - **Autosave** with `Cmd/Ctrl+S` shortcut
 - **Page history** — revisions with preview and restore; autosaves within five minutes of each other share one entry, and Cmd/Ctrl+S saves are kept separately
+- **A picture library you can search** — uploads keep the name they arrived with, can be renamed and described in place, and are found by either; the 74 bundled photographs are searchable by what they show
 - **Form submissions** stored in the CMS, viewable per page
 - **Per-page and per-site SEO** — search title, description, and social image
 - **No external services** — no accounts, no sign-in, and no analytics in your published sites

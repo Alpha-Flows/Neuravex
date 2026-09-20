@@ -130,3 +130,22 @@ model Submission {
 
   @@index([pageId])
 }
+
+/// What a person knows about a file they uploaded, which the file itself
+/// cannot hold. An upload is stored under a generated name — mu59seflqpe0.png
+/// — so the library showed a wall of machine names, and the name the picture
+/// arrived with was thrown away at the door. The file on disk stays where it
+/// is, and keeps its URL, so renaming cannot break a page that points at it.
+model MediaFile {
+  id        String   @id @default(cuid())
+  /// The public path, e.g. "/uploads/mu59seflqpe0.png".
+  url       String   @unique
+  /// The name a person reads: the file's own name when it arrived, or one
+  /// they typed over it.
+  name      String
+  /// What the picture shows, for a reader who cannot see it. It travels with
+  /// the picture onto the page, the way a bundled photograph's does.
+  alt       String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
