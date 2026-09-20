@@ -25,6 +25,7 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 18+).
 - **A picture library you can search** — uploads keep the name they arrived with, can be renamed and described in place, and are found by either; the 74 bundled photographs are searchable by what they show
 - **Form submissions** stored in the CMS, viewable per page
 - **Per-page and per-site SEO** — search title, description, and social image
+- **German legal pages** — a guided flow collects what § 5 DDG and Art. 13 DSGVO ask for, writes an Impressum and a Datenschutzerklärung as editable pages, and links both in the footer of every page and subpage. The privacy notice describes what your site actually does: the builder reads your pages and only mentions third-party content it finds
 - **No external services** — no accounts, no sign-in, and no analytics in your published sites
 
 ## Tech stack

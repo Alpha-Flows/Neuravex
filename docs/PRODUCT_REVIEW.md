@@ -550,6 +550,79 @@ new pages at all.
   the moment the row halved, because the two rows wrap independently; cells that hold both
   keep each pair together.
 
+### Round 23 — the two pages a German site cannot go live without
+
+Not a review finding: a request. A site run from Germany needs an **Impressum**
+(§ 5 DDG, and § 18 Abs. 2 MStV where there is editorial content) and a
+**Datenschutzerklärung** (Art. 13 DSGVO), and § 5 DDG asks that the first be
+"leicht erkennbar, unmittelbar erreichbar und ständig verfügbar" — on every page,
+not on one the visitor has to find.
+
+- **A flow that asks what applies, and only that.** What the law wants depends on
+  the answers: a sole trader has no register entry and no representatives, a GmbH
+  must name both, and only a regulated profession names a chamber and a legal
+  title. The legal form drives which steps exist and which fields are checked, so
+  a freelancer answers five questions and a law firm answers twelve. One place —
+  `missingFor` — knows the difference, and every line it asks for names the
+  provision that asks for it.
+- **The privacy notice describes this site, not a generic one.** The usual
+  generator asks "do you use Google Analytics?" and writes a section for whatever
+  is ticked, which is how sites end up declaring processing they do not carry out
+  and omitting the embed somebody pasted into a Custom HTML block two years ago.
+  The pages here are a block tree the app owns, so it looks instead: a form, a
+  picture served from another domain, an iframe, a remote address in the custom
+  header — each is found and named, and the section about third-party content
+  only exists when there is some. A downloaded Neuravex site carries no scripts
+  at all (the export strips them), so for most sites the honest text is short and
+  says so: no cookies, no trackers, nothing stored on the device.
+- **Both documents land as ordinary pages.** They get a slug, they publish, they
+  are in the sitemap, they go into the download as `impressum.html` and
+  `datenschutz.html`, and they open in the builder where a typo can be fixed.
+  Running the flow again rewrites the same two pages rather than adding two more
+  — they are found by what they are, not by their address — and what was on them
+  goes into their revision history first.
+- **Linked from every page, including the ones with a custom footer.** The footer
+  carries both links, and the header nav does not: they are placed rather than
+  offered. A custom footer can put them where it wants with `{legal}`; one that
+  never mentions them gets a legal bar underneath, because a footer someone wrote
+  before these pages existed would otherwise drop the Impressum off the whole
+  site at once.
+- **Two things it deliberately does not write.** The EU online dispute resolution
+  link — Regulation (EU) 2024/3228 repealed the ODR Regulation, the platform shut
+  down on 20 July 2025, and generators still emitting it send customers to a dead
+  page and state an obligation that no longer exists. And the
+  "Haftung für Inhalte / Links / Urheberrecht" disclaimer, which no provision asks
+  for and which §§ 7–10 DDG make no difference to. The § 36 VSBG statement is a
+  different duty and is always written, either way.
+
+Three bugs surfaced while making the pages read like documents rather than landing
+pages:
+
+- **A numbered list had no numbers, anywhere in the app.** `display: flex` on the
+  `li` replaces `list-item`, which takes the marker with it — bullets were
+  invisible and a numbered list came out as plain lines, which is a numbered list
+  that means nothing. The agency template's four-step engagement was rendering as
+  four unnumbered sentences. Only a check row is a flex line now, because it draws
+  its own mark.
+- **A list ignored the section it was in.** It set its own `max-w-2xl mx-auto`, so
+  a list under a left-aligned paragraph started 112px further in and centred
+  itself against text that was not centred. The section decides the column now,
+  the way it does for every other block.
+- **A heading's size and its place in the outline were the same choice.** That
+  works for a landing page and not for a document: the section headings of an
+  Impressum are `h2` because that is what they are, and at 48px a page of prose
+  reads as six stacked heroes. They can be set apart now — unset, the level still
+  decides, so nothing already written moved.
+
+Also fixed on the way: a protocol-relative address (`//fonts.gstatic.com/…`) read
+as a path on this site rather than as somebody else's server, and the flow's own
+labels were captions rather than labels — no `for`, no nesting, so a screen reader
+announced an edit field and nothing about what belonged in it.
+
+**What this is not.** It writes the sections the statutes name from the details it
+was given. It is not legal advice, it cannot know an operator's circumstances, and
+the app says so on the last step before it writes anything.
+
 ### Still open from this review
 
 P0-1 is **closed**: **Download files** takes a site off the machine as plain HTML, CSS and
@@ -592,15 +665,16 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Editor | 3-pane editor: block palette, canvas, inspector. Drag & drop inside and across containers, inline text editing, undo/redo (80 steps), autosave + `Cmd/Ctrl+S`, unsaved-changes guard, preview with 4 viewport widths |
 | Blocks | 13 types — heading, text, image, button, divider, spacer, section, columns, video, quote, list, form, custom HTML |
 | Templates | 28 starter templates across landing / portfolio / business / blog / minimal, 11 of them multi-page with their pages linked to each other |
+| Legal (DE) | Guided Impressum (§ 5 DDG) and Datenschutzerklärung (Art. 13 DSGVO), generated from the operator's details and from what the site itself does, linked in the footer of every page |
 | Content | Multi-page sites, home-page routing, publish/unpublish per page, page duplicate & reorder. A new page starts from a chosen layout drawn in the site's own colours, padding and width; links between pages are picked from a list and follow a page or site rename |
 | History | Revision snapshots with read-only preview and restore |
 | Media | Upload library + 74 bundled stock photos in 10 categories (53 MB, fully offline) |
 | Forms | Form block with submissions stored in the CMS and a per-page submissions viewer |
 | Site settings | Accent, fonts, radius, header style (color / opacity / shape / placement), custom header & footer HTML, custom CSS, site-level SEO |
 | Portability | Site export/import as JSON |
-| Integrations | MCP server exposing 13 tools so an AI agent can build and publish sites |
+| Integrations | MCP server exposing 16 tools so an AI agent can build and publish sites, German legal pages included |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 346 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes, clipboard, page starters, page links) — all passing; 134 Playwright specs |
+| Quality | 381 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes, clipboard, page starters, page links, German legal pages) — all passing; 148 Playwright specs |
 
 ---
 

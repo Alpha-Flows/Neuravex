@@ -173,6 +173,21 @@ function InspectorBody({
           <Field label="Level">
             <Select value={String(p.level)} onChange={(v) => set("level", Number(v) as any)} options={["1", "2", "3", "4"].map((v) => ({ value: v, label: `Heading ${v}` }))} />
           </Field>
+          {/*
+            The level is the outline; this is the size. They are the same
+            thing until you say otherwise, which is what a page of prose
+            needs — a section heading that is an h2 without being 48px.
+          */}
+          <Field label="Size">
+            <Select
+              value={String(p.size ?? "")}
+              onChange={(v) => set("size", v ? (Number(v) as any) : undefined)}
+              options={[
+                { value: "", label: "Follows the level" },
+                ...["1", "2", "3", "4"].map((v) => ({ value: v, label: `Size of heading ${v}` })),
+              ]}
+            />
+          </Field>
           <Field label="Weight">
             <Select value={p.weight} onChange={(v) => set("weight", v)} options={[
               { value: "normal", label: "Normal" },

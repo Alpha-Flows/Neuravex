@@ -10,6 +10,8 @@ import { DuplicatePageButton } from "@/components/admin/DuplicatePageButton";
 import { MovePageButton } from "@/components/admin/MovePageButton";
 import { SubmissionsViewer } from "@/components/admin/SubmissionsViewer";
 import { DownloadSiteButton } from "@/components/admin/DownloadSiteButton";
+import { LegalFlow } from "@/components/admin/LegalFlow";
+import { isLegalKind } from "@/lib/legal/pages";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +39,7 @@ export default async function SiteAdmin({ params }: { params: { id: string } }) 
           </div>
           <div className="flex items-center gap-2">
             <SiteSettings site={{ id: site.id, name: site.name, slug: site.slug, description: site.description, accent: site.accent }} />
+            <LegalFlow siteId={site.id} siteSlug={site.slug} />
             <DownloadSiteButton siteId={site.id} disabled={!pages.some((p) => p.published)} />
             {pages.find((p) => p.isHome && p.published) ? (
               <Link href={`/sites/${site.slug}`} target="_blank">
@@ -88,6 +91,20 @@ export default async function SiteAdmin({ params }: { params: { id: string } }) 
                       <div className="flex items-center gap-2">
                         {p.isHome ? <span title="Home page" className="text-amber-400">★</span> : null}
                         {p.title}
+                        {/*
+                          A generated legal page. It is an ordinary page and can
+                          be edited like one, but it is rewritten whenever the
+                          details behind it change, which is worth saying before
+                          somebody spends an afternoon on it.
+                        */}
+                        {isLegalKind(p.legalKind) ? (
+                          <span
+                            title="Generated from your legal details. Running the flow again rewrites it; the old version is kept in this page's history."
+                            className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-bg-soft text-fg-subtle border border-bg-border"
+                          >
+                            Legal
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                     <td className="px-3 py-3 text-fg-muted">/{p.slug}</td>

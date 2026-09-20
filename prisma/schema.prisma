@@ -42,6 +42,11 @@ model Site {
   // up on <html lang>, which is what a screen reader and a translator read.
   favicon         String?
   language        String   @default("en")
+  /// The operator's legal details, for the German Impressum (§ 5 DDG, § 18
+  /// Abs. 2 MStV) and Datenschutzerklärung (Art. 13 DSGVO), as one JSON
+  /// document. It is a single form filled in once, not thirty independent
+  /// site settings, and its shape is validated in `lib/legal/profile`.
+  legal           String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -58,6 +63,11 @@ model Page {
   published       Boolean   @default(false)
   isHome          Boolean   @default(false)
   sortOrder       Int       @default(0)
+  /// Set on a page this app generated and still owns: "impressum" or
+  /// "datenschutz". It is what lets the footer find them, keeps them out of
+  /// the header nav where they would crowd the real pages, and lets the
+  /// details be edited once and written back to both.
+  legalKind       String?
   // Per-page SEO (inherits from Site if not set)
   metaTitle       String?
   metaDescription String?

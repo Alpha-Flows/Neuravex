@@ -43,6 +43,14 @@ describe("the MCP server agrees with the app", () => {
     expect(source).not.toMatch(/data: \{ siteId: site\.id, title, slug: finalSlug, sortOrder/);
   });
 
+  it("refuses to write a legal page with a blank where a fact belongs, like the app does", () => {
+    // The web route answers 422 on a half-filled profile. The agent path has
+    // to refuse too, or an agent becomes the way to publish an Impressum with
+    // no address on it.
+    expect(source).toContain("missingFor(");
+    expect(source).toContain("generated: false");
+  });
+
   it("resolves a template's links to the site it is creating", () => {
     // A template links between its own pages with a stand-in for the site
     // address. Left unresolved it ships `{{site}}/contact` into every page.

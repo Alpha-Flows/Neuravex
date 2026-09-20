@@ -19,7 +19,7 @@ import { siteThemeCss, SiteThemeInput } from "@/lib/site-theme";
 import { scopeCss } from "@/lib/scope-css";
 import { readClipboard, writeClipboard, pasteable } from "@/lib/clipboard";
 import { readRails, writeRails, RailState, RAILS_OPEN } from "@/lib/rails";
-import { SiteHeader, SiteFooter, SiteChrome, NavPage } from "@/components/public/SiteChrome";
+import { SiteHeader, SiteFooter, SiteChrome, NavPage, LegalPage } from "@/components/public/SiteChrome";
 import { mapBlocks, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount, removeBlock, withFreshIds } from "@/lib/tree-utils";
 import { BlockPalette } from "./BlockPalette";
 import { BlockOutline } from "./BlockOutline";
@@ -41,7 +41,7 @@ interface Props {
   /** The site's branding, so the canvas shows the colours the page will ship with. */
   theme: SiteThemeInput;
   /** The header, footer and custom CSS a visitor gets around this page. The CSS arrives sanitised. */
-  chrome: { site: SiteChrome; pages: NavPage[]; customCss: string | null };
+  chrome: { site: SiteChrome; pages: NavPage[]; legal: LegalPage[]; customCss: string | null };
   /** Every page of this site, drafts included, for the inspector's link picker. */
   linkTargets: LinkTarget[];
   initial: {
@@ -612,7 +612,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     <div className="public-canvas relative">
       <SiteHeader site={chrome.site} pages={chrome.pages} activeSlug={slug} contained />
       <main>{inner}</main>
-      <SiteFooter site={chrome.site} />
+      <SiteFooter site={chrome.site} legal={chrome.legal} />
     </div>
   );
 

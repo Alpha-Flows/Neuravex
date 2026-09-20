@@ -33,6 +33,10 @@ import { prisma } from "./src/lib/prisma";
 import { trashSite, trashPage } from "./src/lib/trash";
 import { PAGE_STARTERS, startingContent } from "./src/lib/page-starters";
 import { resolveSiteToken } from "./src/lib/page-links";
+import { applyLegalPages } from "./src/lib/legal/apply";
+import { auditSite } from "./src/lib/legal/audit";
+import { isLegalKind } from "./src/lib/legal/pages";
+import { LEGAL_FORMS, legalProfileSchema, missingFor, parseProfile } from "./src/lib/legal/profile";
 
 // ── Block structure validation ────────────────────────────────────
 
@@ -505,6 +509,139 @@ server.tool(
           intro: "Each block has `id` (unique string), `type` (one of the types below), `props` (type-specific), and optional `children` (for section/columns only).",
           blocks: ref,
         }, null, 2),
+      }],
+    };
+  },
+);
+
+// 14. The German legal pages an agent building a German site has to produce
+server.tool(
+  "get_legal_details",
+  "Read a site's German legal details (Impressum / Datenschutzerklärung), what is still missing before they can be generated, and what the site itself does with visitor data.",
+  {
+    siteSlug: z.string().optional().describe("The site slug"),
+    siteId: z.string().optional().describe("The site id"),
+  },
+  async ({ siteSlug, siteId }) => {
+    const site = siteId
+      ? await prisma.site.findUnique({ where: { id: siteId } })
+      : siteSlug
+        ? await prisma.site.findUnique({ where: { slug: siteSlug } })
+        : null;
+    if (!site) return { content: [{ type: "text", text: "Site not found." }] };
+
+    const profile = parseProfile(site.legal);
+    const pages = await prisma.page.findMany({
+      where: { siteId: site.id },
+      select: { title: true, content: true, legalKind: true, slug: true },
+    });
+    const audit = auditSite({
+      pages: pages.filter((p) => !isLegalKind(p.legalKind)).map((p) => ({ title: p.title, content: p.content })),
+      headerHtml: site.headerHtml,
+      footerHtml: site.footerHtml,
+      favicon: site.favicon,
+      ogImage: site.ogImage,
+    });
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          profile,
+          missing: missingFor(profile),
+          audit,
+          legalForms: LEGAL_FORMS.map((f) => ({ id: f.id, label: f.label, needsRegister: f.registered, needsRepresentatives: f.represented })),
+          generated: pages.filter((p) => isLegalKind(p.legalKind)).map((p) => ({ kind: p.legalKind, slug: p.slug })),
+          note:
+            "What is required depends on the legal form: only a legal person names representatives, and only a registered one names a register. Set the details with set_legal_details, then generate_legal_pages.",
+        }, null, 2),
+      }],
+    };
+  },
+);
+
+server.tool(
+  "set_legal_details",
+  "Store a site's German legal details. Fields are merged into what is already there, so this can be called more than once. Call get_legal_details first to see the shape and which legal forms exist.",
+  {
+    siteSlug: z.string().optional().describe("The site slug"),
+    siteId: z.string().optional().describe("The site id"),
+    details: z.record(z.string(), z.unknown()).describe("Fields from the legal profile, as returned by get_legal_details"),
+  },
+  async ({ siteSlug, siteId, details }) => {
+    const site = siteId
+      ? await prisma.site.findUnique({ where: { id: siteId } })
+      : siteSlug
+        ? await prisma.site.findUnique({ where: { slug: siteSlug } })
+        : null;
+    if (!site) return { content: [{ type: "text", text: "Site not found." }] };
+
+    const merged = legalProfileSchema.safeParse({ ...parseProfile(site.legal), ...details });
+    if (!merged.success) {
+      return { content: [{ type: "text", text: `These details are not in a shape this can store: ${merged.error.message}` }] };
+    }
+    await prisma.site.update({ where: { id: site.id }, data: { legal: JSON.stringify(merged.data) } });
+    const missing = missingFor(merged.data);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify(
+          {
+            saved: true,
+            missing,
+            ready: missing.length === 0,
+          },
+          null,
+          2,
+        ),
+      }],
+    };
+  },
+);
+
+server.tool(
+  "generate_legal_pages",
+  "Write the Impressum and the Datenschutzerklärung onto a site as published pages, linked in the footer of every page. Refuses while anything the law names is missing. Running it again rewrites the same two pages and keeps the old version in their history.",
+  {
+    siteSlug: z.string().optional().describe("The site slug"),
+    siteId: z.string().optional().describe("The site id"),
+  },
+  async ({ siteSlug, siteId }) => {
+    const site = siteId
+      ? await prisma.site.findUnique({ where: { id: siteId } })
+      : siteSlug
+        ? await prisma.site.findUnique({ where: { slug: siteSlug } })
+        : null;
+    if (!site) return { content: [{ type: "text", text: "Site not found." }] };
+
+    const profile = parseProfile(site.legal);
+    const missing = missingFor(profile);
+    if (missing.length > 0) {
+      // A document with a blank where the address belongs looks finished and
+      // is not, so this is a refusal rather than a best effort.
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({ generated: false, missing }, null, 2),
+        }],
+      };
+    }
+
+    const { applied, audit } = await applyLegalPages(site.id, profile);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify(
+          {
+            generated: true,
+            pages: applied.map((a) => ({ kind: a.kind, url: `/sites/${site.slug}/${a.slug}`, created: a.created })),
+            audit,
+            note:
+              "These pages state what the statutes name from the details given. They are not legal advice and should be read by whoever is liable for them before the site goes live.",
+          },
+          null,
+          2,
+        ),
       }],
     };
   },
