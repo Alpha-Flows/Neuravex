@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import { join } from "path";
+import { lstat, readFile } from "fs/promises";
+import { join, resolve, sep } from "path";
+import { existingUploadPath } from "@/lib/uploads";
 import { prisma } from "@/lib/prisma";
 import { createZip, ZipEntry } from "@/lib/zip";
 import { buildExportCss } from "@/lib/export-css";
 import { pageFileName, prepareExportedPage } from "@/lib/static-export";
 import { robotsTxt } from "@/lib/seo";
+import { internalOrigin } from "@/lib/self-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +20,7 @@ const STYLESHEET_PATH = "assets/site.css";
  * HTML next to a stylesheet and the images it uses, so the download opens by
  * double-clicking index.html and can be dropped onto any static host as-is.
  */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const site = await prisma.site.findUnique({
     where: { id: params.id },
     include: {
@@ -52,7 +54,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     pageFiles.set(page.slug, name);
   }
 
-  const origin = new URL(req.url).origin;
+  // Loopback and plain http, never `new URL(req.url).origin`: Next takes the
+  // scheme of that from `X-Forwarded-Proto`, so behind the TLS proxy the
+  // install guide recommends this fetched its own plaintext port over TLS and
+  // every download died with an unhandled 500.
+  const origin = internalOrigin();
   const documents: string[] = [];
   const assetPaths = new Set<string>();
   const entries: ZipEntry[] = [];
@@ -61,7 +67,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const url = page.isHome
       ? `${origin}/sites/${site.slug}`
       : `${origin}/sites/${site.slug}/${page.slug}`;
-    const res = await fetch(url, { cache: "no-store" });
+    let res: Response;
+    try {
+      res = await fetch(url, { cache: "no-store" });
+    } catch (err) {
+      // The fetch used to be unguarded, so anything it threw came back as a
+      // 500 with an empty body instead of the 502 this route means.
+      return NextResponse.json(
+        { error: `Could not reach this server to render "${page.title}" (${String(err)}).` },
+        { status: 502 },
+      );
+    }
     if (!res.ok) {
       return NextResponse.json(
         { error: `Could not render "${page.title}" (${res.status}).` },
@@ -69,11 +85,22 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       );
     }
 
-    const { html, assets } = prepareExportedPage(await res.text(), {
-      siteSlug: site.slug,
-      pages: pageFiles,
-      stylesheetHref: STYLESHEET_PATH,
-    });
+    let html: string;
+    let assets: string[];
+    try {
+      ({ html, assets } = prepareExportedPage(await res.text(), {
+        siteSlug: site.slug,
+        pages: pageFiles,
+        stylesheetHref: STYLESHEET_PATH,
+      }));
+    } catch (err) {
+      // One page the exporter cannot prepare should name itself rather than
+      // taking the whole download down anonymously.
+      return NextResponse.json(
+        { error: `Could not prepare "${page.title}" for export (${String(err)}).` },
+        { status: 502 },
+      );
+    }
     assets.forEach((a) => assetPaths.add(a));
     documents.push(html);
     entries.push({ path: pageFiles.get(page.slug)!, data: Buffer.from(html, "utf8") });
@@ -82,8 +109,19 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   // Images and uploads the pages point at, copied in beside them.
   const missingAssets: string[] = [];
   for (const rel of assetPaths) {
+    const full = assetFile(rel);
+    if (!full) {
+      missingAssets.push(rel);
+      continue;
+    }
     try {
-      entries.push({ path: rel, data: await readFile(join(process.cwd(), "public", rel)) });
+      // A regular file, never a link. Nothing in the app creates one, but a
+      // shared volume or a restored backup can, and `ln -s .env
+      // uploads/link.png` used to put the environment file into the
+      // customer's download.
+      const stats = await lstat(full);
+      if (!stats.isFile()) throw new Error("not a regular file");
+      entries.push({ path: rel, data: await readFile(full) });
     } catch {
       missingAssets.push(rel);
     }
@@ -131,7 +169,9 @@ function readme(siteName: string, files: string[], missingAssets: string[]): str
     "",
     "WORTH KNOWING",
     "",
-    "  - Forms are included, but a static file has nowhere to send an answer.",
+    "  - Forms are included but switched off: a static file has nowhere to",
+    "    send an answer, and a form that looks live would have put every",
+    "    visitor's words into the address bar and your host's access log.",
     "    Point the form at a form-handling service, or keep using the builder,",
     "    where submissions are stored for you.",
     "  - Images added by URL rather than uploaded still load from wherever",
@@ -152,4 +192,23 @@ function readme(siteName: string, files: string[], missingAssets: string[]): str
     );
   }
   return lines.join("\n") + "\n";
+}
+
+/**
+ * The file on disk behind an `uploads/…` or `stock/…` reference, or null.
+ *
+ * Uploads live outside `public/` (see `src/lib/uploads.ts`); the bundled stock
+ * photographs are part of the application and still ship inside it.
+ */
+function assetFile(rel: string): string | null {
+  const slash = rel.indexOf("/");
+  if (slash === -1) return null;
+  const dir = rel.slice(0, slash);
+  const name = rel.slice(slash + 1);
+
+  if (dir === "uploads") return existingUploadPath(name);
+
+  const publicDir = join(process.cwd(), "public");
+  const full = resolve(publicDir, rel);
+  return full.startsWith(publicDir + sep) ? full : null;
 }

@@ -82,12 +82,54 @@ export function rewriteSiteLinks(
 const ASSET_DIRS = ["uploads", "stock"] as const;
 const ASSET_REFERENCE = /(["'(])\/(uploads|stock)\/([^"')\s]+)/g;
 
+/**
+ * An absolute reference back at the builder, made relative first.
+ *
+ * Next has no `metadataBase`, so it falls back to `http://localhost:<port>`
+ * and writes that into `og:image`. The asset pattern above needs a quote or a
+ * bracket immediately before `/uploads`, so an absolute URL matched nothing:
+ * the file was neither rewritten nor bundled, and the exported page advertised
+ * a picture at an address that only exists on the machine that built it.
+ */
+const ABSOLUTE_SELF = /(["'(])https?:\/\/[^"')\s]*?\/(uploads|stock)\//gi;
+
+export function relativizeSelfUrls(html: string): string {
+  return html.replace(ABSOLUTE_SELF, (_match, quote: string, dir: string) => `${quote}/${dir}/`);
+}
+
+/**
+ * An absolute link back at this site's own pages, made relative.
+ *
+ * Now that the published page carries a `metadataBase`, its canonical link is
+ * absolute — which is what it should be on the served site, and wrong the
+ * moment the folder is downloaded: `rewriteSiteLinks` below matches a path
+ * beginning `/sites/<slug>`, so an absolute one went through untouched and the
+ * customer's exported page pointed its canonical at the machine that built it.
+ * Only this site's own slug is rewritten, so a deliberate link to another
+ * Neuravex instance is left alone.
+ */
+export function relativizeSiteUrls(html: string, siteSlug: string): string {
+  const escaped = siteSlug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return html.replace(
+    new RegExp(`(["'(])https?://[^"')\\s]*?(/sites/${escaped})(?=[/"')\\s]|$)`, "gi"),
+    (_match, quote: string, path: string) => `${quote}${path}`,
+  );
+}
+
 /** Every bundled upload or stock photo the page points at. */
 export function collectLocalAssets(html: string): string[] {
   const found = new Set<string>();
   for (const match of html.matchAll(ASSET_REFERENCE)) {
     const [, , dir, file] = match;
-    const clean = decodeURIComponent(file.split("?")[0].split("#")[0]);
+    // A malformed percent escape used to throw here, and the whole download
+    // became a 500 with no hint which block was responsible. One bad
+    // reference is one missing picture.
+    let clean: string;
+    try {
+      clean = decodeURIComponent(file.split("?")[0].split("#")[0]);
+    } catch {
+      continue;
+    }
     if (!clean || clean.includes("..") || clean.startsWith("/")) continue;
     found.add(`${dir}/${clean}`);
   }
@@ -105,6 +147,62 @@ export function rewriteAssetPaths(html: string): string {
   });
 }
 
+/**
+ * The policy an exported page carries in its own markup.
+ *
+ * The builder serves a nonce CSP on every response; a file opened from a
+ * folder, or served by whatever static host the customer uses, has no headers
+ * at all. That is exactly where the button href finding bites: on the
+ * builder, `javascript:` on a call-to-action is refused by the policy, and on
+ * the customer's own domain it runs. Every write path checks the scheme now;
+ * this is the layer under that, for a page exported by an older version or an
+ * archive edited by hand.
+ *
+ * `script-src 'none'` is safe to say because the export strips the runtime —
+ * a downloaded site is HTML and CSS by design.
+ */
+export const EXPORT_CSP =
+  "<meta http-equiv=\"Content-Security-Policy\" content=\"script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'\">";
+
+export function injectExportCsp(html: string): string {
+  if (html.includes("</head>")) return html.replace("</head>", `${EXPORT_CSP}</head>`);
+  return EXPORT_CSP + html;
+}
+
+/**
+ * Stop an exported form from sending a visitor's answers anywhere.
+ *
+ * The export strips the script that posts a submission, and leaves the form
+ * enabled. A `<form>` with no `action` and no `method` submits as a GET to
+ * itself — so pressing Send navigated to
+ * `contact.html?field-0=Alice&field-1=alice%40example.org&field-2=my+medical+question`,
+ * which the static host wrote into its access log and the browser wrote into
+ * its history. The generated privacy notice, meanwhile, said input "verlässt
+ * Ihren Browser nicht".
+ *
+ * An inline attribute survives the script strip and needs no CSP allowance.
+ * The note is there because a form that silently does nothing is its own
+ * problem: the visitor should be told where to write instead, and the
+ * operator should see that this is what an exported form does.
+ */
+const EXPORTED_FORM_NOTE =
+  '<p data-exported-form-note style="margin-top:0.75rem;font-size:0.875rem;opacity:0.7">' +
+  "This form is part of a downloaded copy of the site and cannot send anything. " +
+  "Connect it to your own form handling, or contact us by the address above." +
+  "</p>";
+
+export function disableExportedForms(html: string): string {
+  const withGuard = html.replace(/<form\b([^>]*)>/gi, (match, attrs: string) => {
+    if (/\bonsubmit=/i.test(attrs)) return match;
+    // `action=""` keeps a browser that ignores the handler from navigating
+    // somewhere new; the handler is what stops the submit happening at all.
+    return `<form${attrs} onsubmit="return false" data-exported-form="1">`;
+  });
+
+  if (!withGuard.includes('data-exported-form="1"')) return withGuard;
+  return withGuard.replace(/<\/form>/gi, `${EXPORTED_FORM_NOTE}</form>`);
+}
+
 export interface PreparePageOptions {
   siteSlug: string;
   /** Page slug to file name, for every page included in this export. */
@@ -119,10 +217,14 @@ export function prepareExportedPage(
 ): { html: string; assets: string[] } {
   let out = stripAppRuntime(html);
   out = cleanBodyClasses(out);
+  out = relativizeSelfUrls(out);
+  out = relativizeSiteUrls(out, siteSlug);
   out = rewriteSiteLinks(out, siteSlug, pages);
   const assets = collectLocalAssets(out);
   out = rewriteAssetPaths(out);
+  out = disableExportedForms(out);
   out = injectStylesheet(out, stylesheetHref);
+  out = injectExportCsp(out);
   return { html: out, assets };
 }
 

@@ -10,6 +10,7 @@
 
 import { BaseBlock } from "@/types";
 import { withFreshIds, cloneTree } from "./tree-utils";
+import { normalizeBlockTree } from "./block-tree";
 
 const KEY = "neuravex:clipboard";
 
@@ -69,7 +70,16 @@ export function clearClipboard(storage?: Storage): void {
  * Pasting the same copy twice, or pasting into the page it came from, must not
  * produce two blocks that share an id — that breaks selection and dragging for
  * both of them.
+ *
+ * The block also goes through the tree validator on the way out of storage.
+ * `localStorage` is per-origin, so this is not a route somebody else can write
+ * down — but it is a route the clipboard of a *previous* version wrote down,
+ * and the paste path was named in the review beside import and MCP as a way
+ * unvalidated props reached a page. Returns null when there is nothing left of
+ * the block once it has been checked.
  */
-export function pasteable(entry: ClipboardEntry): BaseBlock {
-  return withFreshIds(cloneTree(entry.block));
+export function pasteable(entry: ClipboardEntry): BaseBlock | null {
+  const checked = normalizeBlockTree([entry.block]);
+  if (!checked.ok || checked.tree.length === 0) return null;
+  return withFreshIds(cloneTree(checked.tree[0]));
 }

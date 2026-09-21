@@ -2,7 +2,7 @@
 
 A self-contained website builder with a working CMS. Design sites visually, drag and drop blocks, edit text inline, and publish instantly. Runs entirely on your machine — no cloud, no signup, and nothing phoning home from the sites you build.
 
-Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 18+).
+Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 20 or newer).
 
 ## Features
 
@@ -41,7 +41,7 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 18+).
 
 ## Quick start
 
-You need **Node.js 18+** installed. From the project root:
+You need **Node.js 20 LTS or newer** installed. From the project root:
 
 ```bash
 npm install
@@ -104,7 +104,7 @@ src/
   lib/
     prisma.ts           # Prisma client singleton
     security.ts         # Sanitization + upload validation helpers
-    sanitize.ts         # HTML sanitization (DOMPurify)
+    sanitize.ts         # HTML sanitisation (sanitize-html, a real parser)
     blocks.ts           # Block type registry
     templates.ts        # Starter templates
     utils.ts            # cn(), slugify(), uid()

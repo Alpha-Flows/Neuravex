@@ -27,7 +27,7 @@ export function PublishButton({ isHome, published, siteSlug, pageSlug, onToggle 
   if (published) {
     return (
       <div className="inline-flex items-center gap-1">
-        <a href={url} target="_blank" className="text-xs text-fg-muted hover:text-fg underline-offset-2 hover:underline">
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-fg-muted hover:text-fg underline-offset-2 hover:underline">
           View live ↗
         </a>
         <Button size="sm" variant="outline" onClick={toggle} loading={loading}>

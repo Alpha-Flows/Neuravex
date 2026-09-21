@@ -2,6 +2,7 @@
 import { Editable } from "./Editable";
 import { TextProps } from "@/types";
 import { cn } from "@/lib/utils";
+import { cssColor } from "@/lib/css-value";
 
 interface Props {
   props: TextProps;
@@ -33,7 +34,7 @@ export function Text({ props, onChange, disabled }: Props) {
       placeholder="Write something…"
       multiline
       className={cn("leading-relaxed", sizeClass[props.size], alignClass[props.align])}
-      style={{ color: props.color || undefined, whiteSpace: "pre-wrap" }}
+      style={{ color: cssColor(props.color), whiteSpace: "pre-wrap" }}
     />
   );
 }

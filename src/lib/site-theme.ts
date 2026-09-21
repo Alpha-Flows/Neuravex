@@ -12,7 +12,7 @@
  * the site says", which is the default for new blocks.
  */
 
-import { sanitizeCssValue } from "./css-value";
+import { sanitizeCssValue, cssFontStack } from "./css-value";
 
 export interface SiteThemeInput {
   accent?: string | null;
@@ -89,8 +89,10 @@ export function siteThemeCss(site: SiteThemeInput, selector = ":root"): string {
     `--site-accent: ${accent}`,
     `--site-accent-contrast: ${readableTextOn(accent)}`,
   ];
-  if (site.fontFamily) declarations.push(`--site-font: ${sanitizeCssValue(site.fontFamily)}`);
-  if (site.headingFont) declarations.push(`--site-heading-font: ${sanitizeCssValue(site.headingFont)}`);
+  // A font stack keeps the quotes a multi-word family needs — put back
+  // around a cleaned value, never carried through from the input.
+  if (site.fontFamily) declarations.push(`--site-font: ${cssFontStack(site.fontFamily)}`);
+  if (site.headingFont) declarations.push(`--site-heading-font: ${cssFontStack(site.headingFont)}`);
   if (site.borderRadius) declarations.push(`--site-radius: ${sanitizeCssValue(site.borderRadius)}`);
   // How wide the page's content column runs. "none" lets it fill the window.
   //

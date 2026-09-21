@@ -69,13 +69,43 @@ describe("columnBoxStyle", () => {
   it("adds the inset and rounding on top of the background", () => {
     expect(columnBoxStyle({ backgroundImage: "/a.jpg", padding: 24, radius: 12 })).toMatchObject({
       backgroundImage: 'url("/a.jpg")',
-      padding: 24,
-      borderRadius: 12,
+      // Written with a unit rather than as a bare number, because the value
+      // is checked on the way out now and a checked length carries one.
+      padding: "24px",
+      borderRadius: "12px",
     });
   });
 
   it("leaves padding and radius off when they are zero", () => {
     const style = columnBoxStyle({ background: "#fff", padding: 0, radius: 0 });
     expect(style).toEqual({ background: "#fff", color: "#0f172a" });
+  });
+});
+
+describe("a backdrop cannot carry a second declaration", () => {
+  it("drops a background colour with a `;` in it", () => {
+    expect(backgroundStyle({ background: "#fff;background-image:url(https://attacker.example/p)" })).toEqual({});
+  });
+
+  it("drops an overlay that is not a colour", () => {
+    const style = backgroundStyle({
+      backgroundImage: "/a.jpg",
+      backgroundOverlay: "rgba(0,0,0,.4);behavior:url(evil.htc)",
+    });
+    expect(style.backgroundImage).toBe('url("/a.jpg")');
+    expect(JSON.stringify(style)).not.toContain("behavior");
+  });
+
+  it("drops a padding that is not a length", () => {
+    const style = columnBoxStyle({
+      background: "#fff",
+      padding: "24px;position:fixed" as unknown as number,
+    });
+    expect(style).not.toHaveProperty("padding");
+  });
+
+  it("keeps the overlay it was meant to keep", () => {
+    expect(backgroundStyle({ backgroundImage: "/a.jpg", backgroundOverlay: "rgba(0,0,0,0.4)" }).backgroundImage)
+      .toBe('linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url("/a.jpg")');
   });
 });

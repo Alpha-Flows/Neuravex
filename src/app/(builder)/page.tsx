@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { NewSiteButton } from "@/components/admin/NewSiteButton";
 import { TrashPanel } from "@/components/admin/TrashPanel";
 import { NetworkNotice } from "@/components/admin/NetworkNotice";
+import { safeAccent } from "@/lib/site-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,11 @@ export default async function AdminHome() {
                 <div
                   className="h-32 w-full"
                   style={{
-                    background: `linear-gradient(135deg, ${site.accent} 0%, #1f2937 100%)`,
+                    // Through safeAccent, not straight from the row: this is the one
+                    // CSS sink that fires on the admin home page, so a site
+                    // created over MCP with an accent carrying a second
+                    // declaration beaconed here without ever being opened.
+                    background: `linear-gradient(135deg, ${safeAccent(site.accent)} 0%, #1f2937 100%)`,
                   }}
                 />
                 <div className="p-4">

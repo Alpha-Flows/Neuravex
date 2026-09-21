@@ -65,7 +65,14 @@ test.describe("A published page's head", () => {
 
     await page.goto(`/sites/${site.slug}/about`);
     await expect(page.locator("html")).toHaveAttribute("lang", "pt-BR");
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `/sites/${site.slug}/about`);
+    // Absolute, because the page carries a metadataBase now — which is the
+    // point of NVX-051: without one, Next resolved a relative og:image
+    // against http://localhost:<port> and advertised a picture at an address
+    // that only exists on the machine that built the page.
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      new RegExp(`^https?://[^/]+/sites/${site.slug}/about$`),
+    );
     await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/uploads/icon.png");
 
     await request.delete(`/api/sites/${site.id}?permanent=1`);
@@ -74,7 +81,10 @@ test.describe("A published page's head", () => {
   test("the home page's canonical is the site address, not the index slug", async ({ page, request }) => {
     const { site } = await publishedSite(request);
     await page.goto(`/sites/${site.slug}`);
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `/sites/${site.slug}`);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      new RegExp(`^https?://[^/]+/sites/${site.slug}$`),
+    );
     await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 

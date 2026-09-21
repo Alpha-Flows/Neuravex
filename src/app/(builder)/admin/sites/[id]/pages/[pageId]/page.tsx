@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { PageEditor } from "@/components/editor/PageEditor";
 import { BaseBlock } from "@/types";
 import { isLegalKind } from "@/lib/legal/pages";
+import { headers } from "next/headers";
+import { safeAccent } from "@/lib/site-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +52,7 @@ export default async function PageEditorRoute({
       siteId={site.id}
       siteSlug={site.slug}
       theme={{
-        accent: site.accent,
+        accent: safeAccent(site.accent),
         fontFamily: site.fontFamily,
         headingFont: site.headingFont,
         borderRadius: site.borderRadius,
@@ -60,7 +62,7 @@ export default async function PageEditorRoute({
         site: {
           name: site.name,
           slug: site.slug,
-          accent: site.accent,
+          accent: safeAccent(site.accent),
           headerHtml: site.headerHtml,
           footerHtml: site.footerHtml,
           headerBackground: site.headerBackground,
@@ -82,6 +84,9 @@ export default async function PageEditorRoute({
         customCss: site.customCss ? sanitizeCss(site.customCss) : null,
       }}
       linkTargets={linkTargets}
+      // The <style> elements the editor writes are the app's own, so they
+      // carry the request's nonce and `style-src-elem` needs nothing looser.
+      nonce={headers().get("x-nonce") ?? undefined}
       initial={{
         title: page.title,
         slug: page.slug,

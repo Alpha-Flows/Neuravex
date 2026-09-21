@@ -3,6 +3,7 @@ import Link from "next/link";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { isDarkColor } from "@/lib/site-theme";
 import { cn } from "@/lib/utils";
+import { safeAccent } from "@/lib/site-fields";
 
 /**
  * The header and footer a visitor sees.
@@ -58,6 +59,41 @@ function hexToRgba(hex: string, opacityPercent: number): string {
   return `rgba(${r}, ${g}, ${b}, ${opacityPercent / 100})`;
 }
 
+
+/**
+ * A value on its way into markup the operator wrote.
+ *
+ * `{name}`, `{nav}` and `{legal}` are substituted into a custom header or
+ * footer as text, and the values come from places the operator did not type:
+ * a page title set over MCP or arriving in an imported archive, a site name
+ * likewise. A page renamed to `<img src="https://attacker/nav">` put a beacon
+ * in the nav of every page; `</a><div class="pwned">` broke out of the
+ * operator's own anchor. The sanitiser runs afterwards, so nothing scripted —
+ * but the markup was the author's to decide, not a page title's.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** The same, for a value that goes inside an href rather than between tags. */
+function escapeUrlPart(value: string): string {
+  return encodeURIComponent(value);
+}
+
+/**
+ * `String.replace` with a string replacement expands `$&`, `` $` `` and `$'`.
+ * A site name containing `` $` `` duplicated the operator's own header markup
+ * back into the page. A function replacer is inert.
+ */
+function substitute(html: string, token: RegExp, value: string): string {
+  return html.replace(token, () => value);
+}
+
 export function SiteHeader({
   site,
   pages,
@@ -79,12 +115,18 @@ export function SiteHeader({
   if (site.headerHtml) {
     const navHtml = pages
       .map((p) => {
-        const href = p.isHome ? `/sites/${site.slug}` : `/sites/${site.slug}/${p.slug}`;
+        const href = p.isHome
+          ? `/sites/${escapeUrlPart(site.slug)}`
+          : `/sites/${escapeUrlPart(site.slug)}/${escapeUrlPart(p.slug)}`;
         const active = p.slug === activeSlug ? ' class="active"' : "";
-        return `<a href="${href}"${active}>${p.title}</a>`;
+        return `<a href="${escapeHtml(href)}"${active}>${escapeHtml(p.title)}</a>`;
       })
       .join("");
-    const html = site.headerHtml.replace(/\{name\}/g, site.name).replace(/\{nav\}/g, navHtml);
+    const html = substitute(
+      substitute(site.headerHtml, /\{name\}/g, escapeHtml(site.name)),
+      /\{nav\}/g,
+      navHtml,
+    );
     return <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />;
   }
 
@@ -138,7 +180,7 @@ export function SiteHeader({
     >
       <div className="nvx-site-column h-16 flex items-center gap-6">
         <Link href={`/sites/${site.slug}`} className="flex items-center gap-2 font-semibold tracking-tight">
-          <span className="w-5 h-5 rounded" style={{ background: site.accent }} />
+          <span className="w-5 h-5 rounded" style={{ background: safeAccent(site.accent) }} />
           {site.name}
         </Link>
         {/* Desktop: inline nav. Small screens: the same links behind a menu,
@@ -179,7 +221,10 @@ export function SiteHeader({
 /** The legal links as anchors, for a custom footer written as HTML. */
 function legalHtml(site: { slug: string }, legal: LegalPage[]): string {
   return legal
-    .map((p) => `<a href="/sites/${site.slug}/${p.slug}">${p.title}</a>`)
+    .map((p) => {
+      const href = `/sites/${escapeUrlPart(site.slug)}/${escapeUrlPart(p.slug)}`;
+      return `<a href="${escapeHtml(href)}">${escapeHtml(p.title)}</a>`;
+    })
     .join(" · ");
 }
 
@@ -189,7 +234,7 @@ function legalHtml(site: { slug: string }, legal: LegalPage[]): string {
  * not want a second row of them underneath.
  */
 function customFooterCoversLegal(html: string, site: { slug: string }, legal: LegalPage[]): boolean {
-  return legal.every((p) => html.includes(`/sites/${site.slug}/${p.slug}`));
+  return legal.every((p) => html.includes(`/sites/${escapeUrlPart(site.slug)}/${escapeUrlPart(p.slug)}`));
 }
 
 export function SiteFooter({
@@ -202,10 +247,9 @@ export function SiteFooter({
   const links = legal.map((p) => ({ ...p, href: `/sites/${site.slug}/${p.slug}` }));
 
   if (site.footerHtml) {
-    const html = site.footerHtml
-      .replace(/\{name\}/g, site.name)
-      .replace(/\{year\}/g, String(new Date().getFullYear()))
-      .replace(/\{legal\}/g, legalHtml(site, legal));
+    let html = substitute(site.footerHtml, /\{name\}/g, escapeHtml(site.name));
+    html = substitute(html, /\{year\}/g, String(new Date().getFullYear()));
+    html = substitute(html, /\{legal\}/g, legalHtml(site, legal));
     const covered = links.length === 0 || customFooterCoversLegal(html, site, legal);
     return (
       <>

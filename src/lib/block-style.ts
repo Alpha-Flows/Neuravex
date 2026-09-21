@@ -7,6 +7,7 @@
  */
 import type { CSSProperties } from "react";
 import { parseHex, readableTextOn } from "./site-theme";
+import { cssColor, cssLength } from "./css-value";
 
 /**
  * Readable text for a backdrop, or null when the backdrop cannot say.
@@ -60,17 +61,20 @@ export function backgroundStyle(layer: BackgroundLayer | undefined): CSSProperti
   if (!layer) return {};
   if (layer.backgroundImage) {
     const image = cssUrl(layer.backgroundImage);
+    // The overlay is a colour or it is nothing. React writes a style object
+    // out without checking it, so an overlay carrying a `;` used to render as
+    // a second declaration.
+    const overlay = cssColor(layer.backgroundOverlay);
     return {
-      backgroundImage: layer.backgroundOverlay
-        ? `linear-gradient(${layer.backgroundOverlay}, ${layer.backgroundOverlay}), ${image}`
-        : image,
+      backgroundImage: overlay ? `linear-gradient(${overlay}, ${overlay}), ${image}` : image,
       backgroundSize: "cover",
       backgroundPosition: "center",
     };
   }
-  if (!layer.background) return {};
-  const text = readableTextOnFlat(layer.background);
-  return text ? { background: layer.background, color: text } : { background: layer.background };
+  const background = cssColor(layer.background);
+  if (!background) return {};
+  const text = readableTextOnFlat(background);
+  return text ? { background, color: text } : { background };
 }
 
 /**
@@ -85,7 +89,9 @@ export function columnBoxStyle(
 ): CSSProperties {
   if (!style) return {};
   const out: CSSProperties = { ...backgroundStyle(style) };
-  if (style.padding) out.padding = style.padding;
-  if (style.radius) out.borderRadius = style.radius;
+  const padding = cssLength(style.padding);
+  const radius = cssLength(style.radius);
+  if (style.padding && padding) out.padding = padding;
+  if (style.radius && radius) out.borderRadius = radius;
   return out;
 }

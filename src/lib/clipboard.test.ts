@@ -73,8 +73,8 @@ describe("pasteable", () => {
   it("gives every block in the copy an id of its own", () => {
     writeClipboard(section, "Section", store);
     const entry = readClipboard(store)!;
-    const first = pasteable(entry);
-    const second = pasteable(entry);
+    const first = pasteable(entry)!;
+    const second = pasteable(entry)!;
 
     const ids = (b: BaseBlock, out: string[] = []): string[] => {
       out.push(b.id);
@@ -93,10 +93,12 @@ describe("pasteable", () => {
 
   it("keeps the content it is copying", () => {
     writeClipboard(section, "Section", store);
-    const copy = pasteable(readClipboard(store)!);
+    const copy = pasteable(readClipboard(store)!)!;
     expect(copy.type).toBe("section");
-    expect(copy.children?.[0].props).toEqual({ text: "Hello" });
-    expect(copy.children?.[1].children?.[0].props).toEqual({ text: "Inside" });
+    // The tree is validated on the way out of storage, so the props come back
+    // filled out to the type's shape rather than as whatever was stored.
+    expect(copy.children?.[0].props).toMatchObject({ text: "Hello" });
+    expect(copy.children?.[1].children?.[0].props).toMatchObject({ text: "Inside" });
   });
 
   it("does not disturb what was copied", () => {

@@ -10,6 +10,8 @@ import {
   pageCreateData,
   isSiteArchive,
   ARCHIVE_VERSION,
+  normalizeArchivePages,
+  MAX_ARCHIVE_PAGES,
 } from "@/lib/site-archive";
 
 /** Field names declared on one model in the Prisma schema. */
@@ -159,7 +161,13 @@ describe("pageCreateData", () => {
   it("keeps the page's own content and SEO", () => {
     const data = pageCreateData(serializePage(site.pages[0]));
     expect(data.title).toBe("Home");
-    expect(data.content).toBe('[{"id":"h","type":"heading"}]');
+    // The tree goes through the same validator every other writer uses, so a
+    // block arrives with the props its type says it has rather than with
+    // whatever the archive happened to carry.
+    const blocks = JSON.parse(data.content);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toMatchObject({ id: "h", type: "heading" });
+    expect(blocks[0].props.level).toBe(2);
     expect(data.isHome).toBe(true);
     expect(data.metaTitle).toBe("Home | Acme");
   });
@@ -182,5 +190,73 @@ describe("isSiteArchive", () => {
     for (const bad of [null, undefined, {}, { site: {} }, { site: { name: "x" } }, "text"]) {
       expect(isSiteArchive(bad)).toBe(false);
     }
+  });
+});
+
+describe("an archive is not a trusted writer", () => {
+  it("slugifies a page slug, like every other writer does", () => {
+    // `About Us` was stored raw: linked from the nav, unreachable at every
+    // encoding, and a 502 from the download.
+    expect(pageCreateData({ slug: "About Us" }).slug).toBe("about-us");
+  });
+
+  it("clamps a sortOrder the column cannot hold", () => {
+    // 1e12 went into a 32-bit Int. SQLite stored it; every later read threw.
+    expect(pageCreateData({ sortOrder: 1e12 }).sortOrder).toBe(2 ** 31 - 1);
+    expect(pageCreateData({ sortOrder: -5 }).sortOrder).toBe(0);
+  });
+
+  it("refuses a javascript: href inside an imported block", () => {
+    const data = pageCreateData({
+      content: JSON.stringify([
+        { id: "b", type: "button", props: { label: "Go", href: "javascript:alert(1)" } },
+      ]),
+    });
+    expect(data.content).not.toContain("javascript:");
+  });
+
+  it("refuses an accent that carries a second declaration", () => {
+    const data = siteCreateData({
+      site: { name: "x", accent: "#fff 0%, #000 100%);background-image:url(https://attacker.example/p);/*" },
+    });
+    expect(data.accent).toBe("#6366f1");
+  });
+
+  it("clamps headerOpacity and drops an invented headerShape", () => {
+    const data = siteCreateData({ site: { name: "x", headerOpacity: 999, headerShape: "<b>x" } });
+    expect(data.headerOpacity).toBe(100);
+    expect(data.headerShape).toBe("bar");
+  });
+
+  it("refuses a language that is not one", () => {
+    expect(siteCreateData({ site: { name: "x", language: '"><script>' } }).language).toBe("en");
+  });
+});
+
+describe("normalizeArchivePages", () => {
+  it("keeps one home page", () => {
+    const pages = normalizeArchivePages([
+      { slug: "a", isHome: true },
+      { slug: "b", isHome: true },
+    ]);
+    expect(pages.filter((p) => p.isHome)).toHaveLength(1);
+  });
+
+  it("de-duplicates slugs that collide after slugifying", () => {
+    const pages = normalizeArchivePages([{ slug: "About Us" }, { slug: "about-us" }]);
+    expect(pages.map((p) => p.slug)).toEqual(["about-us", "about-us-1"]);
+  });
+
+  it("keeps one page per legal kind, so the footer links one Impressum", () => {
+    const pages = normalizeArchivePages([
+      { slug: "a", legalKind: "impressum" },
+      { slug: "b", legalKind: "impressum" },
+    ]);
+    expect(pages.map((p) => p.legalKind)).toEqual(["impressum", null]);
+  });
+
+  it("stops at the page cap", () => {
+    const many = Array.from({ length: MAX_ARCHIVE_PAGES + 50 }, (_, i) => ({ slug: `p${i}` }));
+    expect(normalizeArchivePages(many)).toHaveLength(MAX_ARCHIVE_PAGES);
   });
 });

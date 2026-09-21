@@ -20,7 +20,9 @@
  * live on the profile.
  */
 
+import { Parser } from "htmlparser2";
 import { BaseBlock } from "@/types";
+import { sanitizeHtml, sanitizeInlineHtml } from "@/lib/sanitize";
 
 export type FindingKind =
   /** A form that can take personal data from a visitor. */
@@ -32,7 +34,20 @@ export type FindingKind =
   /** An iframe, script or object inside a custom HTML block. */
   | "embed"
   /** An external address in the site's own header or footer HTML. */
-  | "chrome-remote";
+  | "chrome-remote"
+  /**
+   * A plain hyperlink to somebody else's site.
+   *
+   * Listed separately and never counted as a remote host. A link is followed
+   * when a visitor clicks it, so it transmits nothing on page load — but
+   * `href` used to be scanned like `src`, so a footer link to Instagram
+   * produced a "chrome-remote" finding, made the whole site
+   * `selfContained: false`, and put a paragraph in the
+   * Datenschutzerklärung saying the visitor's IP is sent to that host when
+   * the page opens. That is the opposite failure from missing a tracker, and
+   * it is just as wrong.
+   */
+  | "outbound-link";
 
 export interface Finding {
   kind: FindingKind;
@@ -56,8 +71,13 @@ export interface SiteAudit {
   findings: Finding[];
   /** True when any page carries a form block. */
   hasForm: boolean;
-  /** Every outside host the site reaches, deduplicated and sorted. */
+  /** Every outside host the site loads from as a page opens, deduplicated. */
   remoteHosts: string[];
+  /**
+   * Every outside host the site links to. Shown to the operator, and kept out
+   * of `remoteHosts`: nothing is transmitted until a visitor clicks.
+   */
+  linkHosts: string[];
   /** True when nothing on the site reaches outside the visitor's browser. */
   selfContained: boolean;
 }
@@ -81,25 +101,162 @@ export function remoteHost(value: unknown): string | null {
   }
 }
 
-/** Absolute addresses inside a fragment of HTML, from src, href, action and srcset. */
-function hostsInHtml(html: string): string[] {
-  const hosts: string[] = [];
-  for (const match of html.matchAll(/(?:src|href|action|data|poster)\s*=\s*["']([^"']+)["']/gi)) {
-    const host = remoteHost(match[1]);
-    if (host) hosts.push(host);
-  }
-  for (const match of html.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/gi)) {
-    const host = remoteHost(match[1]);
-    if (host) hosts.push(host);
-  }
-  return hosts;
+/**
+ * What a fragment of HTML reaches for.
+ *
+ * Parsed, not pattern-matched. The pattern this replaces wanted a quote
+ * around the value, so `<img src=https://unquoted.example/p.gif>` — which the
+ * sanitiser normalises and the browser loads — was invisible to the audit,
+ * and `srcset` was never scanned at all despite the comment saying it was.
+ * `htmlparser2` is already a dependency, through `sanitize-html`.
+ *
+ * `loads` is what the browser fetches before the visitor does anything, which
+ * is what the privacy notice is about. `links` is where a click would take
+ * them, which is not.
+ */
+export interface HtmlReferences {
+  loads: string[];
+  links: string[];
+  /** True when the fragment carries an element that embeds another document. */
+  embeds: boolean;
 }
 
-const EMBED_TAG = /<\s*(iframe|script|object|embed)\b/i;
+/** Attributes whose value is fetched as the page loads. */
+const LOADING_ATTRS = new Set(["src", "poster", "action", "data", "formaction", "background"]);
 
-function walk(blocks: BaseBlock[], where: string, out: Finding[]): void {
+/** Tags on which `href` names something loaded rather than somewhere to go. */
+const HREF_LOADS = new Set(["link", "use", "image"]);
+
+const EMBED_TAGS = new Set(["iframe", "script", "object", "embed", "frame"]);
+
+export function htmlReferences(html: string): HtmlReferences {
+  const loads: string[] = [];
+  const links: string[] = [];
+  let embeds = false;
+
+  const parser = new Parser(
+    {
+      onopentag(name, attribs) {
+        const tag = name.toLowerCase();
+        if (EMBED_TAGS.has(tag)) embeds = true;
+
+        for (const [rawAttr, value] of Object.entries(attribs)) {
+          const attr = rawAttr.toLowerCase();
+
+          if (attr === "srcset" || attr === "imagesrcset") {
+            // "a.png 1x, b.png 2x" — the URL is the first token of each part.
+            for (const candidate of value.split(",")) {
+              const url = candidate.trim().split(/\s+/)[0];
+              if (url) loads.push(url);
+            }
+            continue;
+          }
+
+          if (attr === "style") {
+            for (const match of value.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/gi)) loads.push(match[1]);
+            continue;
+          }
+
+          if (attr === "href") {
+            (HREF_LOADS.has(tag) ? loads : links).push(value);
+            continue;
+          }
+          if (attr === "xlink:href") {
+            loads.push(value);
+            continue;
+          }
+
+          if (LOADING_ATTRS.has(attr)) loads.push(value);
+        }
+      },
+    },
+    { lowerCaseAttributeNames: false },
+  );
+  parser.write(html);
+  parser.end();
+
+  return { loads, links, embeds };
+}
+
+/** Just the outside hosts a fragment loads from. */
+function hostsInHtml(html: string): string[] {
+  return htmlReferences(html)
+    .loads.map(remoteHost)
+    .filter((h): h is string => !!h);
+}
+
+/** Just the outside hosts a fragment links to. */
+function linkHostsInHtml(html: string): string[] {
+  return htmlReferences(html)
+    .links.map(remoteHost)
+    .filter((h): h is string => !!h);
+}
+
+function embedsInHtml(html: string): boolean {
+  return htmlReferences(html).embeds;
+}
+
+/**
+ * How deep this walk will go.
+ *
+ * It used to be unbounded, and about 8000 levels of nesting overflowed the
+ * stack here — a 500 on the legal panel with no error boundary to click past.
+ * Write paths cap trees at 32 now; this is the same number, so a row written
+ * before that existed is walked as far as it is rendered and no further.
+ */
+const MAX_AUDIT_DEPTH = 32;
+
+/**
+ * Every rich-text prop, which is where the audit used to be blind.
+ *
+ * Text, heading, list, quote, button and form-label props all render through
+ * the HTML sanitiser, which permits `img`, `video`, `source`, `iframe` and a
+ * `style` attribute — so a tracker `<img>` inside a Text block loaded on every
+ * page view and never reached the audit. On an otherwise self-contained site
+ * the generated notice then stated that nothing is loaded from third parties
+ * and that no § 25 TDDDG consent is needed.
+ *
+ * The rendered form is what gets scanned, not the stored source: what matters
+ * is what the browser is handed.
+ */
+const TEXT_PROPS = ["text", "label", "caption", "author", "role", "submitLabel", "successMessage", "title"];
+
+function richTextIn(props: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  for (const key of TEXT_PROPS) {
+    const value = props[key];
+    if (typeof value === "string" && value.includes("<")) out.push(sanitizeInlineHtml(value));
+  }
+  if (Array.isArray(props.items)) {
+    for (const item of props.items) {
+      if (typeof item === "string" && item.includes("<")) out.push(sanitizeInlineHtml(item));
+    }
+  }
+  if (Array.isArray(props.fields)) {
+    for (const field of props.fields) {
+      const label = (field as Record<string, unknown>)?.label;
+      if (typeof label === "string" && label.includes("<")) out.push(sanitizeInlineHtml(label));
+    }
+  }
+  return out;
+}
+
+function walk(blocks: BaseBlock[], where: string, out: Finding[], depth = 0): void {
+  if (depth > MAX_AUDIT_DEPTH) return;
+
   for (const block of blocks) {
     const props = (block.props ?? {}) as Record<string, unknown>;
+
+    // A remote resource written into a rich-text prop loads for every visitor
+    // exactly like one in a Custom HTML block.
+    for (const fragment of richTextIn(props)) {
+      for (const host of new Set(hostsInHtml(fragment))) {
+        out.push({ kind: "remote-asset", host, where, detail: `Text in a ${block.type} block`, needsConsent: true });
+      }
+      for (const host of new Set(linkHostsInHtml(fragment))) {
+        out.push({ kind: "outbound-link", host, where, detail: `Link in a ${block.type} block`, needsConsent: false });
+      }
+    }
 
     if (block.type === "form") {
       out.push({
@@ -150,10 +307,16 @@ function walk(blocks: BaseBlock[], where: string, out: Finding[]): void {
       }
     }
 
+    if (block.type === "button") {
+      const host = remoteHost(props.href);
+      if (host) out.push({ kind: "outbound-link", host, where, detail: String(props.href), needsConsent: false });
+    }
+
     if (block.type === "html" && typeof props.html === "string") {
-      const html = props.html;
+      // The sanitised form, because that is what a visitor's browser gets.
+      const html = sanitizeHtml(props.html);
       const hosts = hostsInHtml(html);
-      if (EMBED_TAG.test(html)) {
+      if (embedsInHtml(html)) {
         out.push({
           kind: "embed",
           host: hosts[0],
@@ -163,13 +326,16 @@ function walk(blocks: BaseBlock[], where: string, out: Finding[]): void {
         });
       }
       for (const host of new Set(hosts)) {
-        if (!EMBED_TAG.test(html)) {
+        if (!embedsInHtml(html)) {
           out.push({ kind: "remote-asset", host, where, detail: "Custom HTML", needsConsent: true });
         }
       }
+      for (const host of new Set(linkHostsInHtml(html))) {
+        out.push({ kind: "outbound-link", host, where, detail: "Link in custom HTML", needsConsent: false });
+      }
     }
 
-    if (block.children) walk(block.children, where, out);
+    if (block.children) walk(block.children, where, out, depth + 1);
   }
 }
 
@@ -200,8 +366,12 @@ export function auditSite(input: AuditInput): SiteAudit {
     ["Site footer", input.footerHtml],
   ] as const) {
     if (!html) continue;
-    const hosts = new Set(hostsInHtml(html));
-    if (EMBED_TAG.test(html)) {
+    // Sanitised, because that is what `SiteChrome` renders. Header and footer
+    // markup is sanitised at the door now, but a row written before that was
+    // is still in people's databases.
+    const clean = sanitizeHtml(html);
+    const hosts = new Set(hostsInHtml(clean));
+    if (embedsInHtml(clean)) {
       findings.push({
         kind: "embed",
         host: [...hosts][0],
@@ -213,6 +383,9 @@ export function auditSite(input: AuditInput): SiteAudit {
     for (const host of hosts) {
       findings.push({ kind: "chrome-remote", host, where: label, detail: host, needsConsent: true });
     }
+    for (const host of new Set(linkHostsInHtml(clean))) {
+      findings.push({ kind: "outbound-link", host, where: label, detail: host, needsConsent: false });
+    }
   }
 
   for (const [label, value] of [
@@ -223,11 +396,30 @@ export function auditSite(input: AuditInput): SiteAudit {
     if (host) findings.push({ kind: "remote-asset", host, where: label, detail: String(value), needsConsent: true });
   }
 
-  const remoteHosts = [...new Set(findings.map((f) => f.host).filter((h): h is string => !!h))].sort();
+  // A link is followed on a click, not on page load, so it is listed for the
+  // operator and never counted as a host the site reaches.
+  const remoteHosts = [
+    ...new Set(
+      findings
+        .filter((f) => f.kind !== "outbound-link")
+        .map((f) => f.host)
+        .filter((h): h is string => !!h),
+    ),
+  ].sort();
+  const linkHosts = [
+    ...new Set(
+      findings
+        .filter((f) => f.kind === "outbound-link")
+        .map((f) => f.host)
+        .filter((h): h is string => !!h),
+    ),
+  ].sort();
+
   return {
     findings,
     hasForm: findings.some((f) => f.kind === "form"),
     remoteHosts,
+    linkHosts,
     selfContained: remoteHosts.length === 0,
   };
 }

@@ -19,6 +19,13 @@ const GMBH = {
   registerNumber: "HRB 123456",
   vatId: "DE123456789",
   hostingProvider: "Hetzner Online GmbH",
+  // Both of these used to have a default standing in for an answer, and the
+  // generated notice made a claim on the strength of it — that an Art. 28
+  // agreement exists, and that form input never leaves the browser. They are
+  // asked for now, so a complete profile states them.
+  hostingDpa: "yes",
+  formFate: "builder",
+  formRetention: "bis zur abschließenden Bearbeitung der Anfrage",
 };
 
 /** Fill in the details and write both documents, without going through the dialog. */
@@ -242,6 +249,12 @@ test.describe("The flow", () => {
     await modal.getByRole("button", { name: "Next" }).click();
 
     await modal.getByLabel(/Who hosts/).fill("Hetzner Online GmbH");
+    // Both of these used to have a default standing in for an answer, and the
+    // generated notice made a claim on the strength of it. The flow asks now,
+    // and will not write the pages until it has been told (NVX-040).
+    await modal.getByLabel(/data processing agreement/).selectOption("yes");
+    await modal.getByLabel(/What happens to a submission/).selectOption("builder");
+    await modal.getByLabel(/How long you keep it/).fill("6 Monate");
     await modal.getByRole("button", { name: "Next" }).click();
 
     await expect(modal).toContainText("not legal advice");

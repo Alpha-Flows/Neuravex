@@ -3,7 +3,8 @@
   "mcp": {
     "neuravex": {
       "type": "local",
-      "command": ["npx", "tsx", "mcp-server.ts"],
+      "_comment": "Not `npx tsx`: when the local tsx is not on the path — which is every launch from a directory that is not this one — npx downloads it from the registry and runs it, with only an npm warn line to say so. `npm run mcp` resolves the copy this repository installed.",
+      "command": ["npm", "run", "--silent", "mcp"],
       "enabled": true
     }
   }

@@ -3,6 +3,7 @@ import { BaseBlock, ColumnsProps } from "@/types";
 import { SortableContainer } from "./Sortable";
 import { clampColumnCount, cloneTree, flattenColumns, groupIntoColumns, withFreshIds } from "@/lib/tree-utils";
 import { columnBoxStyle } from "@/lib/block-style";
+import { cssLength } from "@/lib/css-value";
 
 interface Props {
   props: ColumnsProps;
@@ -77,7 +78,7 @@ export function Columns({
       <div
         className="nvx-columns-grid"
         data-cols={cols}
-        style={{ ["--nvx-cols" as string]: String(cols), gap: props.gap }}
+        style={{ ["--nvx-cols" as string]: String(cols), gap: cssLength(props.gap) ?? "24px" }}
       >
         {/*
           A column paints its own backdrop, so one column of a row can carry an

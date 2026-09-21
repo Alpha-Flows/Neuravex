@@ -8,7 +8,7 @@ import { test, expect } from "@playwright/test";
  * were told: delete a site, rewrite a page, empty the trash.
  */
 
-const BASE = "http://localhost:3939";
+const BASE = "http://127.0.0.1:3939";
 
 test.describe("A request that changes something", () => {
   test("is refused when it comes from another site", async ({ request }) => {

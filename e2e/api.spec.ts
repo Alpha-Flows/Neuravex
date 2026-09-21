@@ -81,17 +81,17 @@ test.describe("API", () => {
   });
 
   test("upload and media API", async ({ request }) => {
-    // Upload a file using multipart
+    // A real one-pixel PNG. The bytes are checked against the extension now,
+    // so `Buffer.from("test content")` named `.png` is a 400 — which is the
+    // point of the check, and was the only content check missing.
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64",
+    );
     const upload = await request.post("/api/upload", {
-      multipart: {
-        file: {
-          name: "test.png",
-          mimeType: "image/png",
-          buffer: Buffer.from("test content"),
-        },
-      },
+      multipart: { file: { name: "test.png", mimeType: "image/png", buffer: png } },
     });
-    expect(upload.ok()).toBeTruthy();
+    expect(upload.ok(), await upload.text()).toBeTruthy();
     const uploaded = await upload.json();
     expect(uploaded).toHaveProperty("url");
     expect(uploaded.url).toContain("/uploads/");
@@ -119,11 +119,21 @@ test.describe("API", () => {
     const sub = await res.json();
     expect(sub).toHaveProperty("id");
 
-    // List submissions
+    // List submissions. A total and an offset, not a bare array: `take: 100`
+    // with nothing saying how many there were hid a form filling with junk.
     const subs = await request.get(`/api/pages/${pageId}/submissions`);
     expect(subs.ok()).toBeTruthy();
-    const subList = await subs.json();
-    expect(subList.length).toBeGreaterThan(0);
+    const body = await subs.json();
+    expect(body.total).toBeGreaterThan(0);
+    expect(body.submissions.length).toBeGreaterThan(0);
+
+    // And they can be deleted, which the privacy notice promises.
+    const gone = await request.delete(`/api/submissions/${sub.id}`);
+    expect(gone.ok()).toBeTruthy();
+
+    // CSV, for getting them out of the app at all.
+    const csv = await request.get(`/api/pages/${pageId}/submissions?format=csv`);
+    expect(csv.headers()["content-type"]).toContain("text/csv");
   });
 
   test("isHome properly unsets other pages", async ({ request }) => {

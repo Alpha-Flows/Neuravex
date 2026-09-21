@@ -5,7 +5,7 @@ import {
   isDangerousExtension,
   sanitizeSvg,
  } from "@/lib/security";
-import { sanitizeCssValue } from "@/lib/css-value";
+import { sanitizeCssValue, cssFontStack, cssColor, cssLength } from "@/lib/css-value";
 
 describe("sanitizeCss", () => {
   // These assert what the CSS can no longer do, not how the sanitiser spells
@@ -127,9 +127,9 @@ describe("sanitizeCssValue", () => {
     expect(sanitizeCssValue("red; background: url(evil)")).not.toContain(";");
   });
 
-  it("keeps a normal font-family value intact", () => {
+  it("takes the quotes out — a font name cannot end the string it sits in", () => {
     expect(sanitizeCssValue("'Helvetica Neue', Arial, sans-serif")).toBe(
-      "'Helvetica Neue', Arial, sans-serif"
+      "Helvetica Neue, Arial, sans-serif"
     );
   });
 
@@ -288,5 +288,148 @@ describe("sanitizeSvg", () => {
         expect(out).not.toMatch(/<(?:animate|set)\b/i);
       });
     }
+  });
+});
+
+describe("SVG attributes that hide behind a namespace prefix", () => {
+  it("drops a href written through an aliased xlink namespace", () => {
+    // SVG is XML: a file may alias xlink to any prefix it likes, and to a
+    // browser x:href is the same attribute as xlink:href. The old list
+    // matched names literally, so this was stored verbatim and clicking the
+    // picture on the customer's site ran it.
+    const out = sanitizeSvg(
+      '<svg xmlns:x="http://www.w3.org/1999/xlink"><a x:href="javascript:alert(1)"><rect/></a></svg>',
+    );
+    expect(out).not.toMatch(/javascript:/i);
+    expect(out).not.toMatch(/x:href/i);
+  });
+
+  it("judges an upper-case XLINK:HREF the same as a lower-case one", () => {
+    const out = sanitizeSvg('<svg><image XLINK:HREF="javascript:alert(1)"/></svg>');
+    expect(out).not.toMatch(/javascript:/i);
+  });
+
+  it("drops any attribute whose prefix is not one SVG defines", () => {
+    // An https <image href> is allowed by design — a picture may name a
+    // picture. What is not allowed is an attribute arriving under a prefix
+    // the sanitiser has no way to resolve, so those go whatever they say.
+    const out = sanitizeSvg(
+      '<svg xmlns:q="http://www.w3.org/1999/xlink"><image q:href="https://evil.example/b.png"/></svg>',
+    );
+    expect(out).not.toContain("evil.example");
+  });
+
+  it("keeps a same-file reference", () => {
+    const out = sanitizeSvg('<svg><rect fill="url(#grad)"/><use xlink:href="#shape"/></svg>');
+    expect(out).toContain("url(#grad)");
+  });
+
+  it("has no <a> left to click at all", () => {
+    const out = sanitizeSvg('<svg><a href="https://example.com"><rect/></a></svg>');
+    expect(out).not.toMatch(/<a[\s>]/i);
+    expect(out).toMatch(/<rect/i);
+  });
+});
+
+describe("the SVG style attribute goes through the parser", () => {
+  it("drops a fetch written with a CSS escape", () => {
+    const out = sanitizeSvg('<svg><rect style="fill:\\75 rl(https://evil.example/x)"/></svg>');
+    expect(out).not.toContain("evil.example");
+  });
+
+  it("drops image-set(), which is not spelled url()", () => {
+    const out = sanitizeSvg('<svg><rect style="background:image-set(\'https://evil.example/a.png\' 1x)"/></svg>');
+    expect(out).not.toContain("evil.example");
+  });
+
+  it("keeps an ordinary fill", () => {
+    expect(sanitizeSvg('<svg><rect style="fill:red"/></svg>')).toContain("fill:red");
+  });
+});
+
+describe("a stylesheet that used to take every page down", () => {
+  it("answers, and refuses, nine thousand nested calls", () => {
+    // 45 KB of customCss with 9000 nested rgb( made every page of that site
+    // answer 500: the scanner recursed once per call and re-read the whole of
+    // each argument.
+    const css = `.a { color: ${"rgb(".repeat(9000)}red${")".repeat(9000)} }`;
+    const started = Date.now();
+    const out = sanitizeCss(css);
+    expect(Date.now() - started).toBeLessThan(5000);
+    expect(out).not.toContain("rgb(rgb(");
+  });
+
+  it("refuses a sheet larger than it will read", () => {
+    const out = sanitizeCss(`.a { color: red }`.padEnd(300 * 1024, " "));
+    expect(out).toContain("larger than Neuravex will read");
+  });
+
+  it("keeps a nesting depth a person would actually write", () => {
+    const css = ".a { color: rgb(calc(1 + 1), 2, 3) }";
+    expect(sanitizeCss(css)).toContain("rgb(");
+  });
+});
+
+describe("cssFontStack", () => {
+  it("re-quotes a multi-word family around a cleaned value", () => {
+    expect(cssFontStack("'Helvetica Neue', Arial, sans-serif")).toBe(
+      "'Helvetica Neue', Arial, sans-serif",
+    );
+  });
+
+  it("cannot be made to end the string it is written into", () => {
+    expect(cssFontStack("Arial'; background: url(https://evil.example/x); font-family: '")).not.toContain(";");
+    expect(cssFontStack("Arial'; x")).not.toContain("evil");
+  });
+});
+
+describe("cssColor — the second declaration that used to ride along", () => {
+  it("refuses a colour with another declaration after it", () => {
+    // React serialises a style object without checking it, so this rendered
+    // as two declarations and the second was a per-view beacon.
+    expect(cssColor("red;background:url(https://attacker.example/x)")).toBeUndefined();
+  });
+
+  it("refuses a comment, a brace and a backslash", () => {
+    expect(cssColor("red/*x*/")).toBeUndefined();
+    expect(cssColor("red}")).toBeUndefined();
+    expect(cssColor("\\72 ed")).toBeUndefined();
+  });
+
+  it("keeps the things a colour actually is", () => {
+    expect(cssColor("#3b82f6")).toBe("#3b82f6");
+    expect(cssColor("#fff")).toBe("#fff");
+    expect(cssColor("rgba(0, 0, 0, 0.4)")).toBe("rgba(0, 0, 0, 0.4)");
+    expect(cssColor("hsl(210 40% 98%)")).toBe("hsl(210 40% 98%)");
+    expect(cssColor("transparent")).toBe("transparent");
+    expect(cssColor("currentColor")).toBe("currentColor");
+    expect(cssColor("var(--site-accent, #6366f1)")).toBe("var(--site-accent, #6366f1)");
+  });
+
+  it("checks a var() fallback, which is the part an author writes", () => {
+    expect(cssColor("var(--x, red;background:url(https://evil.example))")).toBeUndefined();
+  });
+
+  it("refuses a url() dressed as a colour", () => {
+    expect(cssColor("url(https://evil.example/x)")).toBeUndefined();
+  });
+});
+
+describe("cssLength", () => {
+  it("takes a number as pixels", () => {
+    expect(cssLength(24)).toBe("24px");
+    expect(cssLength(Infinity)).toBeUndefined();
+    expect(cssLength(NaN)).toBeUndefined();
+  });
+
+  it("takes a string with a unit it knows", () => {
+    expect(cssLength("1.5rem")).toBe("1.5rem");
+    expect(cssLength("100%")).toBe("100%");
+    expect(cssLength("0")).toBe("0");
+  });
+
+  it("refuses anything with a call or a separator in it", () => {
+    expect(cssLength("calc(100% - 1px)")).toBeUndefined();
+    expect(cssLength("10px;background:url(https://evil.example)")).toBeUndefined();
   });
 });

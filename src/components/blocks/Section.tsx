@@ -3,6 +3,7 @@ import { BaseBlock, SectionProps } from "@/types";
 import { SortableContainer } from "./Sortable";
 import { backgroundStyle } from "@/lib/block-style";
 import { cn } from "@/lib/utils";
+import { cssLength } from "@/lib/css-value";
 
 interface Props {
   props: SectionProps;
@@ -59,10 +60,10 @@ export function Section({
     <div
       style={{
         ...bgStyle,
-        paddingTop: props.paddingY,
-        paddingBottom: props.paddingY,
-        paddingLeft: props.paddingX,
-        paddingRight: props.paddingX,
+        paddingTop: cssLength(props.paddingY) ?? 0,
+        paddingBottom: cssLength(props.paddingY) ?? 0,
+        paddingLeft: cssLength(props.paddingX) ?? 0,
+        paddingRight: cssLength(props.paddingX) ?? 0,
       }}
     >
       {/*

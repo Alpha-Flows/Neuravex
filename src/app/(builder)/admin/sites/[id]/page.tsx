@@ -12,6 +12,7 @@ import { SubmissionsViewer } from "@/components/admin/SubmissionsViewer";
 import { DownloadSiteButton } from "@/components/admin/DownloadSiteButton";
 import { LegalFlow } from "@/components/admin/LegalFlow";
 import { isLegalKind } from "@/lib/legal/pages";
+import { safeAccent } from "@/lib/site-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export default async function SiteAdmin({ params }: { params: { id: string } }) 
             <Link href="/" className="text-fg-muted hover:text-fg text-sm">← All sites</Link>
             <div className="w-px h-5 bg-bg-border" />
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded" style={{ background: site.accent }} />
+              <div className="w-6 h-6 rounded" style={{ background: safeAccent(site.accent) }} />
               <span className="font-semibold">{site.name}</span>
               <span className="text-fg-muted text-sm">/{site.slug}</span>
             </div>
@@ -42,7 +43,7 @@ export default async function SiteAdmin({ params }: { params: { id: string } }) 
             <LegalFlow siteId={site.id} siteSlug={site.slug} />
             <DownloadSiteButton siteId={site.id} disabled={!pages.some((p) => p.published)} />
             {pages.find((p) => p.isHome && p.published) ? (
-              <Link href={`/sites/${site.slug}`} target="_blank">
+              <Link href={`/sites/${site.slug}`} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline">View site ↗</Button>
               </Link>
             ) : null}
@@ -126,7 +127,7 @@ export default async function SiteAdmin({ params }: { params: { id: string } }) 
                           <Button size="sm" variant="outline">Edit</Button>
                         </Link>
                         {p.published ? (
-                          <Link href={p.isHome ? `/sites/${site.slug}` : `/sites/${site.slug}/${p.slug}`} target="_blank">
+                          <Link href={p.isHome ? `/sites/${site.slug}` : `/sites/${site.slug}/${p.slug}`} target="_blank" rel="noopener noreferrer">
                             <Button size="sm" variant="ghost">View</Button>
                           </Link>
                         ) : null}

@@ -33,16 +33,19 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const profile = parseProfile(site.legal);
   const ordinary = site.pages.filter((p) => !isLegalKind(p.legalKind));
 
+  const audit = auditSite({
+    pages: ordinary.map((p) => ({ title: p.title, content: p.content })),
+    headerHtml: site.headerHtml,
+    footerHtml: site.footerHtml,
+    favicon: site.favicon,
+    ogImage: site.ogImage,
+  });
+
   return NextResponse.json({
     profile,
-    missing: missingFor(profile),
-    audit: auditSite({
-      pages: ordinary.map((p) => ({ title: p.title, content: p.content })),
-      headerHtml: site.headerHtml,
-      footerHtml: site.footerHtml,
-      favicon: site.favicon,
-      ogImage: site.ogImage,
-    }),
+    // The question about form submissions is only asked when there is a form.
+    missing: missingFor(profile, { hasForm: audit.hasForm }),
+    audit,
     language: site.language,
     // What a contact form on this site would be reachable at, so the flow can
     // offer it as the second fast contact route § 5 Abs. 1 Nr. 2 DDG wants.
@@ -74,7 +77,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (!site) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await prisma.site.update({ where: { id: params.id }, data: { legal: JSON.stringify(parsed.data) } });
-  return NextResponse.json({ profile: parsed.data, missing: missingFor(parsed.data) });
+  return NextResponse.json({ profile: parsed.data, missing: missingFor(parsed.data, { hasForm: await siteHasForm(params.id) }) });
 }
 
 /** Write both documents onto the site, creating or rewriting the two pages. */
@@ -95,7 +98,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     await prisma.site.update({ where: { id: params.id }, data: { legal: JSON.stringify(profile) } });
   }
 
-  const missing = missingFor(profile);
+  const missing = missingFor(profile, { hasForm: await siteHasForm(params.id) });
   if (missing.length > 0) {
     // A document with a blank where the address belongs is worse than no
     // document, because it looks finished.
@@ -107,4 +110,15 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const { applied, audit } = await applyLegalPages(params.id, profile);
   return NextResponse.json({ applied, audit, missing: [] });
+}
+
+/** Whether any ordinary page on this site carries a form block. */
+async function siteHasForm(siteId: string): Promise<boolean> {
+  const pages = await prisma.page.findMany({
+    where: { siteId },
+    select: { title: true, content: true, legalKind: true },
+  });
+  return auditSite({
+    pages: pages.filter((p) => !isLegalKind(p.legalKind)).map((p) => ({ title: p.title, content: p.content })),
+  }).hasForm;
 }

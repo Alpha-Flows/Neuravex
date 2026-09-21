@@ -22,26 +22,15 @@
  * Used by `npm run db:reset`.
  */
 
-const { execFileSync } = require("child_process");
 const fs = require("fs");
-const path = require("path");
 const { ensureEnv, databaseFile, schemaFingerprint, STATE_FILE } = require("./first-run");
+const { runBin } = require("./local-bin");
 
-const ROOT = path.resolve(__dirname, "..");
 /** SQLite keeps a write-ahead log and a shared-memory file beside the database. */
 const SIDECARS = ["-wal", "-shm", "-journal"];
 
 function say(msg) {
   process.stdout.write(`[neuravex] ${msg}\n`);
-}
-
-function run(command, args, databaseUrl) {
-  execFileSync(command, args, {
-    cwd: ROOT,
-    stdio: "inherit",
-    env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", DATABASE_URL: databaseUrl },
-    shell: process.platform === "win32",
-  });
 }
 
 function remove(file) {
@@ -79,8 +68,8 @@ function main() {
 
   say("Building a fresh database…");
   try {
-    run("npx", ["prisma", "db", "push", "--force-reset"], `file:${fresh}`);
-    run("npx", ["tsx", "prisma/seed.ts"], `file:${fresh}`);
+    runBin("prisma", ["db", "push", "--force-reset"], { env: { DATABASE_URL: `file:${fresh}` } });
+    runBin("tsx", ["prisma/seed.ts"], { env: { DATABASE_URL: `file:${fresh}` } });
   } catch {
     remove(fresh);
     say("Could not build the new database. Your sites are untouched.");

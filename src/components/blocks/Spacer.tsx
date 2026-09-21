@@ -1,5 +1,6 @@
 "use client";
 import { SpacerProps } from "@/types";
+import { cssLength } from "@/lib/css-value";
 
 interface Props {
   props: SpacerProps;
@@ -14,7 +15,7 @@ export function Spacer({ props, disabled }: Props) {
   // sort of thing that made the canvas and the preview look like two
   // different pages. Hovering the block still shows what is there.
   return (
-    <div style={{ height: props.height }} className={disabled ? undefined : "relative"}>
+    <div style={{ height: cssLength(props.height) ?? "40px" }} className={disabled ? undefined : "relative"}>
       {!disabled ? (
         <div className="nvx-block-chrome absolute inset-0 rounded bg-[repeating-linear-gradient(45deg,transparent_0_6px,rgba(99,102,241,0.14)_6px_12px)]" />
       ) : null}

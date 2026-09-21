@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
 import { startingContent } from "@/lib/page-starters";
+import { normalizeBlockTreeJson } from "@/lib/block-tree";
+import { readJsonObject } from "@/lib/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +21,15 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const body = await req.json().catch(() => ({}));
-  const title: string = (body.title || "Untitled page").toString().trim();
-  let slug = slugify(body.slug || title);
+  const parsed = await readJsonObject(req);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
+
+  const title = (typeof body.title === "string" && body.title.trim() ? body.title : "Untitled page")
+    .toString()
+    .trim()
+    .slice(0, 300);
+  let slug = slugify(typeof body.slug === "string" && body.slug ? body.slug : title) || "page";
 
   let suffix = 0;
   const base = slug;
@@ -47,13 +55,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
    */
   let content: string;
   if (typeof body.content === "string") {
-    content = body.content;
+    const tree = normalizeBlockTreeJson(body.content);
+    if (!tree.ok) return NextResponse.json({ error: tree.error }, { status: 400 });
+    content = tree.json;
   } else {
+    // Reading the siblings to pick a starting look used to be where a `null`
+    // node in one of them threw, so no new page could be created on that site
+    // at all. The starter walks a validated tree now, and anything it cannot
+    // read is skipped rather than fatal.
     const siblings = await prisma.page.findMany({
       where: { siteId: params.id },
       select: { content: true },
     });
-    content = startingContent(body.starter, siblings.map((p) => p.content), title);
+    const usable = siblings
+      .map((p) => normalizeBlockTreeJson(p.content))
+      .filter((t): t is { ok: true; json: string } => t.ok)
+      .map((t) => t.json);
+    content = startingContent(typeof body.starter === "string" ? body.starter : undefined, usable, title);
   }
 
   const page = await prisma.page.create({

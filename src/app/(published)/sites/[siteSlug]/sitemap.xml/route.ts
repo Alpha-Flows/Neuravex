@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { publicOrigin } from "@/lib/self-origin";
 import { pageUrl, sitemapXml } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,10 @@ export async function GET(req: NextRequest, { params }: { params: { siteSlug: st
   });
   if (!site) return new NextResponse("Not found", { status: 404 });
 
-  const origin = new URL(req.url).origin;
+  // The address crawlers see, which only the operator knows. This used to
+  // take its scheme from `X-Forwarded-Proto`, so behind the documented proxy
+  // the sitemap advertised `https://localhost:3939/…`.
+  const origin = publicOrigin(req.headers);
   const xml = sitemapXml(
     site.pages.map((p) => ({
       loc: pageUrl(origin, site.slug, p.slug, p.isHome),

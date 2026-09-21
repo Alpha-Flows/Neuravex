@@ -4,6 +4,10 @@ import "../globals.css";
 export const metadata: Metadata = {
   title: "Neuravex — Website Builder",
   description: "Design, edit, and publish websites visually.",
+  // The builder is somebody's workshop, not a page for anyone to find. It
+  // only matters on an instance that is reachable from a network at all, and
+  // on one of those it matters rather a lot.
+  robots: { index: false, follow: false },
 };
 
 /**

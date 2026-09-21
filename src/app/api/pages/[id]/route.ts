@@ -4,6 +4,8 @@ import { slugify } from "@/lib/utils";
 import { trashPage, pageDeletionCost } from "@/lib/trash";
 import { movePath, pagePath } from "@/lib/page-links";
 import { relinkSite } from "@/lib/relink";
+import { normalizeBlockTreeJson, clampSortOrder } from "@/lib/block-tree";
+import { readJsonObject } from "@/lib/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,10 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const body = await req.json().catch(() => ({}));
+  const parsed = await readJsonObject(req);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body as Record<string, any>;
+
   const page = await prisma.page.findUnique({ where: { id: params.id } });
   if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -38,9 +43,21 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       });
     }
   }
-  if (typeof body.content === "string") data.content = body.content;
+  if (typeof body.content === "string") {
+    const tree = normalizeBlockTreeJson(body.content);
+    if (!tree.ok) return NextResponse.json({ error: tree.error }, { status: 400 });
+    data.content = tree.json;
+  }
   if (typeof body.sortOrder === "number") {
-    data.sortOrder = body.sortOrder;
+    // `sortOrder` is a 32-bit column. SQLite stored 1e12 without complaint,
+    // and every later Prisma read of that row threw — the public site, the
+    // pages list and the download all answered 500 until somebody opened the
+    // database by hand.
+    const order = clampSortOrder(body.sortOrder);
+    if (order === undefined) {
+      return NextResponse.json({ error: "sortOrder has to be a number." }, { status: 400 });
+    }
+    data.sortOrder = order;
   } else if (body.sortOrder === "increment" || body.sortOrder === "decrement") {
     const dir = body.sortOrder === "increment" ? 1 : -1;
     const neighbor = await prisma.page.findFirst({
