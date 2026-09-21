@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
 import { matchesQuery } from "@/lib/media";
+import { Overlay } from "@/components/ui/Overlay";
 
 export interface PickedImage {
   /** The picture's own pixel size, when it could be read. */
@@ -177,194 +178,207 @@ export function MediaPicker({ open, onClose, onSelect }: Props) {
     .filter((p) => matchesQuery(query, [p.alt, p.category, p.credit]));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-xl border border-bg-border bg-bg-soft p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-1 rounded-lg bg-bg p-1 border border-bg-border">
-            <button
-              onClick={() => setTab("uploads")}
-              className={cn("px-3 h-7 rounded-md text-xs font-medium", tab === "uploads" ? "bg-brand text-white" : "text-fg-muted hover:text-fg")}
-            >
-              Uploads
-            </button>
-            <button
-              onClick={() => setTab("stock")}
-              className={cn("px-3 h-7 rounded-md text-xs font-medium", tab === "stock" ? "bg-brand text-white" : "text-fg-muted hover:text-fg")}
-            >
-              Stock photos
-            </button>
+    // Drawn on the body: a dialog written inside a block would otherwise be
+    // held inside that block's layer, and open underneath the site header.
+    <Overlay>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+        {/* A dialog, and named as one. It is the handle a screen reader — and a
+            test — has on this, now that it is drawn on the body rather than
+            inside the block whose picture it is choosing. */}
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Pictures"
+          className="w-full max-w-lg rounded-xl border border-bg-border bg-bg-soft p-6"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-1 rounded-lg bg-bg p-1 border border-bg-border">
+              <button
+                onClick={() => setTab("uploads")}
+                className={cn("px-3 h-7 rounded-md text-xs font-medium", tab === "uploads" ? "bg-brand text-white" : "text-fg-muted hover:text-fg")}
+              >
+                Uploads
+              </button>
+              <button
+                onClick={() => setTab("stock")}
+                className={cn("px-3 h-7 rounded-md text-xs font-medium", tab === "stock" ? "bg-brand text-white" : "text-fg-muted hover:text-fg")}
+              >
+                Stock photos
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              {tab === "uploads" ? (
+                <>
+                  <input ref={inputRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+                  <Button size="sm" variant="outline" onClick={() => inputRef.current?.click()} loading={uploading}>
+                    Upload
+                  </Button>
+                </>
+              ) : null}
+              <button onClick={onClose} className="text-fg-muted hover:text-fg">×</button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {tab === "uploads" ? (
+
+          {/* A library you cannot search is a library you scroll. */}
+          <div className="mb-3">
+            <Input
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setJustEdited(null); }}
+              placeholder={tab === "uploads" ? "Search your pictures…" : "Search the photographs…"}
+              aria-label="Search pictures"
+            />
+          </div>
+
+          {tab === "uploads" ? (
+            files.length === 0 ? (
+              <div className="text-sm text-fg-muted text-center py-8">No images yet. Upload one to get started.</div>
+            ) : visibleFiles.length === 0 ? (
+              <div className="text-sm text-fg-muted text-center py-8">
+                Nothing here matches “{query}”.
+                <br />
+                A picture answers to its name and to what it shows.
+              </div>
+            ) : (
               <>
-                <input ref={inputRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
-                <Button size="sm" variant="outline" onClick={() => inputRef.current?.click()} loading={uploading}>
-                  Upload
-                </Button>
+                <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
+                  {visibleFiles.map((f) => (
+                    <div key={f.url} className="group relative rounded-lg overflow-hidden border border-bg-border bg-bg">
+                      <div className="cursor-pointer" onClick={async () => { const size = await measure(f.url); onSelect(f.url, { ...size, alt: f.alt || undefined }); onClose(); }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={f.url} alt={f.alt || f.name} className="w-full h-24 object-cover" />
+                        {/* The name a person gave it, not the one the disk did. */}
+                        <div className="px-1.5 py-1 text-[11px] text-fg-muted truncate" title={f.alt ? `${f.name} — ${f.alt}` : f.name}>
+                          {f.name}
+                        </div>
+                      </div>
+                      {f.usedOn && f.usedOn.length > 0 ? (
+                        <span
+                          className="absolute bottom-6 left-1 px-1.5 py-0.5 rounded bg-black/65 text-[10px] text-white"
+                          title={`Used on: ${f.usedOn.join(", ")}`}
+                        >
+                          in use
+                        </span>
+                      ) : null}
+                      <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100">
+                        <button
+                          aria-label={`Edit ${f.name}`}
+                          title="Rename, or say what it shows"
+                          onClick={(e) => { e.stopPropagation(); startEditing(f); }}
+                          className="w-5 h-5 rounded-full bg-black/50 text-white text-[10px] flex items-center justify-center"
+                        >✎</button>
+                        <button
+                          aria-label={`Delete ${f.name}`}
+                          onClick={(e) => { e.stopPropagation(); handleDelete(f.url); }}
+                          className="w-5 h-5 rounded-full bg-black/50 text-white text-xs flex items-center justify-center"
+                        >×</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {editing ? (
+                  <div className="mt-3 rounded-lg border border-bg-border bg-bg p-3 space-y-3">
+                    <div className="flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={editing.url} alt="" className="w-12 h-12 rounded object-cover border border-bg-border" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-fg">Editing this picture</p>
+                        <p className="text-[11px] text-fg-muted truncate">
+                          {editing.usedOn && editing.usedOn.length > 0
+                            ? `Used on ${editing.usedOn.join(", ")}. Its address does not change.`
+                            : "Not used on any page yet."}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="media-name">Name</Label>
+                      <Input
+                        id="media-name"
+                        value={draftName}
+                        onChange={(e) => setDraftName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void saveEdits(); } }}
+                        placeholder="Hero — sunset over the bay"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="media-alt">What it shows</Label>
+                      <Input
+                        id="media-alt"
+                        value={draftAlt}
+                        onChange={(e) => setDraftAlt(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void saveEdits(); } }}
+                        placeholder="A harbour at dusk, with boats moored in the foreground"
+                      />
+                      <p className="text-[11px] text-fg-subtle mt-1">
+                        Travels with the picture onto the page, for a reader who cannot see it.
+                      </p>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
+                      <Button size="sm" onClick={saveEdits} loading={saving} disabled={!draftName.trim()}>Save</Button>
+                    </div>
+                  </div>
+                ) : null}
               </>
-            ) : null}
-            <button onClick={onClose} className="text-fg-muted hover:text-fg">×</button>
-          </div>
-        </div>
-
-        {/* A library you cannot search is a library you scroll. */}
-        <div className="mb-3">
-          <Input
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setJustEdited(null); }}
-            placeholder={tab === "uploads" ? "Search your pictures…" : "Search the photographs…"}
-            aria-label="Search pictures"
-          />
-        </div>
-
-        {tab === "uploads" ? (
-          files.length === 0 ? (
-            <div className="text-sm text-fg-muted text-center py-8">No images yet. Upload one to get started.</div>
-          ) : visibleFiles.length === 0 ? (
+            )
+          ) : !stockLoaded ? (
+            <div className="text-sm text-fg-muted text-center py-8">Loading…</div>
+          ) : stockPhotos.length === 0 ? (
             <div className="text-sm text-fg-muted text-center py-8">
-              Nothing here matches “{query}”.
+              No stock photos in the library yet.
               <br />
-              A picture answers to its name and to what it shows.
+              Use the Uploads tab to add your own image.
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
-                {visibleFiles.map((f) => (
-                  <div key={f.url} className="group relative rounded-lg overflow-hidden border border-bg-border bg-bg">
-                    <div className="cursor-pointer" onClick={async () => { const size = await measure(f.url); onSelect(f.url, { ...size, alt: f.alt || undefined }); onClose(); }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={f.url} alt={f.alt || f.name} className="w-full h-24 object-cover" />
-                      {/* The name a person gave it, not the one the disk did. */}
-                      <div className="px-1.5 py-1 text-[11px] text-fg-muted truncate" title={f.alt ? `${f.name} — ${f.alt}` : f.name}>
-                        {f.name}
-                      </div>
-                    </div>
-                    {f.usedOn && f.usedOn.length > 0 ? (
-                      <span
-                        className="absolute bottom-6 left-1 px-1.5 py-0.5 rounded bg-black/65 text-[10px] text-white"
-                        title={`Used on: ${f.usedOn.join(", ")}`}
-                      >
-                        in use
-                      </span>
-                    ) : null}
-                    <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100">
-                      <button
-                        aria-label={`Edit ${f.name}`}
-                        title="Rename, or say what it shows"
-                        onClick={(e) => { e.stopPropagation(); startEditing(f); }}
-                        className="w-5 h-5 rounded-full bg-black/50 text-white text-[10px] flex items-center justify-center"
-                      >✎</button>
-                      <button
-                        aria-label={`Delete ${f.name}`}
-                        onClick={(e) => { e.stopPropagation(); handleDelete(f.url); }}
-                        className="w-5 h-5 rounded-full bg-black/50 text-white text-xs flex items-center justify-center"
-                      >×</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {editing ? (
-                <div className="mt-3 rounded-lg border border-bg-border bg-bg p-3 space-y-3">
-                  <div className="flex items-center gap-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={editing.url} alt="" className="w-12 h-12 rounded object-cover border border-bg-border" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-fg">Editing this picture</p>
-                      <p className="text-[11px] text-fg-muted truncate">
-                        {editing.usedOn && editing.usedOn.length > 0
-                          ? `Used on ${editing.usedOn.join(", ")}. Its address does not change.`
-                          : "Not used on any page yet."}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="media-name">Name</Label>
-                    <Input
-                      id="media-name"
-                      value={draftName}
-                      onChange={(e) => setDraftName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void saveEdits(); } }}
-                      placeholder="Hero — sunset over the bay"
-                      autoFocus
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="media-alt">What it shows</Label>
-                    <Input
-                      id="media-alt"
-                      value={draftAlt}
-                      onChange={(e) => setDraftAlt(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void saveEdits(); } }}
-                      placeholder="A harbour at dusk, with boats moored in the foreground"
-                    />
-                    <p className="text-[11px] text-fg-subtle mt-1">
-                      Travels with the picture onto the page, for a reader who cannot see it.
-                    </p>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
-                    <Button size="sm" onClick={saveEdits} loading={saving} disabled={!draftName.trim()}>Save</Button>
-                  </div>
+              {stockCategories.length > 1 ? (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  <button
+                    onClick={() => setActiveCategory(null)}
+                    className={cn("px-2.5 h-6 rounded-full text-xs capitalize", activeCategory === null ? "bg-brand text-white" : "bg-bg border border-bg-border text-fg-muted hover:text-fg")}
+                  >
+                    All
+                  </button>
+                  {stockCategories.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setActiveCategory(c)}
+                      className={cn("px-2.5 h-6 rounded-full text-xs capitalize", activeCategory === c ? "bg-brand text-white" : "bg-bg border border-bg-border text-fg-muted hover:text-fg")}
+                    >
+                      {c}
+                    </button>
+                  ))}
                 </div>
               ) : null}
-            </>
-          )
-        ) : !stockLoaded ? (
-          <div className="text-sm text-fg-muted text-center py-8">Loading…</div>
-        ) : stockPhotos.length === 0 ? (
-          <div className="text-sm text-fg-muted text-center py-8">
-            No stock photos in the library yet.
-            <br />
-            Use the Uploads tab to add your own image.
-          </div>
-        ) : (
-          <>
-            {stockCategories.length > 1 ? (
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                <button
-                  onClick={() => setActiveCategory(null)}
-                  className={cn("px-2.5 h-6 rounded-full text-xs capitalize", activeCategory === null ? "bg-brand text-white" : "bg-bg border border-bg-border text-fg-muted hover:text-fg")}
-                >
-                  All
-                </button>
-                {stockCategories.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setActiveCategory(c)}
-                    className={cn("px-2.5 h-6 rounded-full text-xs capitalize", activeCategory === c ? "bg-brand text-white" : "bg-bg border border-bg-border text-fg-muted hover:text-fg")}
+              {visibleStockPhotos.length === 0 ? (
+                <div className="text-sm text-fg-muted text-center py-8">
+                  No photograph here matches “{query}”.
+                </div>
+              ) : null}
+              <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
+                {visibleStockPhotos.map((p) => (
+                  <div
+                    key={p.id}
+                    className="group relative rounded-lg overflow-hidden border border-bg-border bg-bg cursor-pointer"
+                    onClick={async () => { const size = await measure(p.url); onSelect(p.url, { ...size, alt: p.alt }); onClose(); }}
+                    title={p.credit ? `Photo by ${p.credit}${p.license ? ` — ${p.license}` : ""}` : undefined}
                   >
-                    {c}
-                  </button>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.url} alt={p.alt} className="w-full h-24 object-cover" />
+                    {p.credit ? (
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-[10px] text-white truncate block">{p.credit}</span>
+                      </div>
+                    ) : null}
+                  </div>
                 ))}
               </div>
-            ) : null}
-            {visibleStockPhotos.length === 0 ? (
-              <div className="text-sm text-fg-muted text-center py-8">
-                No photograph here matches “{query}”.
-              </div>
-            ) : null}
-            <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto">
-              {visibleStockPhotos.map((p) => (
-                <div
-                  key={p.id}
-                  className="group relative rounded-lg overflow-hidden border border-bg-border bg-bg cursor-pointer"
-                  onClick={async () => { const size = await measure(p.url); onSelect(p.url, { ...size, alt: p.alt }); onClose(); }}
-                  title={p.credit ? `Photo by ${p.credit}${p.license ? ` — ${p.license}` : ""}` : undefined}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.url} alt={p.alt} className="w-full h-24 object-cover" />
-                  {p.credit ? (
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-[10px] text-white truncate block">{p.credit}</span>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </Overlay>
   );
 }

@@ -21,6 +21,7 @@ import { readClipboard, writeClipboard, pasteable } from "@/lib/clipboard";
 import { readRails, writeRails, RailState, RAILS_OPEN } from "@/lib/rails";
 import { SiteHeader, SiteFooter, SiteChrome, NavPage, LegalPage } from "@/components/public/SiteChrome";
 import { mapBlocks, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount, removeBlock, withFreshIds } from "@/lib/tree-utils";
+import { isFloating, layerOf, levelRange, withLayer } from "@/lib/block-layer";
 import { BlockPalette } from "./BlockPalette";
 import { BlockOutline } from "./BlockOutline";
 import { SavedBlocks } from "./SavedBlocks";
@@ -368,6 +369,33 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     return { columnsBlockId, current, count: columnCount(parent) };
   }, [selectedId, parentMap, blocks]);
 
+  /**
+   * How far forward or back the blocks around this one are, so the inspector's
+   * "bring to front" can mean in front of its actual neighbours rather than a
+   * number the author has to guess at.
+   */
+  const selectedLevels = useMemo(() => {
+    const container = selectedId ? parentMap.get(selectedId) : null;
+    return levelRange(container ? containerMap.get(container) ?? [] : []);
+  }, [selectedId, parentMap, containerMap]);
+
+  /**
+   * Nudging a floating block with the arrow keys.
+   *
+   * Dragging is how a float is placed, and dragging cannot line two of them up
+   * with each other — the last half-percent is a keyboard job. Shift moves it
+   * a whole step at a time. Keyed as one edit so holding an arrow down is one
+   * undo press back, not forty.
+   */
+  function nudgeSelected(dx: number, dy: number) {
+    if (!selectedId) return;
+    const block = findBlock(blocks, selectedId);
+    if (!block || !isFloating(block)) return;
+    const layer = layerOf(block);
+    const moved = withLayer(block, { x: layer.x + dx, y: layer.y + dy });
+    pushHistory(mapBlocks(blocks, (b) => (b.id === selectedId ? moved : b)), `layer:${selectedId}`);
+  }
+
   function moveSelectedToColumn(target: number) {
     if (!selectedId || !selectedPlacement) return;
     const from = parentMap.get(selectedId);
@@ -437,6 +465,17 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
         e.preventDefault();
         deleteBlock(selectedId);
         return;
+      }
+      // Arrow keys nudge a floating block. Only a floating one: in the flow
+      // there is nowhere to nudge to, and the arrows still scroll the canvas.
+      if (e.key.startsWith("Arrow") && selectedId && !isTextEntry(document.activeElement)) {
+        const selected = findBlock(blocks, selectedId);
+        if (selected && isFloating(selected)) {
+          const step = e.shiftKey ? 2 : 0.5;
+          const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+          const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+          if (dx !== 0 || dy !== 0) { e.preventDefault(); nudgeSelected(dx, dy); return; }
+        }
       }
       // Escape — deselect
       if (e.key === "Escape") { setSelectedId(null); return; }
@@ -889,6 +928,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
                   ? { current: selectedPlacement.current, count: selectedPlacement.count, onMove: moveSelectedToColumn }
                   : undefined
               }
+              levels={selectedLevels}
               onSaveForReuse={saveForReuse}
               linkTargets={linkTargets}
               siteSlug={siteSlug}

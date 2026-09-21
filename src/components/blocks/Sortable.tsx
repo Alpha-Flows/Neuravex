@@ -1,10 +1,12 @@
 "use client";
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { BaseBlock, BlockType } from "@/types";
+import { BaseBlock, BlockLayer, BlockType } from "@/types";
 import { BlockView } from "./BlockView";
+import { LayerFrame } from "./LayerFrame";
+import { clampOffset, clampWidth, floatsOnly, layerBoxes, layerOf } from "@/lib/block-layer";
 import { cn } from "@/lib/utils";
 
 interface BlockChromeProps {
@@ -14,6 +16,8 @@ interface BlockChromeProps {
   onSelect: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  /** Move or resize this block's float. Absent when the block is in the flow. */
+  onLayerChange?: (patch: Partial<BlockLayer>) => void;
   /** First block on the page — its controls have no room above, so they sit inside. */
   atTop?: boolean;
   /** Held in the page's content column, as the published page holds it. */
@@ -32,17 +36,104 @@ interface BlockChromeProps {
  * neighbouring column for everything else. Above-right keeps them reachable
  * for every block and clear of the block's own content, so clicking a block
  * always selects it instead of hitting a button.
+ *
+ * It also places the block at its depth, through the same `layerBoxes()` the
+ * published page uses. For a block in the flow that is nothing but a z-index;
+ * for a floating one it is a wrapper the block is positioned inside, and the
+ * drag handle then moves it rather than reordering it — there is no order to
+ * change when a block takes no room in the list.
  */
-function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplicate, atTop, inPageColumn, children }: BlockChromeProps) {
-  return (
+function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplicate, onLayerChange, atTop, inPageColumn, children }: BlockChromeProps) {
+  const { outer, inner } = layerBoxes(block);
+  const placed = layerOf(block);
+  const floating = outer !== null;
+  const outerRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * Where the block is while it is being dragged. Held here rather than
+   * reported on every pointer move: a drag is one change to the page, and
+   * writing each frame into the page's history would cost a second of undo
+   * presses to get back to where the block started.
+   */
+  const [live, setLive] = useState<{ x: number; y: number; width: number } | null>(null);
+  const stopDragRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopDragRef.current?.(), []);
+
+  const shown = live ?? placed;
+  const outerStyle = outer ? { ...outer, top: `${shown.y}%` } : undefined;
+  const innerStyle = floating
+    ? { ...inner, marginLeft: `${shown.x}%`, width: `${shown.width}%` }
+    : inner;
+
+  /**
+   * Dragging a float, in the units it is stored in.
+   *
+   * Both handles measure against the same two boxes the layout uses: the width
+   * a percentage offset resolves against is the wrapper's content box, and the
+   * height `y` resolves against is the stack the wrapper is positioned in. Read
+   * once when the drag starts — neither can change while a block that takes no
+   * room in the flow is being moved around.
+   */
+  function beginDrag(e: React.PointerEvent, kind: "move" | "resize") {
+    if (!onLayerChange) return;
+    const wrapper = outerRef.current;
+    const stack = wrapper?.offsetParent as HTMLElement | null;
+    if (!wrapper || !stack) return;
+    const style = getComputedStyle(wrapper);
+    const refWidth = wrapper.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
+    const refHeight = stack.clientHeight;
+    if (refWidth <= 0 || refHeight <= 0) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    onSelect();
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const from = { x: placed.x, y: placed.y, width: placed.width };
+    let latest = from;
+
+    const onMove = (ev: PointerEvent) => {
+      const dx = ((ev.clientX - startX) / refWidth) * 100;
+      const dy = ((ev.clientY - startY) / refHeight) * 100;
+      latest =
+        kind === "move"
+          ? { ...from, x: clampOffset(from.x + dx), y: clampOffset(from.y + dy) }
+          : { ...from, width: clampWidth(from.width + dx) };
+      setLive(latest);
+    };
+    const finish = () => {
+      stopDragRef.current?.();
+      setLive(null);
+      if (latest !== from) {
+        onLayerChange(kind === "move" ? { x: latest.x, y: latest.y } : { width: latest.width });
+      }
+    };
+    stopDragRef.current = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      stopDragRef.current = null;
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+  }
+
+  const body = (
     <div
       ref={sortable.setNodeRef}
       style={{
         transform: CSS.Transform.toString(sortable.transform),
         transition: sortable.transition,
         opacity: sortable.isDragging ? 0.5 : 1,
+        ...innerStyle,
       }}
-      className={cn("editor-block relative group", inPageColumn && "nvx-site-column", isSelected && "is-selected")}
+      className={cn(
+        "editor-block relative group",
+        !floating && inPageColumn && "nvx-site-column",
+        floating && "is-floating",
+        isSelected && "is-selected",
+      )}
       onClick={(e) => {
         e.stopPropagation();
         onSelect();
@@ -66,15 +157,27 @@ function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplic
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          {...sortable.attributes}
-          {...sortable.listeners}
-          aria-label="Drag block"
-          className="w-6 h-6 rounded text-fg-muted hover:text-fg hover:bg-bg-soft flex items-center justify-center cursor-grab active:cursor-grabbing"
-          title="Drag to reorder"
-        >
-          <span className="leading-none text-xs">⋮⋮</span>
-        </button>
+        {floating ? (
+          // A float has no place in the order, so the handle moves it instead.
+          <button
+            onPointerDown={(e) => beginDrag(e, "move")}
+            aria-label="Move block"
+            className="w-6 h-6 rounded text-fg-muted hover:text-fg hover:bg-bg-soft flex items-center justify-center cursor-grab active:cursor-grabbing touch-none"
+            title="Drag to place it over the page"
+          >
+            <span className="leading-none text-xs">✥</span>
+          </button>
+        ) : (
+          <button
+            {...sortable.attributes}
+            {...sortable.listeners}
+            aria-label="Drag block"
+            className="w-6 h-6 rounded text-fg-muted hover:text-fg hover:bg-bg-soft flex items-center justify-center cursor-grab active:cursor-grabbing"
+            title="Drag to reorder"
+          >
+            <span className="leading-none text-xs">⋮⋮</span>
+          </button>
+        )}
         <button
           aria-label="Duplicate block"
           className="w-6 h-6 rounded text-fg-muted hover:text-fg hover:bg-bg-soft flex items-center justify-center"
@@ -93,6 +196,28 @@ function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplic
         </button>
       </div>
       {children}
+      {floating ? (
+        // Width, dragged. A float is sized as a share of the area it floats in,
+        // and typing 43 into the inspector is a poor way to find out which
+        // share puts the words where you want them.
+        <button
+          onPointerDown={(e) => beginDrag(e, "resize")}
+          aria-label="Resize block"
+          title="Drag to set how wide it is"
+          className={cn(
+            "nvx-block-chrome absolute top-1/2 -right-1.5 -translate-y-1/2 z-20 w-3 h-8 rounded-sm touch-none",
+            "bg-brand/80 border border-white/40 shadow cursor-ew-resize",
+          )}
+        />
+      ) : null}
+    </div>
+  );
+
+  if (!outerStyle) return body;
+
+  return (
+    <div ref={outerRef} className={cn("nvx-layer", inPageColumn && "nvx-site-column")} style={outerStyle}>
+      {body}
     </div>
   );
 }
@@ -123,11 +248,19 @@ interface SortableBlockProps {
 }
 
 export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate, selectedId, disabled, pageId, onSelectId, onChildDelete, onChildDuplicate, atTop, inPageColumn }: SortableBlockProps) {
-  const sortable = useSortable({ id: block.id, disabled });
+  const floating = block.layer?.mode === "float";
+  // A floating block is placed, not ordered: dragging it to a different point
+  // in a list it does not occupy would move nothing anyone can see. Its handle
+  // moves it across the page instead, so the sortable is switched off.
+  const sortable = useSortable({ id: block.id, disabled: disabled || floating });
   const isSelected = selectedId === block.id;
 
   if (disabled) {
-    return <BlockView block={block} onChange={onChange} disabled pageId={pageId} />;
+    return (
+      <LayerFrame block={block} inPageColumn={inPageColumn}>
+        <BlockView block={block} onChange={onChange} disabled pageId={pageId} />
+      </LayerFrame>
+    );
   }
 
   // A change coming out of this block is keyed by this block, unless it
@@ -142,6 +275,9 @@ export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate
       onSelect={onSelect}
       onDelete={onDelete}
       onDuplicate={onDuplicate}
+      onLayerChange={(patch) =>
+        onChange({ ...block, layer: { ...layerOf(block), ...patch } }, `layer:${block.id}`)
+      }
       atTop={atTop}
       inPageColumn={inPageColumn}
     >
@@ -206,9 +342,11 @@ export function SortableContainer({
         // canvas that spaced them out by 12px was showing a layout nobody would
         // ever get. Hovering outlines a block, which is what makes one
         // distinguishable from the next.
-        // `relative` so the end-of-list drop target below can be pinned to the
-        // bottom edge without taking a line of its own.
-        <div className="relative">
+        // `nvx-block-stack` makes this the frame a floating block is placed
+        // against and the stacking context depth is settled in — the same
+        // class the published page puts round the same list of blocks — and
+        // gives the end-of-list drop target below something to be pinned to.
+        <div className="nvx-block-stack" data-floats-only={floatsOnly(blocks) ? "true" : undefined}>
           {blocks.map((b, i) => (
             <SortableBlock
               key={b.id}

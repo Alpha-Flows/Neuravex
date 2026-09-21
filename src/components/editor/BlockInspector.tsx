@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { BaseBlock, HeadingProps, TextProps, ImageProps, ButtonProps, DividerProps, SpacerProps, SectionProps, ColumnsProps, ColumnStyle, VideoProps, QuoteProps, ListProps, FormProps, HtmlProps } from "@/types";
+import { BaseBlock, BlockLayer, HeadingProps, TextProps, ImageProps, ButtonProps, DividerProps, SpacerProps, SectionProps, ColumnsProps, ColumnStyle, VideoProps, QuoteProps, ListProps, FormProps, HtmlProps } from "@/types";
 import { clampColumnCount } from "@/lib/tree-utils";
+import { clampLevel, layerOf, MAX_LEVEL, MIN_LEVEL, withLayer } from "@/lib/block-layer";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { MediaPicker } from "./MediaPicker";
@@ -21,6 +22,12 @@ interface Props {
   onClose: () => void;
   /** Set when the block is a child of a columns block. */
   placement?: Placement;
+  /**
+   * The highest and lowest level among the blocks this one shares a container
+   * with, so "bring to front" can mean in front of *these* rather than a
+   * number somebody has to guess.
+   */
+  levels?: { min: number; max: number };
   /** Keeps this block, under a name, for use on any page. */
   onSaveForReuse?: (name: string) => Promise<void> | void;
   /** Every page of this site, so a link can be picked instead of typed. */
@@ -28,7 +35,7 @@ interface Props {
   siteSlug?: string;
 }
 
-export function BlockInspector({ block, onChange, onClose, placement, onSaveForReuse, linkTargets, siteSlug }: Props) {
+export function BlockInspector({ block, onChange, onClose, placement, levels, onSaveForReuse, linkTargets, siteSlug }: Props) {
   if (!block) {
     return (
       <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full p-4 text-sm text-fg-muted">
@@ -53,6 +60,7 @@ export function BlockInspector({ block, onChange, onClose, placement, onSaveForR
       <div className="p-4 space-y-4">
         {placement ? <ColumnPlacement placement={placement} /> : null}
         <InspectorBody block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />
+        <DepthPanel block={block} onChange={onChange} levels={levels ?? { min: 0, max: 0 }} />
         {onSaveForReuse ? <SaveForReuse block={block} onSave={onSaveForReuse} /> : null}
       </div>
     </aside>
@@ -148,6 +156,149 @@ function ColumnPlacement({ placement }: { placement: Placement }) {
       <p className="text-xs text-fg-subtle mt-1.5">
         Blocks stay in the column you pick. On phones the columns stack in this order.
       </p>
+    </div>
+  );
+}
+
+/**
+ * Depth: what this block sits over, and whether it is lifted out of the flow
+ * to sit over anything at all.
+ *
+ * Every block on a page used to be in one flat stack, so putting a caption on
+ * a photograph was not something this builder could do — the caption pushed
+ * the photograph down, and the photograph pushed the caption down. "Floating"
+ * takes a block out of the flow: it stops taking room of its own, so nothing
+ * around it moves, and it is placed over its neighbours by the three
+ * percentages below or by dragging it on the canvas. "Level" then says which
+ * of two overlapping blocks is in front, and works in the flow too — a
+ * section's background can be made to run over the block above it without
+ * anything floating at all.
+ */
+function DepthPanel({
+  block,
+  onChange,
+  levels,
+}: {
+  block: BaseBlock;
+  onChange: (next: BaseBlock) => void;
+  levels: { min: number; max: number };
+}) {
+  const layer = layerOf(block);
+  const floating = layer.mode === "float";
+  const set = (patch: Partial<BlockLayer>) => onChange(withLayer(block, patch));
+
+  return (
+    <div className="pt-4 border-t border-bg-border space-y-3">
+      <div className="text-[11px] uppercase tracking-wide text-fg-subtle font-semibold">Depth</div>
+
+      <Field label="Placement">
+        <div className="inline-flex rounded-md border border-bg-border overflow-hidden w-full">
+          {([
+            { mode: "flow" as const, label: "In the flow" },
+            { mode: "float" as const, label: "Floating" },
+          ]).map((option) => (
+            <button
+              key={option.mode}
+              onClick={() => set({ mode: option.mode })}
+              aria-pressed={layer.mode === option.mode}
+              className={`flex-1 h-8 text-xs ${
+                layer.mode === option.mode ? "bg-brand text-white" : "text-fg-muted hover:text-fg hover:bg-bg-card"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </Field>
+
+      <Field label="Level">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => set({ level: clampLevel(layer.level - 1) })}
+            disabled={layer.level <= MIN_LEVEL}
+            aria-label="Send one level back"
+            title="Send one level back"
+            className="w-8 h-8 shrink-0 rounded-md border border-bg-border text-fg-muted hover:text-fg hover:bg-bg-card disabled:opacity-30"
+          >
+            –
+          </button>
+          <Input
+            type="number"
+            min={MIN_LEVEL}
+            max={MAX_LEVEL}
+            value={String(layer.level)}
+            aria-label="Depth level"
+            onChange={(e) => set({ level: clampLevel(Number(e.target.value)) })}
+            className="h-8 text-xs text-center"
+          />
+          <button
+            onClick={() => set({ level: clampLevel(layer.level + 1) })}
+            disabled={layer.level >= MAX_LEVEL}
+            aria-label="Bring one level forward"
+            title="Bring one level forward"
+            className="w-8 h-8 shrink-0 rounded-md border border-bg-border text-fg-muted hover:text-fg hover:bg-bg-card disabled:opacity-30"
+          >
+            +
+          </button>
+        </div>
+      </Field>
+
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => set({ level: clampLevel(levels.max + 1) })}
+          className="flex-1 h-8 rounded-md border border-bg-border text-xs text-fg-muted hover:text-fg hover:border-brand/60"
+        >
+          Bring to front
+        </button>
+        <button
+          onClick={() => set({ level: clampLevel(levels.min - 1) })}
+          className="flex-1 h-8 rounded-md border border-bg-border text-xs text-fg-muted hover:text-fg hover:border-brand/60"
+        >
+          Send to back
+        </button>
+      </div>
+
+      {floating ? (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <PercentField label="Left" value={layer.x} onChange={(v) => set({ x: v })} />
+            <PercentField label="Top" value={layer.y} onChange={(v) => set({ y: v })} />
+            <PercentField label="Width" value={layer.width} onChange={(v) => set({ width: v })} />
+          </div>
+          <p className="text-xs text-fg-subtle">
+            Measured as a share of the area it floats in — the section, the column, or the page — so it stays in the
+            same place on a phone as on a desktop. Drag the ✥ handle to move it, or the bar on its right edge to set
+            how wide it is. The arrow keys nudge it whenever the caret is not in its own text.
+          </p>
+        </>
+      ) : (
+        <p className="text-xs text-fg-subtle">
+          In the flow, this block takes its own room and pushes the next one down. Set it floating to lay it over its
+          neighbours instead — a headline on a photograph, a badge on a card.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PercentField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div>
+      <Label>{label}</Label>
+      <div className="relative">
+        <Input
+          type="number"
+          step={1}
+          value={String(value)}
+          aria-label={`${label} (percent)`}
+          onChange={(e) => {
+            const next = Number(e.target.value);
+            if (Number.isFinite(next)) onChange(next);
+          }}
+          className="h-8 text-xs pr-5"
+        />
+        <span aria-hidden className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-fg-subtle">%</span>
+      </div>
     </div>
   );
 }

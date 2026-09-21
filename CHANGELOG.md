@@ -78,6 +78,14 @@ identifier in brackets is the finding it closes.
 
 ### Added
 
+- **Depth.** Every block now carries a level, and can be lifted out of the flow
+  to float over its neighbours — so a headline can sit on a photograph instead
+  of pushing it down the page. The inspector has a Depth panel (in the flow or
+  floating, a level, bring to front / send to back, and the three percentages a
+  float is placed by); on the canvas a float is dragged by its ✥ handle, sized
+  by the bar on its right edge, and nudged with the arrow keys. Placement is a
+  share of the area the block floats in, so it holds at every window width, and
+  it carries through to the published page and the downloaded site.
 - `SECURITY.md`, this changelog, and a filled-in licence. [NVX-039]
 - `npm run backup`, which takes a consistent snapshot of a live database and
   copies the uploads with it. [NVX-037]
