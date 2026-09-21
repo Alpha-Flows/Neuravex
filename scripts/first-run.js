@@ -17,12 +17,11 @@
  * Used by the desktop launcher, and on its own as `npm run setup`.
  */
 
-const { execFileSync } = require("child_process");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const { ROOT, runBin, captureBin } = require("./local-bin");
 
-const ROOT = path.resolve(__dirname, "..");
 const ENV_FILE = path.join(ROOT, ".env");
 const ENV_EXAMPLE = path.join(ROOT, ".env.example");
 const SCHEMA = path.join(ROOT, "prisma", "schema.prisma");
@@ -53,31 +52,6 @@ function writeState(state) {
   } catch {
     // A read-only install is not a reason to refuse to start; the only cost
     // is that the next launch checks the schema again.
-  }
-}
-
-function run(command, args) {
-  execFileSync(command, args, {
-    cwd: ROOT,
-    stdio: "inherit",
-    env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
-    shell: process.platform === "win32",
-  });
-}
-
-/** Runs a command and hands back everything it said, failure included. */
-function capture(command, args) {
-  try {
-    const out = execFileSync(command, args, {
-      cwd: ROOT,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
-      shell: process.platform === "win32",
-    });
-    return { ok: true, output: out };
-  } catch (err) {
-    return { ok: false, output: `${err.stdout || ""}${err.stderr || ""}` };
   }
 }
 
@@ -149,18 +123,18 @@ function ensureDatabase() {
   // and the app then queries columns the database no longer has. This only
   // runs when the schema has actually moved, so it costs nothing on a normal
   // start.
-  const first = capture("npx", ["prisma", "db", "push"]);
+  const first = captureBin("prisma", ["db", "push"]);
   if (!first.ok) {
     if (!lossIsIntentional(first.output)) {
       // db push refuses rather than destroying data it cannot keep, and so
       // does this: whatever it is, it is not something we said was worthless.
       process.stdout.write(first.output);
       say("Could not update the database automatically.");
-      say("Your data is untouched. Run `npx prisma db push` to see what it needs.");
+      say("Your data is untouched. Run `npm run db:push` to see what it needs.");
       throw new Error("database not ready");
     }
     say("Removing settings that were taken out of Neuravex. Your sites are not affected.");
-    const second = capture("npx", ["prisma", "db", "push", "--accept-data-loss"]);
+    const second = captureBin("prisma", ["db", "push", "--accept-data-loss"]);
     if (!second.ok) {
       process.stdout.write(second.output);
       say("Could not update the database automatically. Your data is untouched.");
@@ -175,7 +149,7 @@ function ensureDatabase() {
 function seedIfFirstRun(created) {
   if (!created) return;
   try {
-    run("npm", ["run", "db:seed"]);
+    runBin("tsx", ["prisma/seed.ts"]);
   } catch {
     // An empty builder is a perfectly good builder.
     say("Could not add the demo site. Starting with an empty builder.");

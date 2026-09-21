@@ -17,8 +17,8 @@ describe("starting over with a fresh database", () => {
     // anyone runs it — and SQLite can refuse the schema with "database is
     // locked": the sites are gone, the tables never arrive, and every page
     // then throws "The table `main.Site` does not exist".
-    const build = script.indexOf('"prisma", "db", "push"');
-    const seed = script.indexOf('"tsx", "prisma/seed.ts"');
+    const build = script.indexOf('runBin("prisma", ["db", "push", "--force-reset"]');
+    const seed = script.indexOf('runBin("tsx", ["prisma/seed.ts"]');
     const swap = script.indexOf("renameSync");
     expect(build).toBeGreaterThan(-1);
     expect(seed).toBeGreaterThan(build);
@@ -28,7 +28,9 @@ describe("starting over with a fresh database", () => {
   it("builds it somewhere else, so a failure costs nothing", () => {
     expect(script).toContain("const fresh = `${live}.new`");
     // Both build steps are pointed at the new file, never at the live one.
-    for (const call of script.matchAll(/run\("npx", \[[^\]]*\], (.+?)\);/g)) {
+    const calls = [...script.matchAll(/runBin\("[^"]+", \[[^\]]*\], \{ env: \{ DATABASE_URL: (.+?) \} \}\);/g)];
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
       expect(call[1]).toBe("`file:${fresh}`");
     }
   });

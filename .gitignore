@@ -16,3 +16,9 @@ prisma/dev.db-wal
 
 # First-run state: which schema this copy has applied
 prisma/.neuravex-state.json
+
+# Incremental TypeScript build state: a local artefact, not source
+tsconfig.tsbuildinfo
+
+# Local backups taken with `npm run backup`
+backups/
