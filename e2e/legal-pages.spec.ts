@@ -253,7 +253,7 @@ test.describe("The flow", () => {
     // generated notice made a claim on the strength of it. The flow asks now,
     // and will not write the pages until it has been told (NVX-040).
     await modal.getByLabel(/data processing agreement/).selectOption("yes");
-    await modal.getByLabel(/happens to what people send/).selectOption("builder");
+    await modal.getByLabel(/What happens to a submission/).selectOption("builder");
     await modal.getByLabel(/How long you keep it/).fill("6 Monate");
     await modal.getByRole("button", { name: "Next" }).click();
 
