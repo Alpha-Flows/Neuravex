@@ -97,6 +97,25 @@ export function relativizeSelfUrls(html: string): string {
   return html.replace(ABSOLUTE_SELF, (_match, quote: string, dir: string) => `${quote}/${dir}/`);
 }
 
+/**
+ * An absolute link back at this site's own pages, made relative.
+ *
+ * Now that the published page carries a `metadataBase`, its canonical link is
+ * absolute — which is what it should be on the served site, and wrong the
+ * moment the folder is downloaded: `rewriteSiteLinks` below matches a path
+ * beginning `/sites/<slug>`, so an absolute one went through untouched and the
+ * customer's exported page pointed its canonical at the machine that built it.
+ * Only this site's own slug is rewritten, so a deliberate link to another
+ * Neuravex instance is left alone.
+ */
+export function relativizeSiteUrls(html: string, siteSlug: string): string {
+  const escaped = siteSlug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return html.replace(
+    new RegExp(`(["'(])https?://[^"')\\s]*?(/sites/${escaped})(?=[/"')\\s]|$)`, "gi"),
+    (_match, quote: string, path: string) => `${quote}${path}`,
+  );
+}
+
 /** Every bundled upload or stock photo the page points at. */
 export function collectLocalAssets(html: string): string[] {
   const found = new Set<string>();
@@ -199,6 +218,7 @@ export function prepareExportedPage(
   let out = stripAppRuntime(html);
   out = cleanBodyClasses(out);
   out = relativizeSelfUrls(out);
+  out = relativizeSiteUrls(out, siteSlug);
   out = rewriteSiteLinks(out, siteSlug, pages);
   const assets = collectLocalAssets(out);
   out = rewriteAssetPaths(out);

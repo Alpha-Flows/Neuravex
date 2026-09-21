@@ -11,6 +11,7 @@ import {
   injectExportCsp,
   disableExportedForms,
   relativizeSelfUrls,
+  relativizeSiteUrls,
 } from "@/lib/static-export";
 
 describe("pageFileName", () => {
@@ -215,5 +216,34 @@ describe("an absolute URL back at the builder", () => {
     const relative = relativizeSelfUrls(html);
     expect(relative).toContain('content="/uploads/hero.png"');
     expect(collectLocalAssets(relative)).toEqual(["uploads/hero.png"]);
+  });
+});
+
+describe("an absolute link back at this site's own pages", () => {
+  it("becomes a neighbouring file in the download", () => {
+    // The published page carries a metadataBase now, so its canonical is
+    // absolute — right on the served site, wrong in a downloaded folder,
+    // where it pointed at the machine that built it.
+    const html = '<link rel="canonical" href="http://127.0.0.1:3939/sites/acme/about"/>';
+    const relative = relativizeSiteUrls(html, "acme");
+    expect(relative).toContain('href="/sites/acme/about"');
+    expect(rewriteSiteLinks(relative, "acme", new Map([["about", "about.html"]])))
+      .toContain('href="about.html"');
+  });
+
+  it("turns the site root into index.html", () => {
+    const html = '<link rel="canonical" href="https://example.com/sites/acme"/>';
+    const relative = relativizeSiteUrls(html, "acme");
+    expect(rewriteSiteLinks(relative, "acme", new Map())).toContain('href="index.html"');
+  });
+
+  it("leaves another instance's site alone", () => {
+    const html = '<a href="https://elsewhere.example/sites/other/page">them</a>';
+    expect(relativizeSiteUrls(html, "acme")).toBe(html);
+  });
+
+  it("does not maul a slug that merely starts the same way", () => {
+    const html = '<a href="https://x.example/sites/acme-two/page">x</a>';
+    expect(relativizeSiteUrls(html, "acme")).toBe(html);
   });
 });

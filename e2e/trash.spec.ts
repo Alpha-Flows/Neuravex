@@ -56,7 +56,9 @@ test.describe("Deleting a site", () => {
 
     // The answers people sent through the form came back too.
     const subs = await (await request.get(`/api/pages/${restoredHome.id}/submissions`)).json();
-    expect(subs).toHaveLength(1);
+    // A total and an offset, not a bare array (NVX-058).
+    expect(subs.total).toBe(1);
+    expect(subs.submissions).toHaveLength(1);
     expect(subs[0].data).toContain("A visitor");
 
     // Its history survived the round trip.
