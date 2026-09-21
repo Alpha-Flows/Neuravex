@@ -41,10 +41,15 @@ const gmbh = (over: Partial<LegalProfile> = {}): LegalProfile => ({
   registerCourt: "Amtsgericht Berlin-Charlottenburg",
   registerNumber: "HRB 123456",
   hostingProvider: "Hetzner Online GmbH",
+  // Both of these used to have a default standing in for an answer. The
+  // fixture states them, because a complete profile is one where somebody has.
+  hostingDpa: "yes",
+  formFate: "builder",
+  formRetention: "bis zur abschließenden Bearbeitung",
   ...over,
 });
 
-const emptyAudit = { findings: [], hasForm: false, remoteHosts: [], selfContained: true };
+const emptyAudit = { findings: [], hasForm: false, remoteHosts: [], linkHosts: [], selfContained: true };
 
 describe("what the law asks of whom", () => {
   it("asks a GmbH for its representatives and its register, and a sole trader for neither", () => {
@@ -194,6 +199,7 @@ describe("the Datenschutzerklärung", () => {
       findings: [],
       hasForm: false,
       remoteHosts: ["fonts.googleapis.com", "www.youtube.com"],
+      linkHosts: [],
       selfContained: false,
     };
     const out = text(buildDatenschutz(gmbh(), audit, DEFAULT_LOOK));
@@ -202,18 +208,37 @@ describe("the Datenschutzerklärung", () => {
     expect(out).toContain("§ 25 Abs. 1 TDDDG");
   });
 
-  it("says a form sends nothing when that is what it does", () => {
+  it("describes what the form actually does with an answer", () => {
     const audit = { ...emptyAudit, hasForm: true };
-    const out = text(buildDatenschutz(gmbh({ formFate: "none" }), audit, DEFAULT_LOOK));
-    expect(out).toContain("übermittelt derzeit keine Daten");
 
-    const emailed = text(buildDatenschutz(gmbh({ formFate: "email", formRetention: "6 Monate" }), audit, DEFAULT_LOOK));
+    const stored = text(buildDatenschutz(gmbh(), audit, DEFAULT_LOOK));
+    expect(stored).toContain("an unseren Server übermittelt und dort gespeichert");
+
+    const emailed = text(buildDatenschutz(gmbh({ formFate: "email" as const, formRetention: "6 Monate" }), audit, DEFAULT_LOOK));
     expect(emailed).toContain("an unsere E-Mail-Adresse übermittelt");
     expect(emailed).toContain("6 Monate");
   });
 
+  it("no longer promises that an unwired form keeps everything in the browser", () => {
+    // The old text said input "verlässt Ihren Browser nicht und wird nirgends
+    // gespeichert". On a builder-served page the form posts to
+    // /api/submissions; on the exported page the script is stripped and the
+    // <form> has no action, so Send is a native GET that puts every field
+    // into the URL and the host's access log.
+    const audit = { ...emptyAudit, hasForm: true };
+    const out = text(buildDatenschutz(gmbh({ formFate: "none" as const }), audit, DEFAULT_LOOK));
+    expect(out).not.toContain("verlassen Ihren Browser nicht");
+    expect(out).not.toContain("nirgends gespeichert");
+    expect(out).toContain("Adresszeile");
+  });
+
+  it("says nothing about a processing agreement nobody was asked about", () => {
+    const out = text(buildDatenschutz(gmbh({ hostingDpa: "" as const }), emptyAudit, DEFAULT_LOOK));
+    expect(out).not.toContain("Art. 28 DSGVO");
+  });
+
   it("does not claim a processing agreement it was told there is none of", () => {
-    const out = text(buildDatenschutz(gmbh({ hostingDpa: false }), emptyAudit, DEFAULT_LOOK));
+    const out = text(buildDatenschutz(gmbh({ hostingDpa: "no" }), emptyAudit, DEFAULT_LOOK));
     expect(out).not.toContain("Art. 28 DSGVO");
   });
 
@@ -345,5 +370,80 @@ describe("the pages that come out", () => {
     expect(headings[0].props.size).toBe(2);
     expect(headings[1].props.level).toBe(2);
     expect(headings[1].props.size).toBe(4);
+  });
+});
+
+describe("the audit looks where content actually is", () => {
+  const page = (blocks: unknown[]) => ({ title: "Home", content: JSON.stringify(blocks) });
+
+  it("reads the sanitised form, which is what the browser is handed", () => {
+    // A tracker `<img>` written into a Text block used to load on every page
+    // view and never reach the audit, so an otherwise self-contained site
+    // declared that nothing is loaded from third parties. The inline-text
+    // profile drops `img` outright now, so nothing loads and the audit's
+    // silence is the truth rather than a blind spot.
+    const audit = auditSite({
+      pages: [page([{ id: "t", type: "text", props: { text: '<img src="https://tracker.example/p.gif">hello' } }])],
+    });
+    expect(audit.remoteHosts).toEqual([]);
+    expect(audit.selfContained).toBe(true);
+  });
+
+  it("finds a link written into a rich-text prop, as a link", () => {
+    const audit = auditSite({
+      pages: [page([{ id: "t", type: "text", props: { text: '<a href="https://instagram.com/x">us</a>' } }])],
+    });
+    expect(audit.linkHosts).toEqual(["instagram.com"]);
+    // Followed on a click, so nothing is transmitted when the page opens.
+    expect(audit.remoteHosts).toEqual([]);
+    expect(audit.selfContained).toBe(true);
+  });
+
+  it("finds a picture a block points at somebody else's server", () => {
+    const audit = auditSite({
+      pages: [page([{ id: "i", type: "image", props: { src: "https://cdn.example/a.png" } }])],
+    });
+    expect(audit.remoteHosts).toEqual(["cdn.example"]);
+  });
+
+  it("finds an unquoted attribute value in custom HTML", () => {
+    // The regex this replaces wanted quotes around the value. The sanitiser
+    // normalises it and the browser loads it.
+    const audit = auditSite({
+      pages: [page([{ id: "h", type: "html", props: { html: "<img src=https://unquoted.example/p.gif>" } }])],
+    });
+    expect(audit.remoteHosts).toContain("unquoted.example");
+  });
+
+  it("finds an embed, and reports it as one", () => {
+    const audit = auditSite({
+      pages: [
+        page([
+          { id: "h", type: "html", props: { html: '<iframe src="https://www.youtube.com/embed/x"></iframe>' } },
+        ]),
+      ],
+    });
+    expect(audit.findings.some((f) => f.kind === "embed")).toBe(true);
+    expect(audit.remoteHosts).toContain("www.youtube.com");
+  });
+
+  it("does not report a footer hyperlink as something loaded on page open", () => {
+    // A footer link to instagram.com used to produce a "chrome-remote"
+    // finding, make the site not self-contained, and put a paragraph in the
+    // notice saying the visitor's IP is transmitted when the page loads.
+    const audit = auditSite({ pages: [], footerHtml: '<a href="https://instagram.com/x">Instagram</a>' });
+    expect(audit.remoteHosts).toEqual([]);
+    expect(audit.selfContained).toBe(true);
+    expect(audit.linkHosts).toEqual(["instagram.com"]);
+  });
+
+  it("walks a deeply nested tree without running out of stack", () => {
+    // About 8000 levels used to overflow here: a 500 on the legal panel with
+    // nothing to click past. Built as text, because JSON.stringify would
+    // overflow on the way in.
+    const depth = 9000;
+    const open = '[{"id":"s","type":"section","props":{},"children":';
+    const content = open.repeat(depth) + '[{"id":"t","type":"text","props":{"text":"deep"}}]' + "}]".repeat(depth);
+    expect(() => auditSite({ pages: [{ title: "Home", content }] })).not.toThrow();
   });
 });

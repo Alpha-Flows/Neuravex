@@ -43,7 +43,7 @@ export default async function SiteAdmin({ params }: { params: { id: string } }) 
             <LegalFlow siteId={site.id} siteSlug={site.slug} />
             <DownloadSiteButton siteId={site.id} disabled={!pages.some((p) => p.published)} />
             {pages.find((p) => p.isHome && p.published) ? (
-              <Link href={`/sites/${site.slug}`} target="_blank">
+              <Link href={`/sites/${site.slug}`} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline">View site ↗</Button>
               </Link>
             ) : null}
@@ -127,7 +127,7 @@ export default async function SiteAdmin({ params }: { params: { id: string } }) 
                           <Button size="sm" variant="outline">Edit</Button>
                         </Link>
                         {p.published ? (
-                          <Link href={p.isHome ? `/sites/${site.slug}` : `/sites/${site.slug}/${p.slug}`} target="_blank">
+                          <Link href={p.isHome ? `/sites/${site.slug}` : `/sites/${site.slug}/${p.slug}`} target="_blank" rel="noopener noreferrer">
                             <Button size="sm" variant="ghost">View</Button>
                           </Link>
                         ) : null}

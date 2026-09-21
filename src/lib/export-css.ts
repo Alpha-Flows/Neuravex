@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import type { Root } from "postcss";
@@ -13,7 +14,39 @@ import { cssFunctionCalls, decodeCssEscapes, neutralizeStyleEnd, UNREADABLE_CALL
  * along too, since the public pages lean on it for the column rules and the
  * template animations.
  */
+/**
+ * The last few stylesheets that were compiled, by the content that made them.
+ *
+ * Compiling Tailwind over a twelve-page site costs about 0.85 seconds of CPU,
+ * and a download does it every time even when nothing on the site has moved —
+ * so a reload of the download button is a second of CPU an anonymous caller
+ * can ask for as often as they like. Keyed by a hash of the documents, so a
+ * site that has actually changed still compiles.
+ */
+const CACHE_SIZE = 8;
+const cache = new Map<string, string>();
+
+function cacheKey(documents: string[]): string {
+  return createHash("sha256").update(documents.join("\u0000")).digest("hex");
+}
+
 export async function buildExportCss(documents: string[]): Promise<string> {
+  const key = cacheKey(documents);
+  const hit = cache.get(key);
+  if (hit !== undefined) {
+    // Re-inserted so the most recently used entry is the last to go.
+    cache.delete(key);
+    cache.set(key, hit);
+    return hit;
+  }
+
+  const css = await compileExportCss(documents);
+  cache.set(key, css);
+  if (cache.size > CACHE_SIZE) cache.delete(cache.keys().next().value as string);
+  return css;
+}
+
+async function compileExportCss(documents: string[]): Promise<string> {
   const [{ default: postcss }, { default: tailwindcss }] = await Promise.all([
     import("postcss"),
     import("tailwindcss"),

@@ -45,9 +45,15 @@ export function sanitizeCss(css: string): string {
     return "/* This CSS is larger than Neuravex will read, so none of it was used. */";
   }
 
+  // A `/*# sourceMappingURL=… */` comment asks a parser to read a file from
+  // disk. The postcss this resolves does not, and is above every affected
+  // range — but taking the comment out first means a downgrade cannot make
+  // the passthrough live again.
+  const withoutMaps = css.replace(/\/\*\s*#\s*source(?:Mapping)?URL\s*=[\s\S]*?\*\//gi, "");
+
   let root: ReturnType<typeof postcss.parse>;
   try {
-    root = postcss.parse(css);
+    root = postcss.parse(withoutMaps);
   } catch {
     // Unparseable: keep none of it rather than guess which half was meant.
     return "/* This CSS could not be read, so none of it was used. */";

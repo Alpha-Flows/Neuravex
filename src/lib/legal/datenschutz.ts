@@ -139,7 +139,10 @@ export function buildDatenschutz(profile: LegalProfile, audit: SiteAudit, look: 
   );
   body.push(space(12));
   body.push(p(look, logRetention(profile.logRetentionDays)));
-  if (profile.hostingProvider.trim() && profile.hostingDpa) {
+  // Only when the operator has said so. This used to default to true, so a
+  // profile with just the required fields filled in asserted a contract
+  // nobody had been asked about.
+  if (profile.hostingProvider.trim() && profile.hostingDpa === "yes") {
     body.push(space(12));
     body.push(
       p(
@@ -166,27 +169,26 @@ export function buildDatenschutz(profile: LegalProfile, audit: SiteAudit, look: 
 
   if (audit.hasForm) {
     body.push(space(16));
-    if (profile.formFate === "none") {
-      body.push(
-        p(
-          look,
-          "Das auf dieser Website eingebundene Formular übermittelt derzeit keine Daten an uns; " +
-            "Eingaben verlassen Ihren Browser nicht und werden nirgends gespeichert.",
-        ),
-      );
-    } else {
-      body.push(
-        p(
-          look,
-          profile.formFate === "email"
-            ? "Senden Sie uns ein Formular auf dieser Website, werden die darin eingegebenen Daten an unsere E-Mail-Adresse übermittelt und dort verarbeitet."
-            : "Senden Sie uns ein Formular auf dieser Website, werden die darin eingegebenen Daten bei unserem Hosting-Anbieter gespeichert und von uns dort abgerufen.",
-        ),
-      );
-      if (profile.formRetention.trim()) {
-        body.push(space(12));
-        body.push(p(look, `Aufbewahrung: ${profile.formRetention.trim()}`));
-      }
+    /**
+     * What the form actually does, said accurately.
+     *
+     * The old "none" text told the visitor their input "verlässt Ihren
+     * Browser nicht und wird nirgends gespeichert". That was wrong twice
+     * over: on a builder-served page the form posts every answer to
+     * /api/submissions and stores it, and on the exported page — where the
+     * script is stripped and the <form> has no action — pressing Send is a
+     * native GET that puts every field into the URL and the host's access
+     * log. Neither of those is "nowhere".
+     */
+    body.push(
+      p(
+        look,
+        formHandling(profile.formFate),
+      ),
+    );
+    if (profile.formFate !== "none" && profile.formRetention.trim()) {
+      body.push(space(12));
+      body.push(p(look, `Aufbewahrung: ${profile.formRetention.trim()}`));
     }
   }
 
@@ -301,4 +303,33 @@ export function buildDatenschutz(profile: LegalProfile, audit: SiteAudit, look: 
   );
 
   return [legalSection(look, body)];
+}
+
+/** The sentence describing what happens to a form submission. */
+function formHandling(fate: string): string {
+  switch (fate) {
+    case "email":
+      return "Senden Sie uns ein Formular auf dieser Website, werden die darin eingegebenen Daten an unsere E-Mail-Adresse übermittelt und dort verarbeitet.";
+    case "stored":
+      return "Senden Sie uns ein Formular auf dieser Website, werden die darin eingegebenen Daten bei unserem Hosting-Anbieter gespeichert und von uns dort abgerufen.";
+    case "builder":
+      return (
+        "Senden Sie uns ein Formular auf dieser Website, werden die darin eingegebenen Daten an " +
+        "unseren Server übermittelt und dort gespeichert, damit wir Ihre Anfrage bearbeiten können."
+      );
+    case "none":
+      return (
+        "Das auf dieser Website eingebundene Formular ist nicht an eine Verarbeitung angebunden. " +
+        "Je nachdem, wie diese Seite ausgeliefert wird, können Ihre Eingaben beim Absenden " +
+        "dennoch in der Adresszeile und damit in den Server-Protokollen unseres Hosting-Anbieters " +
+        "erscheinen. Bitte senden Sie uns vertrauliche Angaben stattdessen per E-Mail."
+      );
+    default:
+      // Unanswered. `missingFor()` refuses to generate in that state, so this
+      // is only reachable through a profile edited outside the wizard.
+      return (
+        "Wie die über dieses Formular eingegebenen Daten verarbeitet werden, ist an dieser Stelle " +
+        "noch nicht angegeben. Bitte wenden Sie sich für Auskünfte an die oben genannte Adresse."
+      );
+  }
 }

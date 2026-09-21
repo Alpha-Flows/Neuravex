@@ -290,37 +290,72 @@ This configures your MCP client (Claude Desktop, Cursor, etc.) to connect to Neu
 
 ### Manual Setup
 
-Add this to your MCP client's config:
+Add this to your MCP client's config, with every path replaced by an absolute
+path into your own Neuravex directory:
 
 ```json
 {
   "mcpServers": {
-    "neuravex-website-builder": {
-      "command": "npx",
-      "args": ["tsx", "/absolute/path/to/mcp-server.ts"],
-      "env": {
-        "DATABASE_URL": "file:/absolute/path/to/prisma/dev.db"
-      }
+    "neuravex": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/Neuravex/node_modules/tsx/dist/cli.mjs",
+        "/absolute/path/to/Neuravex/mcp-server.ts"
+      ],
+      "cwd": "/absolute/path/to/Neuravex"
     }
   }
 }
 ```
 
-> Replace the paths with absolute paths to your Neuravex installation.
+> **Not `npx tsx`, and not without `cwd`.** When the local `tsx` is not on the
+> path — which is every launch from a client that starts the server in its own
+> working directory — `npx` downloads `tsx` from the registry and runs it, with
+> only an `npm warn` line to say so. The command above names the copy this
+> repository installed. `cwd` is what lets the server find `.env` and the
+> database; without it, a `DATABASE_URL` pointing somewhere stale makes SQLite
+> create an empty file, and every tool then reports that you have no sites.
+> The server refuses to start in that state rather than answering from an
+> empty database.
+
+### What an agent can do here
+
+**Everything you can, with no approval step.** The MCP server can create,
+rewrite, publish and delete sites and pages, and it can generate and rewrite
+the Impressum and the Datenschutzerklärung. Deletion goes to the trash, which
+holds the 50 most recent items — a longer run of deletions than that is
+permanent.
+
+**Anything it reads is content somebody wrote.** Site names, descriptions and
+block text come back to the agent verbatim, inside an envelope that names them
+as stored website data. An imported archive is one way text written by someone
+else gets into that. Whether a model treats instructions it reads as
+instructions is the model's business, so: do not give an agent this server and
+untrusted material in the same session.
 
 ### Available MCP Tools
 
+All sixteen, as registered in `mcp-server.ts`. A test fails when this table and
+the server disagree.
+
 | Tool | Description |
 |------|-------------|
-| `list_sites` | List all sites |
-| `get_site` | Get site details and pages |
-| `create_site` | Create a new site (optionally from a template) |
-| `update_site` | Update site settings (name, theme, SEO, etc.) |
-| `delete_site` | Delete a site |
+| `list_templates` | List the starter templates, with categories |
+| `list_sites` | List every site, with page counts |
+| `get_site` | A site's details and its pages |
+| `create_site` | Create a site, optionally from a template |
+| `delete_site` | Move one site to the trash (needs `confirm: true`) |
+| `list_pages` | The pages of one site |
+| `get_page` | One page, with its full block tree |
 | `create_page` | Add a page to a site |
-| `update_page` | Update a page's content, title, or settings |
-| `delete_page` | Delete a page |
-| `list_templates` | List available starter templates |
+| `save_page` | Rewrite a page's blocks, title, slug or flags |
+| `publish_page` | Publish or unpublish a page |
+| `delete_page` | Move one page to the trash (needs `confirm: true`) |
+| `get_site_url` | The addresses a site and its pages are served at |
+| `get_block_reference` | The block types and the props each one takes |
+| `get_legal_details` | A site's German legal profile, what is missing, and what the site does with visitor data |
+| `set_legal_details` | Store legal details (merged into what is there) |
+| `generate_legal_pages` | Write the Impressum and Datenschutzerklärung onto the site |
 
 ---
 

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import {
   DISPUTE_STANCES,
+  DPA_ANSWERS,
   FORM_FATES,
   LEGAL_FORMS,
   REGISTER_KINDS,
@@ -622,12 +623,12 @@ function Privacy({
       <Field label="Their address">
         <Input value={profile.hostingAddress} onChange={(e) => set("hostingAddress", e.target.value)} placeholder="Industriestr. 25, 91710 Gunzenhausen" />
       </Field>
-      <Check
-        checked={profile.hostingDpa}
-        onChange={(v) => set("hostingDpa", v)}
-        label="There is a data processing agreement with them (AV-Vertrag, Art. 28 DSGVO)"
-        hint="Every German host offers one. Untick it and the notice will not claim you have one."
-      />
+      <Field
+        label="Is there a data processing agreement with them? (AV-Vertrag, Art. 28 DSGVO)"
+        hint="Every German host offers one — but the notice will only say you have one once you say so. Leave it unanswered and it says nothing about it."
+      >
+        <Choice value={profile.hostingDpa} onChange={(v) => set("hostingDpa", v as typeof profile.hostingDpa)} options={DPA_ANSWERS} />
+      </Field>
       <Field label="How long the host keeps access logs, in days" hint="Leave empty if you do not know; the text then says so rather than inventing a number.">
         <Input value={profile.logRetentionDays} onChange={(e) => set("logRetentionDays", e.target.value)} placeholder="7" />
       </Field>
@@ -640,9 +641,9 @@ function Privacy({
             processing that does not happen.
           </p>
           <Field label="What happens to a submission">
-            <Choice value={profile.formFate} onChange={(v) => set("formFate", v)} options={FORM_FATES} />
+            <Choice value={profile.formFate} onChange={(v) => set("formFate", v as typeof profile.formFate)} options={FORM_FATES} />
           </Field>
-          {profile.formFate !== "none" ? (
+          {profile.formFate !== "none" && profile.formFate !== "" ? (
             <Field label="How long you keep it (Aufbewahrung)">
               <Input
                 value={profile.formRetention}

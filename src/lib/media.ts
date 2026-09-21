@@ -16,21 +16,38 @@ export function fileNameFromUrl(url: string): string {
  * carry a path, a newline, or three hundred characters of nothing.
  */
 export function cleanName(raw: string): string {
-  return raw
-    .replace(/[\\/]/g, " ")
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u001f\u007f]/g, " ")
+  return stripFormatting(raw.replace(/[\\/]/g, " "))
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, MAX_NAME)
     .trim();
 }
 
-/** A description: the same treatment, with room for a sentence. */
-export function cleanAlt(raw: string): string {
+/**
+ * Control and format characters, out.
+ *
+ * A right-to-left override in a file name makes `photo\u202Egnp.exe` render as
+ * `photo exe.png` in the picker: the characters are all there, in that order,
+ * and the reader sees a different name from the one the file has. Nothing is
+ * executed here — these are pictures, rendered through JSX, so there is no
+ * XSS in it — but a person choosing a file is being shown something that is
+ * not true, and that is the whole job of a media library.
+ *
+ * `\p{Cf}` is the Unicode class: the bidi overrides, the zero-width joiners,
+ * the invisible separators. Normalised to NFC first so a decomposed name
+ * compares and sorts the way it looks.
+ */
+function stripFormatting(raw: string): string {
   return raw
+    .normalize("NFC")
     // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\p{Cf}/gu, "");
+}
+
+/** A description: the same treatment, with room for a sentence. */
+export function cleanAlt(raw: string): string {
+  return stripFormatting(raw)
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, MAX_ALT)

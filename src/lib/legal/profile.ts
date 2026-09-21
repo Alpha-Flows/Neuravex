@@ -109,10 +109,26 @@ export const DISPUTE_STANCES = [
 ] as const;
 
 /** What happens to what somebody types into a form on this site. */
+/**
+ * What becomes of a form submission, with no answer as the starting point.
+ *
+ * It used to default to "none", and the generated Datenschutzerklärung then
+ * told visitors their input "verlässt Ihren Browser nicht und wird nirgends
+ * gespeichert" — while the builder-served form posted every answer to
+ * /api/submissions and stored it. Nobody had said that; it was a default
+ * standing in for an answer.
+ */
 export const FORM_FATES = [
-  { id: "none", label: "Nothing — the form is decorative or not wired up" },
+  { id: "builder", label: "Neuravex stores it, and we read it in the builder" },
   { id: "email", label: "It reaches us by email" },
   { id: "stored", label: "Our host stores it for us" },
+  { id: "none", label: "Nowhere — the form is decorative and not wired up" },
+] as const;
+
+/** The same question about the hosting contract, as three answers. */
+export const DPA_ANSWERS = [
+  { id: "yes", label: "Yes — there is an Art. 28 agreement with the host" },
+  { id: "no", label: "No" },
 ] as const;
 
 const trimmed = z.string().trim();
@@ -191,11 +207,19 @@ export const legalProfileSchema = z.object({
   /** Who serves the finished site, and whether there is a contract under Art. 28. */
   hostingProvider: optional,
   hostingAddress: optional,
-  hostingDpa: z.boolean().default(true),
+  /**
+   * Whether an Art. 28 processing agreement with the host exists.
+   *
+   * Empty means unanswered, and the notice then says nothing about it. This
+   * was `z.boolean().default(true)`, so a profile with only the required
+   * fields filled in produced a Datenschutzerklärung asserting a contract the
+   * operator had never been asked about.
+   */
+  hostingDpa: z.enum(["", "yes", "no"]).default(""),
   /** How long the host keeps its access logs, in days. Empty means unstated. */
   logRetentionDays: optional,
-  /** What becomes of a form submission where this site is hosted. */
-  formFate: z.string().default("none"),
+  /** What becomes of a form submission. Empty until somebody says. */
+  formFate: z.enum(["", "builder", "email", "stored", "none"]).default(""),
   /** How long a form submission is kept, in words. */
   formRetention: optional,
   /** The supervisory authority a visitor can complain to (Art. 77 DSGVO). */
@@ -255,8 +279,13 @@ function addressMissing(address: LegalAddress): boolean {
  * belongs is worse than no document, because it looks finished. What counts
  * as missing depends on the legal form and on what the operator has told us
  * they do, so it is worked out here rather than listed in the form.
+ *
+ * `hasForm` says whether the site actually carries a form block, so the
+ * question about what becomes of a submission is only asked when there is one
+ * to ask about. It defaults to true, because a caller that does not know is
+ * better off being asked than being answered for.
  */
-export function missingFor(profile: LegalProfile): MissingField[] {
+export function missingFor(profile: LegalProfile, { hasForm = true }: { hasForm?: boolean } = {}): MissingField[] {
   const form = legalForm(profile.legalForm);
   const out: MissingField[] = [];
   const need = (cond: boolean, field: string, step: LegalStep, label: string) => {
@@ -325,8 +354,18 @@ export function missingFor(profile: LegalProfile): MissingField[] {
   }
 
   need(!hasText(profile.hostingProvider), "hostingProvider", "privacy", "Who hosts the finished site (Art. 13 Abs. 1 lit. e DSGVO)");
+  // Both of these used to have a default standing in for an answer, and the
+  // generated notice made a claim on the strength of it. Asked, now, when
+  // there is something to ask about.
   need(
-    profile.formFate !== "none" && !hasText(profile.formRetention),
+    hasText(profile.hostingProvider) && profile.hostingDpa === "",
+    "hostingDpa",
+    "privacy",
+    "Whether there is an Art. 28 agreement with the host",
+  );
+  need(hasForm && profile.formFate === "", "formFate", "privacy", "What becomes of a form submission (Art. 13 DSGVO)");
+  need(
+    profile.formFate !== "none" && profile.formFate !== "" && !hasText(profile.formRetention),
     "formRetention",
     "privacy",
     "How long form submissions are kept (Art. 13 Abs. 2 lit. a DSGVO)",
