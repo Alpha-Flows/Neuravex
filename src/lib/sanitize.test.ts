@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeHtml } from "@/lib/sanitize";
+import { sanitizeHtml, sanitizeInlineHtml } from "@/lib/sanitize";
 
 describe("sanitizeHtml — script & event handler stripping", () => {
   it("removes <script> tags entirely", () => {
@@ -127,7 +127,9 @@ describe("sanitizeHtml — safe formatting is preserved", () => {
   it("keeps class/id/style on generic containers", () => {
     const out = sanitizeHtml('<div class="card" id="main" style="color:red">x</div>');
     expect(out).toContain('class="card"');
-    expect(out).toContain('id="main"');
+    // Prefixed, so content cannot take a name the page already uses.
+    expect(out).toContain('id="c-main"');
+    expect(out).toContain("color:red");
   });
 });
 
@@ -138,5 +140,125 @@ describe("sanitizeHtml — empty/edge input", () => {
 
   it("handles plain text with no markup", () => {
     expect(sanitizeHtml("just text")).toBe("just text");
+  });
+});
+
+describe("sanitizeHtml — the style attribute is parsed, not copied", () => {
+  it("drops a declaration that fetches", () => {
+    const out = sanitizeHtml('<div style="background:url(https://attacker.example/log)">x</div>');
+    expect(out).not.toContain("attacker.example");
+  });
+
+  it("drops one written with a CSS escape", () => {
+    // A browser reads \75 rl( as url(. A pattern over the text does not.
+    const out = sanitizeHtml('<div style="background:\\75 rl(https://attacker.example/log)">x</div>');
+    expect(out).not.toContain("attacker.example");
+  });
+
+  it("drops the full-page overlay", () => {
+    const out = sanitizeHtml('<div style="position:fixed;inset:0;z-index:9999">x</div>');
+    expect(out).not.toMatch(/position/i);
+    expect(out).not.toMatch(/z-index/i);
+    expect(out).not.toMatch(/inset/i);
+  });
+
+  it("keeps an ordinary colour", () => {
+    expect(sanitizeHtml('<p style="color:red">x</p>')).toContain("color:red");
+  });
+
+  it("keeps a reference inside the same document", () => {
+    expect(sanitizeHtml('<div style="fill:url(#grad)">x</div>')).toContain("url(#grad)");
+  });
+
+  it("drops a custom property, which can be read back into anything", () => {
+    expect(sanitizeHtml('<div style="--x:red">y</div>')).not.toContain("--x");
+  });
+});
+
+describe("sanitizeHtml — the id collision that stopped React hydrating", () => {
+  it("renames __next_f out of the way", () => {
+    // Sanitised content is rendered before Next's bootstrap script, so an
+    // element with this name won the race and every push threw. The published
+    // page lost its forms and menus; the editor for that site went inert.
+    const out = sanitizeHtml('<div id="__next_f"></div>');
+    expect(out).not.toContain('id="__next_f"');
+    expect(out).toContain('id="c-__next_f"');
+  });
+
+  it("moves an in-page anchor to match", () => {
+    const out = sanitizeHtml('<a href="#section">go</a><div id="section"></div>');
+    expect(out).toContain('href="#c-section"');
+    expect(out).toContain('id="c-section"');
+  });
+});
+
+describe("sanitizeHtml — iframe hosts are matched whole", () => {
+  for (const src of [
+    "https://youtube.com.evil.example/x",
+    "https://vimeo.com@evil.example/x",
+    "//youtube.com.evil.example/x",
+    "http://www.youtube.com/embed/x",
+  ]) {
+    it(`strips ${src}`, () => {
+      const out = sanitizeHtml(`<iframe src="${src}"></iframe>`);
+      expect(out).not.toContain("evil.example");
+      if (src.startsWith("http://")) expect(out).not.toMatch(/<iframe/i);
+    });
+  }
+
+  it("sandboxes and restricts what survives", () => {
+    const out = sanitizeHtml('<iframe src="https://www.youtube.com/embed/xyz" allow="camera; microphone"></iframe>');
+    expect(out).toContain("sandbox=");
+    expect(out).not.toContain("camera");
+    expect(out).not.toContain("microphone");
+  });
+});
+
+describe("sanitizeHtml — link schemes", () => {
+  it("drops a data: link but keeps a data: image", () => {
+    expect(sanitizeHtml('<a href="data:application/octet-stream;base64,AA">x</a>')).not.toContain("data:");
+    expect(sanitizeHtml('<img src="data:image/png;base64,AA">')).toContain("data:image/png");
+  });
+
+  it("puts rel on a link that opens a new tab", () => {
+    const out = sanitizeHtml('<a href="https://example.com" target="_blank">x</a>');
+    expect(out).toContain('rel="noopener noreferrer"');
+  });
+});
+
+describe("sanitizeInlineHtml — what a rich-text prop may contain", () => {
+  it("keeps what the formatting toolbar produces", () => {
+    const out = sanitizeInlineHtml('Hello <strong>there</strong> and <em>you</em><br>');
+    expect(out).toBe("Hello <strong>there</strong> and <em>you</em><br />");
+  });
+
+  it("drops a <style> element that restyled the whole builder", () => {
+    expect(sanitizeInlineHtml("<style>body{outline:solid 5px red}</style>hi")).toBe("hi");
+  });
+
+  it("drops a beacon image and a frame", () => {
+    const out = sanitizeInlineHtml('<img src="https://attacker.example/b.gif"><iframe src="https://attacker.example/"></iframe>ok');
+    expect(out).toBe("ok");
+  });
+
+  it("drops a meta refresh that navigated the editor away", () => {
+    expect(sanitizeInlineHtml('<meta http-equiv="refresh" content="0;url=https://attacker.example/">x')).toBe("x");
+  });
+
+  it("drops a form", () => {
+    expect(sanitizeInlineHtml('<form action="https://attacker.example"><input></form>x')).toBe("x");
+  });
+
+  it("keeps a safe link and refuses a javascript: one", () => {
+    expect(sanitizeInlineHtml('<a href="https://example.com">x</a>')).toContain('href="https://example.com"');
+    expect(sanitizeInlineHtml('<a href="javascript:alert(1)">x</a>')).not.toContain("javascript:");
+  });
+
+  it("is a no-op on plain text", () => {
+    expect(sanitizeInlineHtml("just words")).toBe("just words");
+  });
+
+  it("answers empty for anything that is not a string", () => {
+    expect(sanitizeInlineHtml(undefined as unknown as string)).toBe("");
   });
 });

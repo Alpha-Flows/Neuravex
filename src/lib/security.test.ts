@@ -290,3 +290,82 @@ describe("sanitizeSvg", () => {
     }
   });
 });
+
+describe("SVG attributes that hide behind a namespace prefix", () => {
+  it("drops a href written through an aliased xlink namespace", () => {
+    // SVG is XML: a file may alias xlink to any prefix it likes, and to a
+    // browser x:href is the same attribute as xlink:href. The old list
+    // matched names literally, so this was stored verbatim and clicking the
+    // picture on the customer's site ran it.
+    const out = sanitizeSvg(
+      '<svg xmlns:x="http://www.w3.org/1999/xlink"><a x:href="javascript:alert(1)"><rect/></a></svg>',
+    );
+    expect(out).not.toMatch(/javascript:/i);
+    expect(out).not.toMatch(/x:href/i);
+  });
+
+  it("judges an upper-case XLINK:HREF the same as a lower-case one", () => {
+    const out = sanitizeSvg('<svg><image XLINK:HREF="javascript:alert(1)"/></svg>');
+    expect(out).not.toMatch(/javascript:/i);
+  });
+
+  it("drops any attribute whose prefix is not one SVG defines", () => {
+    // An https <image href> is allowed by design — a picture may name a
+    // picture. What is not allowed is an attribute arriving under a prefix
+    // the sanitiser has no way to resolve, so those go whatever they say.
+    const out = sanitizeSvg(
+      '<svg xmlns:q="http://www.w3.org/1999/xlink"><image q:href="https://evil.example/b.png"/></svg>',
+    );
+    expect(out).not.toContain("evil.example");
+  });
+
+  it("keeps a same-file reference", () => {
+    const out = sanitizeSvg('<svg><rect fill="url(#grad)"/><use xlink:href="#shape"/></svg>');
+    expect(out).toContain("url(#grad)");
+  });
+
+  it("has no <a> left to click at all", () => {
+    const out = sanitizeSvg('<svg><a href="https://example.com"><rect/></a></svg>');
+    expect(out).not.toMatch(/<a[\s>]/i);
+    expect(out).toMatch(/<rect/i);
+  });
+});
+
+describe("the SVG style attribute goes through the parser", () => {
+  it("drops a fetch written with a CSS escape", () => {
+    const out = sanitizeSvg('<svg><rect style="fill:\\75 rl(https://evil.example/x)"/></svg>');
+    expect(out).not.toContain("evil.example");
+  });
+
+  it("drops image-set(), which is not spelled url()", () => {
+    const out = sanitizeSvg('<svg><rect style="background:image-set(\'https://evil.example/a.png\' 1x)"/></svg>');
+    expect(out).not.toContain("evil.example");
+  });
+
+  it("keeps an ordinary fill", () => {
+    expect(sanitizeSvg('<svg><rect style="fill:red"/></svg>')).toContain("fill:red");
+  });
+});
+
+describe("a stylesheet that used to take every page down", () => {
+  it("answers, and refuses, nine thousand nested calls", () => {
+    // 45 KB of customCss with 9000 nested rgb( made every page of that site
+    // answer 500: the scanner recursed once per call and re-read the whole of
+    // each argument.
+    const css = `.a { color: ${"rgb(".repeat(9000)}red${")".repeat(9000)} }`;
+    const started = Date.now();
+    const out = sanitizeCss(css);
+    expect(Date.now() - started).toBeLessThan(5000);
+    expect(out).not.toContain("rgb(rgb(");
+  });
+
+  it("refuses a sheet larger than it will read", () => {
+    const out = sanitizeCss(`.a { color: red }`.padEnd(300 * 1024, " "));
+    expect(out).toContain("larger than Neuravex will read");
+  });
+
+  it("keeps a nesting depth a person would actually write", () => {
+    const css = ".a { color: rgb(calc(1 + 1), 2, 3) }";
+    expect(sanitizeCss(css)).toContain("rgb(");
+  });
+});
