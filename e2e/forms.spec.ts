@@ -47,10 +47,13 @@ test.describe("Published forms", () => {
 
     await expect(page.getByText("Thanks!")).toBeVisible();
 
+    // A total and an offset, not a bare array: `take: 100` with nothing
+    // saying how many there were hid a form filling up.
     const stored = await (await request.get(`/api/pages/${pageId}/submissions`)).json();
-    expect(stored).toHaveLength(1);
+    expect(stored.total).toBe(1);
+    expect(stored.submissions).toHaveLength(1);
     // Two fields share the label "Email" — both answers have to survive.
-    expect(JSON.parse(stored[0].data)).toEqual({
+    expect(JSON.parse(stored.submissions[0].data)).toEqual({
       Email: "first@example.com",
       "Email 2": "second@example.com",
       Message: "hello",

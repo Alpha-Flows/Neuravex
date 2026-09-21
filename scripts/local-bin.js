@@ -63,6 +63,45 @@ const OFFLINE_ENV = {
 };
 
 /**
+ * This repository's own `.env`, read once, for the children that need it.
+ *
+ * Next loads `.env` itself, so the web app always had DATABASE_URL. Nothing
+ * else did: `prisma/seed.ts` builds a bare PrismaClient and `npm run db:seed`
+ * gave it an environment with no DATABASE_URL in it, so seeding failed with
+ * "Environment variable not found" unless somebody happened to have exported
+ * it by hand. Putting it here means every command this file runs sees the
+ * same configuration the app does.
+ *
+ * An already-set variable wins, so a container or a service unit that states
+ * DATABASE_URL is not overruled by a file left behind in the checkout.
+ */
+function dotEnv() {
+  let text;
+  try {
+    text = require("fs").readFileSync(path.join(ROOT, ".env"), "utf8");
+  } catch {
+    return {};
+  }
+
+  const out = {};
+  for (const line of text.split("\n")) {
+    const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
+    if (!match) continue;
+    const [, key, raw] = match;
+    if (process.env[key] !== undefined) continue;
+    let value = raw.trim();
+    if (/^".*"$/.test(value) || /^'.*'$/.test(value)) value = value.slice(1, -1);
+    out[key] = value;
+  }
+  return out;
+}
+
+/** The environment a child gets: the file, then ours, then the caller's. */
+function childEnv(extra = {}) {
+  return { ...dotEnv(), ...process.env, ...OFFLINE_ENV, ...extra };
+}
+
+/**
  * The file a locally installed package runs, as an absolute path.
  *
  * Throws when the package is not installed, which is the point: the caller
@@ -95,7 +134,7 @@ function runBin(pkg, args, options = {}) {
     cwd: ROOT,
     stdio: "inherit",
     ...options,
-    env: { ...process.env, ...OFFLINE_ENV, ...(options.env || {}) },
+    env: childEnv(options.env),
   });
 }
 
@@ -107,7 +146,7 @@ function captureBin(pkg, args, options = {}) {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       ...options,
-      env: { ...process.env, ...OFFLINE_ENV, ...(options.env || {}) },
+      env: childEnv(options.env),
     });
     return { ok: true, output };
   } catch (err) {
@@ -129,13 +168,15 @@ function spawnBin(pkg, args, options = {}) {
     cwd: ROOT,
     detached: process.platform !== "win32",
     ...options,
-    env: { ...process.env, ...OFFLINE_ENV, ...(options.env || {}) },
+    env: childEnv(options.env),
   });
 }
 
 module.exports = {
   ROOT,
   OFFLINE_ENV,
+  dotEnv,
+  childEnv,
   serverHost,
   exposureWarning,
   resolveBin,

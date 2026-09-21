@@ -46,12 +46,31 @@ export function Editable({
   const [focused, setFocused] = useState(false);
 
   useEffect(() => {
-    if (!ref.current) return;
+    const el = ref.current;
+    if (!el) return;
+
+    /**
+     * Never while somebody is typing in it.
+     *
+     * Assigning `innerHTML` destroys and rebuilds the children, and the caret
+     * goes with them — back to the start of the element. That did not show
+     * before, because what was reported back was the raw `innerHTML` and so
+     * always compared equal to what was in the DOM. What is reported now is
+     * the *sanitised* form, which differs in small ways the browser does not
+     * care about (`<br>` against `<br />`, attribute order), so the comparison
+     * failed on every keystroke and every keystroke put the caret back at
+     * position zero. "Hello World" came out as "dlroWHello ".
+     *
+     * The element the person is editing is theirs until they leave it; the
+     * value is synced into it when they are not in it.
+     */
+    if (document.activeElement === el) return;
+
     // On the way in: what is about to be parsed by the browser, on the
     // builder's origin, is only ever the inline-text profile.
     const clean = sanitizeInlineHtml(value);
-    if (ref.current.innerHTML !== clean) {
-      ref.current.innerHTML = clean;
+    if (el.innerHTML !== clean) {
+      el.innerHTML = clean;
       lastValueRef.current = clean;
     }
   }, [value]);

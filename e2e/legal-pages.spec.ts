@@ -19,6 +19,13 @@ const GMBH = {
   registerNumber: "HRB 123456",
   vatId: "DE123456789",
   hostingProvider: "Hetzner Online GmbH",
+  // Both of these used to have a default standing in for an answer, and the
+  // generated notice made a claim on the strength of it — that an Art. 28
+  // agreement exists, and that form input never leaves the browser. They are
+  // asked for now, so a complete profile states them.
+  hostingDpa: "yes",
+  formFate: "builder",
+  formRetention: "bis zur abschließenden Bearbeitung der Anfrage",
 };
 
 /** Fill in the details and write both documents, without going through the dialog. */
