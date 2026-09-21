@@ -1,0 +1,36 @@
+# Without this file, `COPY . .` inside somebody's working copy bakes their
+# own data into the image: the .env, the database and its write-ahead log,
+# every picture they have uploaded, and a node_modules built for the host's
+# architecture. The named volume mounted over /data is then seeded from it.
+
+node_modules
+.next
+out
+build
+
+# Somebody's data
+.env
+.env.*
+!.env.example
+prisma/dev.db
+prisma/dev.db-*
+prisma/*.db
+prisma/*.db-*
+prisma/.neuravex-state.json
+public/uploads
+data
+backups
+
+# Development and CI clutter
+.git
+.github
+.gitignore
+.dockerignore
+Dockerfile
+*.log
+test-results
+playwright-report
+e2e
+tsconfig.tsbuildinfo
+.DS_Store
+docs

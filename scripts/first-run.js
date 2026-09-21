@@ -86,6 +86,10 @@ function lossIsIntentional(output) {
 
 /** A .env with somewhere to keep the data. */
 function ensureEnv() {
+  // Already told where the data lives — a container, a service unit, an MCP
+  // client. Writing a .env there would put a second, contradictory answer
+  // next to the real one.
+  if (process.env.DATABASE_URL) return false;
   if (fs.existsSync(ENV_FILE)) return false;
   const contents = fs.existsSync(ENV_EXAMPLE) ? fs.readFileSync(ENV_EXAMPLE, "utf8") : DEFAULT_ENV;
   fs.writeFileSync(ENV_FILE, contents);
@@ -93,12 +97,23 @@ function ensureEnv() {
   return true;
 }
 
-/** The DATABASE_URL as a path, so we can tell whether the file is there yet. */
+/**
+ * The DATABASE_URL as a path, so we can tell whether the file is there yet.
+ *
+ * The environment wins over the file. It did not, and in a container — where
+ * DATABASE_URL is set and `.env` is not — this answered `prisma/dev.db`,
+ * which never exists, so every start decided the database was new and seeded
+ * the demo site again.
+ */
 function databaseFile() {
-  const match = /^\s*DATABASE_URL\s*=\s*"?(?:file:)?([^"\s]+)"?/m.exec(
-    fs.existsSync(ENV_FILE) ? fs.readFileSync(ENV_FILE, "utf8") : "",
-  );
-  const relative = match ? match[1] : "./dev.db";
+  const fromEnv = /^file:(.*)$/.exec((process.env.DATABASE_URL ?? "").trim());
+  const relative = fromEnv
+    ? fromEnv[1]
+    : /^\s*DATABASE_URL\s*=\s*"?(?:file:)?([^"\s]+)"?/m.exec(
+        fs.existsSync(ENV_FILE) ? fs.readFileSync(ENV_FILE, "utf8") : "",
+      )?.[1] ?? "./dev.db";
+  // A relative path in DATABASE_URL is relative to prisma/, the way the
+  // schema reads it; an absolute one resolves to itself.
   return path.resolve(ROOT, "prisma", relative);
 }
 
