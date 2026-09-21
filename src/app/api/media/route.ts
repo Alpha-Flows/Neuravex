@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readdir, unlink } from "fs/promises";
-import { join } from "path";
 import { prisma } from "@/lib/prisma";
 import { cleanAlt, cleanName, displayName } from "@/lib/media";
+import { uploadDirs, existingUploadPath, isUploadName } from "@/lib/uploads";
+import { readJsonObject } from "@/lib/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,12 @@ async function usageByUrl(urls: string[]): Promise<Map<string, string[]>> {
   const usage = new Map<string, string[]>(urls.map((u) => [u, []]));
   if (urls.length === 0) return usage;
 
+  // Asked in SQL first, so pages that mention no upload at all are never read
+  // into this process. The scan used to pull every page's full content on
+  // every request — 5 ms at baseline, half a second across 27 MB of pages,
+  // and page content had no size cap.
   const pages = await prisma.page.findMany({
+    where: { OR: [{ content: { contains: "/uploads/" } }, { ogImage: { contains: "/uploads/" } }] },
     select: { title: true, content: true, ogImage: true },
   });
   for (const page of pages) {
@@ -33,15 +39,31 @@ async function usageByUrl(urls: string[]): Promise<Map<string, string[]>> {
 /** The file is the record; what a person knows about it sits beside it. */
 function isUploadUrl(url: string): boolean {
   if (!url.startsWith("/uploads/")) return false;
-  const name = url.slice("/uploads/".length);
-  return name.length > 0 && !name.includes("/") && !name.includes("..");
+  return isUploadName(url.slice("/uploads/".length));
+}
+
+/**
+ * Every uploaded file, wherever it is kept, regular files only.
+ *
+ * A symbolic link dropped into the directory used to be listed here and
+ * copied straight into the customer's download: `ln -s .env uploads/link.png`
+ * put the environment file in both.
+ */
+async function uploadNames(): Promise<string[]> {
+  const seen = new Set<string>();
+  for (const dir of uploadDirs()) {
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (entry.isFile()) seen.add(entry.name);
+    }
+  }
+  return [...seen].sort();
 }
 
 // GET /api/media — the library: every uploaded file, what it is called, what
 // it shows, and the pages using it.
 export async function GET() {
-  const dir = join(process.cwd(), "public", "uploads");
-  const files = await readdir(dir).catch(() => [] as string[]);
+  const files = await uploadNames();
   const urls = files.map((f) => `/uploads/${f}`);
   const [usage, records] = await Promise.all([
     usageByUrl(urls),
@@ -68,12 +90,14 @@ export async function GET() {
 // PATCH /api/media — rename a picture, or say what it shows.
 // Body: { url, name?, alt? }
 export async function PATCH(req: NextRequest) {
-  const body = await req.json().catch(() => ({}));
+  const parsed = await readJsonObject(req);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
+
   const url: string = (body.url ?? "").toString();
   if (!isUploadUrl(url)) return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
 
-  const files = await readdir(join(process.cwd(), "public", "uploads")).catch(() => [] as string[]);
-  if (!files.includes(url.slice("/uploads/".length))) {
+  if (!existingUploadPath(url.slice("/uploads/".length))) {
     return NextResponse.json({ error: "No such file" }, { status: 404 });
   }
 
@@ -103,12 +127,13 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE /api/media — delete a file (body: { url: "/uploads/file.png" })
 export async function DELETE(req: NextRequest) {
-  const body = await req.json().catch(() => ({}));
-  const url: string = (body.url ?? "").toString();
+  const parsed = await readJsonObject(req);
+  if (!parsed.ok) return parsed.response;
+
+  const url: string = (parsed.body.url ?? "").toString();
   if (!isUploadUrl(url)) return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
-  const name = url.slice("/uploads/".length);
-  const filepath = join(process.cwd(), "public", "uploads", name);
-  await unlink(filepath).catch(() => {});
+  const filepath = existingUploadPath(url.slice("/uploads/".length));
+  if (filepath) await unlink(filepath).catch(() => {});
   // What was known about the file goes with the file.
   await prisma.mediaFile.deleteMany({ where: { url } });
   return NextResponse.json({ ok: true });

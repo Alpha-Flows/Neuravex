@@ -26,7 +26,15 @@ const path = require("path");
 const { ROOT } = require("./local-bin");
 const { ensureEnv, databaseFile } = require("./first-run");
 
-const UPLOADS = path.join(ROOT, "public", "uploads");
+/**
+ * Both places uploads can be. They moved out of `public/` — Next only serves
+ * that directory as it looked when it was built — and an installation that
+ * predates the move still has its pictures in the old one.
+ */
+const UPLOAD_DIRS = [
+  { from: process.env.NEURAVEX_UPLOAD_DIR || path.join(ROOT, "data", "uploads"), to: "uploads" },
+  { from: path.join(ROOT, "public", "uploads"), to: "uploads" },
+];
 
 function say(msg) {
   process.stdout.write(`[neuravex] ${msg}\n`);
@@ -80,16 +88,17 @@ async function main() {
     return 1;
   }
 
-  if (fs.existsSync(UPLOADS)) {
-    say("Copying the uploads…");
+  for (const { from, to } of UPLOAD_DIRS) {
+    if (!fs.existsSync(from)) continue;
+    say(`Copying the uploads from ${path.relative(ROOT, from) || from}…`);
     // Symbolic links are not followed: a backup is not the place to discover
     // that something in the uploads folder pointed at /etc.
-    fs.cpSync(UPLOADS, path.join(target, "uploads"), { recursive: true, dereference: false });
+    fs.cpSync(from, path.join(target, to), { recursive: true, dereference: false, force: false, errorOnExist: false });
   }
 
   say(`Done — everything is in ${target}.`);
   say("To restore: quit Neuravex, put the database back at prisma/, and the");
-  say("uploads folder back at public/uploads.");
+  say("uploads folder back at data/uploads.");
   return 0;
 }
 

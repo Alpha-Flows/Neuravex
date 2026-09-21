@@ -8,6 +8,9 @@ import {
   collectLocalAssets,
   rewriteAssetPaths,
   prepareExportedPage,
+  injectExportCsp,
+  disableExportedForms,
+  relativizeSelfUrls,
 } from "@/lib/static-export";
 
 describe("pageFileName", () => {
@@ -154,5 +157,63 @@ describe("injectStylesheet", () => {
 
   it("still adds the link when there is no head", () => {
     expect(injectStylesheet("<p>Hi</p>", "a.css")).toContain('<link rel="stylesheet" href="a.css">');
+  });
+});
+
+describe("an exported page carries its own policy", () => {
+  it("names a script-src of none", () => {
+    const out = injectExportCsp("<html><head><title>x</title></head><body></body></html>");
+    expect(out).toContain("Content-Security-Policy");
+    expect(out).toContain("script-src 'none'");
+    expect(out).toContain("object-src 'none'");
+    expect(out).toContain("base-uri 'none'");
+  });
+
+  it("still adds it to a fragment with no head", () => {
+    expect(injectExportCsp("<p>hi</p>")).toContain("Content-Security-Policy");
+  });
+});
+
+describe("an exported form cannot send anything", () => {
+  it("refuses the submit and says why", () => {
+    // With no action and no method, a submit was a GET to the page itself —
+    // so every answer landed in the URL, the host's access log and the
+    // visitor's history, while the privacy notice said input never left the
+    // browser.
+    const out = disableExportedForms('<form class="x"><input name="a"></form>');
+    expect(out).toContain('onsubmit="return false"');
+    expect(out).toContain("cannot send anything");
+  });
+
+  it("leaves a form that already handles its own submit alone", () => {
+    const html = '<form onsubmit="doThing()"><input></form>';
+    expect(disableExportedForms(html)).toBe(html);
+  });
+
+  it("does nothing to a page with no form in it", () => {
+    const html = "<p>no forms here</p>";
+    expect(disableExportedForms(html)).toBe(html);
+  });
+});
+
+describe("a malformed asset reference is one missing picture, not a 500", () => {
+  it("skips a broken percent escape", () => {
+    // This used to throw out of decodeURIComponent and turn the whole
+    // download into a 500 with no hint which block was responsible.
+    expect(() => collectLocalAssets('<img src="/uploads/%ZZ.png">')).not.toThrow();
+    expect(collectLocalAssets('<img src="/uploads/%ZZ.png"><img src="/uploads/ok.png">'))
+      .toEqual(["uploads/ok.png"]);
+  });
+});
+
+describe("an absolute URL back at the builder", () => {
+  it("becomes relative, so the file is bundled and the link works", () => {
+    // No metadataBase means Next writes http://localhost:3939 into og:image,
+    // and the asset pattern needs a quote before /uploads — so the file was
+    // neither rewritten nor bundled.
+    const html = '<meta property="og:image" content="http://localhost:3939/uploads/hero.png">';
+    const relative = relativizeSelfUrls(html);
+    expect(relative).toContain('content="/uploads/hero.png"');
+    expect(collectLocalAssets(relative)).toEqual(["uploads/hero.png"]);
   });
 });

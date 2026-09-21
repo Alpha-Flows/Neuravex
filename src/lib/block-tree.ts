@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { BaseBlock } from "@/types";
-import { isSafeHref, sanitizeStyleAttribute } from "./security";
+import { isSafeHref } from "./url-safety";
+import { sanitizeStyleAttribute } from "./css-safety";
 import { sanitizeInlineHtml, sanitizeHtml } from "./sanitize";
 import { cssColor, cssLength } from "./css-value";
 

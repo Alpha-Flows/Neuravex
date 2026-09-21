@@ -1,6 +1,8 @@
 import { readFile } from "fs/promises";
 import { join } from "path";
+import type { Root } from "postcss";
 import tailwindConfig from "../../tailwind.config";
+import { cssFunctionCalls, decodeCssEscapes, neutralizeStyleEnd, UNREADABLE_CALL } from "./css-safety";
 
 /**
  * The stylesheet that ships with a downloaded site.
@@ -25,8 +27,78 @@ export async function buildExportCss(documents: string[]): Promise<string> {
     }),
   ]).process(globals + EXPORT_OVERRIDES, { from: undefined });
 
-  return result.css;
+  return filterCompiledCss(result.root);
 }
+
+/**
+ * The compiled stylesheet, with anything that fetches taken out.
+ *
+ * Tailwind compiles arbitrary values out of `class` attributes, and the HTML
+ * sanitiser keeps `class` on every element. A class naming a mask image that
+ * points at an attacker's URL is inert in the builder — the builder's own
+ * Tailwind is precompiled — and becomes a live rule in the customer's site.
+ * `sanitizeCss()` never sees this sheet, because it is generated here rather
+ * than written by anyone.
+ *
+ * Stripping one token is not a fix: any arbitrary property works the same way
+ * — a border image, a custom cursor, a generated-content string. And
+ * stripping every bracketed class would break the export, because the
+ * builder's own components use arbitrary lengths. So the compiled output is
+ * what gets judged, one declaration at a time, by the same rule the CSS
+ * sanitiser uses: a reference into the same document, or one of this site's
+ * own files, or it goes.
+ *
+ * (Writing those class names out in this comment is itself enough to make
+ * Tailwind compile them — the content globs cover src/lib — which is a fair
+ * demonstration of how little it takes.)
+ */
+function filterCompiledCss(root: Root): string {
+  root.walkDecls((decl) => {
+    if (!exportedDeclarationIsSafe(decl.prop, decl.value)) decl.remove();
+  });
+  return neutralizeStyleEnd(root.toString());
+}
+
+/** Where a compiled rule may point: this archive, or inside the page. */
+function referenceIsLocal(reference: string): boolean {
+  const value = unquoteCss(decodeCssEscapes(reference)).trim();
+  if (!value) return false;
+  return (
+    value.startsWith("#") ||
+    value.startsWith("uploads/") ||
+    value.startsWith("stock/") ||
+    value.startsWith("./") ||
+    /^data:image\//i.test(value)
+  );
+}
+
+function unquoteCss(value: string): string {
+  const v = value.trim();
+  return /^["'][\s\S]*["']$/.test(v) ? v.slice(1, -1) : v;
+}
+
+function exportedDeclarationIsSafe(prop: string, value: string): boolean {
+  // Tailwind writes its generated-content strings into a custom property
+  // first, so a content utility carrying a URL shows up there rather than on
+  // the `content` property itself.
+  if (decodeCssEscapes(prop).trim().toLowerCase() === "--tw-content" && /url\s*\(/i.test(decodeCssEscapes(value))) {
+    return false;
+  }
+
+  for (const call of cssFunctionCalls(value)) {
+    if (call.name === UNREADABLE_CALL) return false;
+    if (FETCHING_CALLS.has(call.name) && !referenceIsLocal(call.arg)) return false;
+  }
+  return true;
+}
+
+/** Calls that name something to load. `image-set()` is `url()` in a hat. */
+const FETCHING_CALLS = new Set([
+  "url", "src",
+  "image", "image-set", "-webkit-image-set",
+  "cross-fade", "-webkit-cross-fade",
+  "element", "paint",
+]);
 
 /**
  * globals.css dresses the builder: a dark page behind the canvas, and hover

@@ -6,7 +6,7 @@ import { ButtonProps } from "@/types";
 import { cn } from "@/lib/utils";
 import { TOKEN, readableTextOn } from "@/lib/site-theme";
 import { cssColor } from "@/lib/css-value";
-import { isSafeHref } from "@/lib/security";
+import { isSafeHref } from "@/lib/url-safety";
 
 interface Props {
   props: ButtonProps;

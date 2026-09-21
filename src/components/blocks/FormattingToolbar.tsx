@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { isSafeHref } from "@/lib/security";
+import { isSafeHref } from "@/lib/url-safety";
 
 interface Props {
   /** Called when bold/italic/link is toggled. The caller re-reads innerHTML. */

@@ -1,5 +1,6 @@
 import { parseHex, THEME_FALLBACK } from "./site-theme";
-import { isSafeHref, MAX_CSS_BYTES } from "./security";
+import { isSafeHref } from "./url-safety";
+import { MAX_CSS_BYTES } from "./css-safety";
 import { sanitizeHtml } from "./sanitize";
 
 /**

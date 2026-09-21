@@ -42,6 +42,8 @@ interface Props {
   theme: SiteThemeInput;
   /** The header, footer and custom CSS a visitor gets around this page. The CSS arrives sanitised. */
   chrome: { site: SiteChrome; pages: NavPage[]; legal: LegalPage[]; customCss: string | null };
+  /** The request nonce, so the canvas stylesheets satisfy `style-src-elem`. */
+  nonce?: string;
   /** Every page of this site, drafts included, for the inspector's link picker. */
   linkTargets: LinkTarget[];
   initial: {
@@ -87,7 +89,7 @@ export function isTextEntry(el: Element | null): boolean {
   return (el as HTMLElement).isContentEditable === true;
 }
 
-export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTargets, initial }: Props) {
+export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTargets, initial, nonce }: Props) {
   const [blocks, setBlocks] = useState<BaseBlock[]>(initial.blocks);
   const [title, setTitle] = useState(initial.title);
   const [slug, setSlug] = useState(initial.slug);
@@ -628,13 +630,13 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
       onDragEnd={onDragEnd}
     >
       <div className="h-screen flex flex-col bg-bg text-fg editor-mode">
-        <style dangerouslySetInnerHTML={{ __html: themeCss }} />
+        <style nonce={nonce} dangerouslySetInnerHTML={{ __html: themeCss }} />
         {customCss ? (
           <>
-            <style dangerouslySetInnerHTML={{ __html: customCss }} />
+            <style nonce={nonce} dangerouslySetInnerHTML={{ __html: customCss }} />
             {/* The site's CSS cannot reach outside the canvas, but inside it a
                 broad rule could still hide the controls for editing. */}
-            <style>{".public-canvas .editor-toolbar, .public-canvas .editor-outline { display: block !important; visibility: visible !important }"}</style>
+            <style nonce={nonce}>{".public-canvas .editor-toolbar, .public-canvas .editor-outline { display: block !important; visibility: visible !important }"}</style>
           </>
         ) : null}
         {/* Top bar */}

@@ -10,6 +10,7 @@ build/
 prisma/dev.db
 prisma/dev.db-journal
 public/uploads/
+data/
 test-results/
 prisma/dev.db-shm
 prisma/dev.db-wal

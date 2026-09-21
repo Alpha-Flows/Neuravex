@@ -1,6 +1,9 @@
 import sanitizeHtmlLib from "sanitize-html";
 import { isAllowedEmbed, normalizeEmbed, EMBED_ALLOW } from "./embed-hosts";
-import { isSafeHref, sanitizeStyleAttribute } from "./security";
+// Not `./security`: that module needs postcss, and this one runs in the
+// editor as well as on the server.
+import { isSafeHref } from "./url-safety";
+import { sanitizeStyleAttribute } from "./css-safety";
 
 /**
  * Sanitize HTML using sanitize-html — a full HTML parser that cannot be
