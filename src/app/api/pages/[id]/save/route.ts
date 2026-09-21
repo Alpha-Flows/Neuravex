@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
 import { snapshotRevision } from "@/lib/revisions";
+import { normalizeBlockTreeJson } from "@/lib/block-tree";
+import { readJsonObject } from "@/lib/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +26,12 @@ interface SaveBody {
 
 // Persist the full page (title, slug, flags, and the entire block tree as JSON).
 export async function PUT(req: NextRequest, { params }: Params) {
-  const body = (await req.json().catch(() => ({}))) as SaveBody;
+  // Size-checked before it is parsed, not after: the previous shape read the
+  // whole body into memory and then decided whether it was too big.
+  const parsed = await readJsonObject(req);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body as SaveBody;
+
   const page = await prisma.page.findUnique({ where: { id: params.id } });
   if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -61,7 +68,17 @@ export async function PUT(req: NextRequest, { params }: Params) {
       data.slug = newSlug;
     }
   }
-  if (body.content !== undefined) data.content = JSON.stringify(body.content);
+  // The one description of what a block tree may be. Nothing checked this
+  // before, so a mistyped prop was a durable 500 on the editor and the public
+  // page with no error boundary to click past, and a `javascript:` href went
+  // straight into the customer's downloaded site.
+  let content: string | undefined;
+  if (body.content !== undefined) {
+    const tree = normalizeBlockTreeJson(body.content);
+    if (!tree.ok) return NextResponse.json({ error: tree.error }, { status: 400 });
+    content = tree.json;
+    data.content = content;
+  }
   // Per-page SEO. Empty means "fall back to the site default", so it is
   // stored as null rather than an empty string.
   for (const key of ["metaTitle", "metaDescription", "ogImage"] as const) {
@@ -75,7 +92,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (body.content !== undefined || typeof body.title === "string") {
     await snapshotRevision(page.id, {
       title: (typeof body.title === "string" ? body.title.trim() : page.title) || "Untitled",
-      content: body.content !== undefined ? JSON.stringify(body.content) : page.content,
+      content: content ?? page.content,
       manual: body.reason === "manual",
     });
   }

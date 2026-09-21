@@ -1,0 +1,348 @@
+import { z } from "zod";
+import type { BaseBlock } from "@/types";
+import { isSafeHref, sanitizeStyleAttribute } from "./security";
+import { sanitizeInlineHtml, sanitizeHtml } from "./sanitize";
+import { cssColor, cssLength } from "./css-value";
+
+/**
+ * What a block tree is allowed to be, checked at every door.
+ *
+ * Until now there was no answer to that question anywhere. The editor's save,
+ * the PATCH route, the site import and the MCP server's `save_page` all took
+ * whatever they were handed — `props: z.record(z.string(), z.unknown())` was
+ * the strongest of the four — and stored it. Everything downstream then
+ * assumed it was well-formed:
+ *
+ *   - `List` maps `props.items`, `Form` maps `props.fields`. A string where an
+ *     array was expected throws inside the renderer, and there is no
+ *     error.tsx anywhere, so the editor and the published page both became a
+ *     durable 500 the owner could not click past to repair.
+ *   - A `null` node was worse: creating a new page reads its siblings to pick
+ *     a starting look, and crashed, so no new page could be made on that site.
+ *   - `sortOrder: 1e12` went into a 32-bit column. SQLite stored it happily,
+ *     and every later read of the row threw.
+ *   - Nothing capped depth. About 200 levels broke the editor, 400 the public
+ *     page, 8000 the legal audit and the download — a stack overflow with,
+ *     again, nothing to click.
+ *
+ * So this module is the one description of a valid tree, and the write paths
+ * all go through it. It does two jobs at once, because they need the same
+ * walk: it refuses what cannot be stored, and it neutralises what can be
+ * stored but should not be trusted — a `javascript:` href, an unfiltered
+ * `style`, a colour with a second declaration hidden in it.
+ */
+
+// ---------------------------------------------------------------------------
+// Limits
+// ---------------------------------------------------------------------------
+
+/** Generous for a page somebody wrote; finite, which is the point. */
+export const MAX_DEPTH = 32;
+export const MAX_NODES = 5000;
+export const MAX_TREE_BYTES = 4 * 1024 * 1024;
+
+/** The 32-bit column `sortOrder` is stored in. */
+export const MAX_SORT_ORDER = 2 ** 31 - 1;
+
+/** Long enough for a page of prose in one block, short enough to bound a row. */
+const MAX_TEXT = 100_000;
+const MAX_HTML = 200_000;
+const MAX_ITEMS = 500;
+
+// ---------------------------------------------------------------------------
+// Shared field validators
+// ---------------------------------------------------------------------------
+
+/** An integer the `Int` columns can actually hold. */
+export function clampSortOrder(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  return Math.min(Math.max(Math.trunc(value), 0), MAX_SORT_ORDER);
+}
+
+/**
+ * A media reference — an image, a video, a poster.
+ *
+ * The same scheme rule as a link, minus `mailto:` and `tel:`, which are not
+ * things a picture can be. `data:` is allowed for an inline image because the
+ * clipboard paste path produces one, but only for an image type.
+ */
+function safeMediaSrc(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (/^data:/i.test(trimmed)) {
+    return /^data:image\/(?:png|jpeg|gif|webp|avif|svg\+xml);/i.test(trimmed) ? trimmed : undefined;
+  }
+  const href = isSafeHref(trimmed);
+  if (href === undefined) return undefined;
+  return /^(?:mailto|tel):/i.test(href) ? undefined : href;
+}
+
+/** A string prop, trimmed to a length a database row can hold. */
+const text = (max = MAX_TEXT) => z.string().max(max).catch("");
+
+// ---------------------------------------------------------------------------
+// Per-type prop schemas
+// ---------------------------------------------------------------------------
+
+/**
+ * Every schema below is written to repair rather than reject where it safely
+ * can — `.catch()` on a field means a mistyped prop falls back to a sensible
+ * value instead of failing the whole save and losing the author's other work.
+ * What cannot be repaired (a tree that is not an array, a node that is not an
+ * object, a depth past the limit) is refused outright.
+ */
+const align = z.enum(["left", "center", "right"]).catch("left");
+const colorProp = z.string().max(200).transform((v) => cssColor(v) ?? "").catch("");
+const lengthProp = (fallback: number) =>
+  z.unknown().optional().transform((v) => (typeof v === "number" && Number.isFinite(v) ? v : fallback)).pipe(z.number().min(-10_000).max(10_000).catch(fallback));
+
+const inlineText = (max = MAX_TEXT) =>
+  z.unknown().optional().transform((v) => (typeof v === "string" ? sanitizeInlineHtml(v.slice(0, max)) : ""));
+
+const PROPS: Record<string, z.ZodType> = {
+  heading: z.object({
+    text: inlineText(),
+    level: z.coerce.number().int().min(1).max(4).catch(2),
+    align,
+    color: colorProp,
+    weight: z.enum(["normal", "medium", "semibold", "bold"]).catch("bold"),
+    size: z.coerce.number().int().min(1).max(4).optional().catch(undefined),
+  }),
+
+  text: z.object({
+    text: inlineText(),
+    align: z.enum(["left", "center", "right", "justify"]).catch("left"),
+    size: z.enum(["sm", "base", "lg", "xl"]).catch("base"),
+    color: colorProp,
+  }),
+
+  image: z.object({
+    src: z.unknown().optional().transform((v) => safeMediaSrc(v) ?? ""),
+    alt: text(1000),
+    rounded: z.enum(["none", "md", "xl", "full"]).catch("none"),
+    width: z.enum(["small", "medium", "large", "full"]).catch("large"),
+    caption: inlineText(2000),
+    naturalWidth: z.coerce.number().int().min(0).max(100_000).optional().catch(undefined),
+    naturalHeight: z.coerce.number().int().min(0).max(100_000).optional().catch(undefined),
+    altFromLibrary: z.boolean().optional().catch(undefined),
+  }),
+
+  button: z.object({
+    label: inlineText(1000),
+    // The whole of NVX-001: nothing checked this, so a `javascript:` href
+    // from an import, a paste or the MCP server was stored, published and
+    // copied into the customer's download, where there is no CSP to stop it.
+    href: z.unknown().optional().transform((v) => isSafeHref(v) ?? "#"),
+    variant: z.enum(["primary", "secondary", "outline", "ghost"]).catch("primary"),
+    size: z.enum(["sm", "md", "lg"]).catch("md"),
+    align,
+    color: colorProp,
+    textColor: colorProp,
+  }),
+
+  divider: z.object({
+    style: z.enum(["solid", "dashed", "dotted"]).catch("solid"),
+    color: colorProp,
+    thickness: lengthProp(1),
+  }),
+
+  spacer: z.object({ height: lengthProp(40) }),
+
+  section: z.object({
+    background: colorProp,
+    backgroundImage: z.unknown().optional().transform((v) => safeMediaSrc(v)).optional(),
+    backgroundOverlay: colorProp.optional(),
+    paddingY: lengthProp(64),
+    paddingX: lengthProp(24),
+    maxWidth: z.enum(["site", "full", "7xl", "6xl", "5xl", "4xl"]).catch("site"),
+    align,
+  }),
+
+  columns: z.object({
+    count: z.coerce.number().int().min(2).max(4).catch(2),
+    gap: lengthProp(24),
+    columnStyles: z
+      .array(
+        z.object({
+          background: colorProp.optional(),
+          backgroundImage: z.unknown().optional().transform((v) => safeMediaSrc(v)).optional(),
+          backgroundOverlay: colorProp.optional(),
+          padding: lengthProp(0).optional(),
+          radius: lengthProp(0).optional(),
+        }).catch({}),
+      )
+      .max(4)
+      .optional()
+      .catch(undefined),
+  }),
+
+  video: z.object({
+    // A <video> element, so any http(s) file is a legitimate source; what is
+    // not legitimate is a scheme that runs something.
+    src: z.unknown().optional().transform((v) => safeMediaSrc(v) ?? ""),
+    poster: z.unknown().optional().transform((v) => safeMediaSrc(v) ?? ""),
+    ratio: z.enum(["16/9", "4/3", "1/1", "9/16"]).catch("16/9"),
+  }),
+
+  quote: z.object({
+    text: inlineText(),
+    author: inlineText(500),
+    role: inlineText(500),
+    align,
+  }),
+
+  list: z.object({
+    style: z.enum(["bullet", "number", "check"]).catch("bullet"),
+    // `List` maps over this. A string here used to throw inside the renderer.
+    items: z.array(inlineText(5000)).max(MAX_ITEMS).catch([]),
+  }),
+
+  form: z.object({
+    // Same shape of failure as `items`, on the block that takes visitor data.
+    fields: z
+      .array(
+        z.object({
+          label: text(500),
+          type: z.enum(["text", "email", "textarea"]).catch("text"),
+          required: z.boolean().catch(false),
+        }).catch({ label: "", type: "text" as const, required: false }),
+      )
+      .max(100)
+      .catch([]),
+    submitLabel: text(200),
+    successMessage: text(2000),
+  }),
+
+  html: z.object({
+    // Stored sanitised, not only sanitised at render: the editor reads this
+    // back into a contentEditable, and the export writes it into a file the
+    // builder's CSP never sees.
+    html: z.unknown().optional().transform((v) => (typeof v === "string" ? sanitizeHtml(v.slice(0, MAX_HTML)) : "")),
+  }),
+};
+
+export const BLOCK_TYPES = Object.keys(PROPS);
+
+// ---------------------------------------------------------------------------
+// The walk
+// ---------------------------------------------------------------------------
+
+export interface TreeProblem {
+  /** What to tell the caller; safe to put in a 400 body. */
+  message: string;
+}
+
+export type TreeResult =
+  | { ok: true; tree: BaseBlock[] }
+  | { ok: false; error: string };
+
+interface Budget {
+  nodes: number;
+  bytes: number;
+}
+
+function normalizeNode(node: unknown, depth: number, budget: Budget): BaseBlock | null {
+  if (depth > MAX_DEPTH) return null;
+  if (!node || typeof node !== "object" || Array.isArray(node)) return null;
+  if (++budget.nodes > MAX_NODES) return null;
+  // Counted as we go rather than measured at the end: 5000 nodes each holding
+  // the maximum text is half a gigabyte, and the point is not to build it.
+  if (budget.bytes > MAX_TREE_BYTES) return null;
+
+  const raw = node as Record<string, unknown>;
+  const type = typeof raw.type === "string" ? raw.type : "";
+  const schema = PROPS[type];
+  if (!schema) return null;
+
+  const parsed = schema.safeParse(
+    raw.props && typeof raw.props === "object" && !Array.isArray(raw.props) ? raw.props : {},
+  );
+  // Every schema above repairs what it can, so a failure here is a shape no
+  // fallback covers — drop the node rather than the page.
+  if (!parsed.success) return null;
+
+  const out: BaseBlock = {
+    id: typeof raw.id === "string" && raw.id.length <= 128 ? raw.id : cryptoId(),
+    type: type as BaseBlock["type"],
+    props: parsed.data,
+  };
+
+  if (Array.isArray(raw.children)) {
+    const children = raw.children
+      .map((child) => normalizeNode(child, depth + 1, budget))
+      .filter((child): child is BaseBlock => child !== null);
+    if (children.length > 0) out.children = children;
+  }
+
+  if (typeof raw.column === "number" && Number.isFinite(raw.column)) {
+    out.column = Math.min(Math.max(Math.trunc(raw.column), 0), 3);
+  }
+
+  budget.bytes += JSON.stringify(out.props).length + out.type.length + out.id.length;
+  return out;
+}
+
+/** A block id for a node that arrived without a usable one. */
+function cryptoId(): string {
+  return `b${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+}
+
+/**
+ * A block tree, or the reason there isn't one.
+ *
+ * Nodes that cannot be understood are dropped; a tree that cannot be
+ * understood at all is refused, so the caller can answer 400 instead of
+ * storing something the renderer will die on.
+ */
+export function normalizeBlockTree(input: unknown): TreeResult {
+  let value = input;
+
+  // The PATCH route stores `content` as a string, the save route as an object.
+  if (typeof value === "string") {
+    if (value.length > MAX_TREE_BYTES) return { ok: false, error: "That page is larger than Neuravex will store." };
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return { ok: false, error: "That page's content is not valid JSON." };
+    }
+  }
+
+  if (!Array.isArray(value)) return { ok: false, error: "A page's content has to be a list of blocks." };
+  if (value.length > MAX_NODES) return { ok: false, error: "That page has more blocks than Neuravex will store." };
+
+  const budget: Budget = { nodes: 0, bytes: 0 };
+  const tree = value
+    .map((node) => normalizeNode(node, 1, budget))
+    .filter((node): node is BaseBlock => node !== null);
+
+  if (budget.nodes > MAX_NODES) {
+    return { ok: false, error: "That page has more blocks than Neuravex will store." };
+  }
+  if (budget.bytes > MAX_TREE_BYTES) {
+    return { ok: false, error: "That page is larger than Neuravex will store." };
+  }
+
+  return { ok: true, tree };
+}
+
+/** The same thing, as the JSON string the `content` column holds. */
+export function normalizeBlockTreeJson(input: unknown): { ok: true; json: string } | { ok: false; error: string } {
+  const result = normalizeBlockTree(input);
+  return result.ok ? { ok: true, json: JSON.stringify(result.tree) } : result;
+}
+
+/**
+ * The last line of defence, at render.
+ *
+ * Rows written before any of this existed are still in people's databases, and
+ * a renderer that trusts its props is one bad row away from a 500 with no
+ * error boundary to catch it. This is cheap: a parse of one node's props.
+ */
+export function safeProps<T>(type: string, props: unknown, fallback: T): T {
+  const schema = PROPS[type];
+  if (!schema) return fallback;
+  const parsed = schema.safeParse(props && typeof props === "object" ? props : {});
+  return parsed.success ? (parsed.data as T) : fallback;
+}
+
+export { sanitizeStyleAttribute, cssColor, cssLength };

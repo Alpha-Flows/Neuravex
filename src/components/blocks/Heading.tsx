@@ -2,6 +2,7 @@
 import { Editable } from "./Editable";
 import { HeadingProps } from "@/types";
 import { cn } from "@/lib/utils";
+import { cssColor } from "@/lib/css-value";
 
 interface Props {
   props: HeadingProps;
@@ -40,7 +41,10 @@ export function Heading({ props, onChange, disabled }: Props) {
       className={cn(sizeClass[props.size ?? props.level], weightClass[props.weight], alignClass[props.align])}
       // An empty colour is deliberate: the heading then inherits the page's
       // own text colour instead of pinning itself to a hex.
-      style={{ color: props.color || undefined }}
+      // A colour, or nothing. React serialises a style object without
+      // looking at it, so `red;background:url(https://attacker/x)` used to
+      // render as two declarations and the second was a beacon.
+      style={{ color: cssColor(props.color) }}
     />
   );
 }

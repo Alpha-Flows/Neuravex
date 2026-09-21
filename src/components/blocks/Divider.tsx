@@ -1,5 +1,6 @@
 "use client";
 import { DividerProps } from "@/types";
+import { cssColor, cssLength } from "@/lib/css-value";
 
 interface Props {
   props: DividerProps;
@@ -12,9 +13,9 @@ export function Divider({ props, disabled }: Props) {
     <hr
       style={{
         borderStyle: props.style,
-        borderColor: props.color || "var(--site-border, #e2e8f0)",
+        borderColor: cssColor(props.color) ?? "var(--site-border, #e2e8f0)",
         borderWidth: 0,
-        borderTopWidth: props.thickness,
+        borderTopWidth: cssLength(props.thickness) ?? "1px",
       }}
     />
   );

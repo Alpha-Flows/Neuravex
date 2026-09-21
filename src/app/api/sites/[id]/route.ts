@@ -4,11 +4,10 @@ import { slugify } from "@/lib/utils";
 import { moveSite } from "@/lib/page-links";
 import { relinkSite } from "@/lib/relink";
 import { trashSite, siteDeletionCost } from "@/lib/trash";
+import { normalizeSiteFields } from "@/lib/site-fields";
+import { readJsonObject } from "@/lib/request-body";
 
 export const dynamic = "force-dynamic";
-
-const HEADER_SHAPES = new Set(["bar", "rounded", "pill"]);
-const HEADER_POSITIONS = new Set(["static", "sticky", "fixed"]);
 
 interface Params {
   params: { id: string };
@@ -32,33 +31,15 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const body = await req.json().catch(() => ({}));
-  const data: Record<string, unknown> = {};
-  if (typeof body.name === "string") data.name = body.name.trim();
-  if (typeof body.description === "string" || body.description === null) data.description = body.description;
-  if (typeof body.accent === "string") data.accent = body.accent;
-  // Theme / layout / SEO fields
-  if (typeof body.fontFamily === "string" || body.fontFamily === null) data.fontFamily = body.fontFamily;
-  if (typeof body.headingFont === "string" || body.headingFont === null) data.headingFont = body.headingFont;
-  if (typeof body.borderRadius === "string" || body.borderRadius === null) data.borderRadius = body.borderRadius;
-  if (typeof body.contentWidth === "string" || body.contentWidth === null) data.contentWidth = body.contentWidth;
-  if (typeof body.headerHtml === "string" || body.headerHtml === null) data.headerHtml = body.headerHtml;
-  if (typeof body.footerHtml === "string" || body.footerHtml === null) data.footerHtml = body.footerHtml;
-  if (typeof body.headerBackground === "string") data.headerBackground = body.headerBackground;
-  if (typeof body.headerOpacity === "number" && Number.isFinite(body.headerOpacity)) {
-    data.headerOpacity = Math.max(0, Math.min(100, Math.round(body.headerOpacity)));
-  }
-  if (typeof body.headerShape === "string" && HEADER_SHAPES.has(body.headerShape)) data.headerShape = body.headerShape;
-  if (typeof body.headerPosition === "string" && HEADER_POSITIONS.has(body.headerPosition)) data.headerPosition = body.headerPosition;
-  if (typeof body.customCss === "string" || body.customCss === null) data.customCss = body.customCss;
-  if (typeof body.metaTitle === "string" || body.metaTitle === null) data.metaTitle = body.metaTitle;
-  if (typeof body.metaDescription === "string" || body.metaDescription === null) data.metaDescription = body.metaDescription;
-  if (typeof body.ogImage === "string" || body.ogImage === null) data.ogImage = body.ogImage;
-  if (typeof body.favicon === "string" || body.favicon === null) data.favicon = body.favicon;
-  // A BCP 47 tag, loosely: letters and dashes, which is what <html lang> takes.
-  if (typeof body.language === "string" && /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/.test(body.language.trim())) {
-    data.language = body.language.trim();
-  }
+  const parsed = await readJsonObject(req);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
+
+  // One description of what a site's settings may be, shared with import,
+  // trash restore and the MCP server — the four used to disagree, and import
+  // was the one that checked nothing.
+  const data: Record<string, unknown> = normalizeSiteFields(body);
+
   if (typeof body.slug === "string" && body.slug.trim()) {
     let newSlug = slugify(body.slug);
     let suffix = 0;

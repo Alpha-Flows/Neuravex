@@ -297,7 +297,10 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
 
   function pasteBlock(entry: ReturnType<typeof readClipboard>) {
     if (!entry) return;
-    insertExistingBlock(pasteable(entry));
+    // A copy taken by an older version, or one whose props no longer make a
+    // block, pastes as nothing rather than as a page that will not render.
+    const block = pasteable(entry);
+    if (block) insertExistingBlock(block);
   }
 
   /** Put a block that already exists onto the page, after the selection. */

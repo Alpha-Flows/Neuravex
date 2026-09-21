@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { isSafeHref } from "@/lib/security";
 
 interface Props {
   /** Called when bold/italic/link is toggled. The caller re-reads innerHTML. */
@@ -75,7 +76,10 @@ export function FormattingToolbar({ onFormat }: Props) {
   }
 
   function applyLink() {
-    const href = url.trim();
+    // `createLink` writes whatever it is handed into an href. A `javascript:`
+    // or `data:` URL typed in here was stored, published, and copied into the
+    // customer's download, where there is no CSP to refuse it.
+    const href = isSafeHref(url.trim());
     setLinking(false);
     if (!href || href === "https://") return;
     // Put the selection back before asking the browser to wrap it.

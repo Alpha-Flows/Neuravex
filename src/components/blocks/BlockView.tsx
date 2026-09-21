@@ -13,6 +13,8 @@ import { Quote } from "./Quote";
 import { List } from "./List";
 import { Form } from "./Form";
 import { CustomHtml } from "./CustomHtml";
+import { BlockBoundary } from "./BlockBoundary";
+import { safeProps } from "@/lib/block-tree";
 
 interface ContainerHandlers {
   onSelect?: (id: string | null) => void;
@@ -28,7 +30,26 @@ interface Props extends ContainerHandlers {
   pageId?: string;
 }
 
-export function BlockView({ block, onChange, disabled, onSelect, onChildDelete, onChildDuplicate, selectedId, pageId }: Props) {
+/**
+ * One block, drawn.
+ *
+ * Two things sit between a stored row and the renderers. `safeProps` repairs a
+ * prop that is not the shape its type says — `List` maps `props.items`, `Form`
+ * maps `props.fields`, and a string in either used to throw. `BlockBoundary`
+ * catches what that does not, so a block nobody can draw is one gap on the
+ * page rather than a 500 on the editor the owner needs to fix it with.
+ */
+export function BlockView(props: Props) {
+  return (
+    <BlockBoundary type={props.block.type} silent={props.disabled}>
+      <BlockBody {...props} />
+    </BlockBoundary>
+  );
+}
+
+function BlockBody({ block: raw, onChange, disabled, onSelect, onChildDelete, onChildDuplicate, selectedId, pageId }: Props) {
+  const block = { ...raw, props: safeProps(raw.type, raw.props, raw.props) };
+
   switch (block.type as BlockType) {
     case "heading":
       return <Heading props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;

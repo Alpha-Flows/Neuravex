@@ -3,6 +3,7 @@ import Link from "next/link";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { isDarkColor } from "@/lib/site-theme";
 import { cn } from "@/lib/utils";
+import { safeAccent } from "@/lib/site-fields";
 
 /**
  * The header and footer a visitor sees.
@@ -138,7 +139,7 @@ export function SiteHeader({
     >
       <div className="nvx-site-column h-16 flex items-center gap-6">
         <Link href={`/sites/${site.slug}`} className="flex items-center gap-2 font-semibold tracking-tight">
-          <span className="w-5 h-5 rounded" style={{ background: site.accent }} />
+          <span className="w-5 h-5 rounded" style={{ background: safeAccent(site.accent) }} />
           {site.name}
         </Link>
         {/* Desktop: inline nav. Small screens: the same links behind a menu,

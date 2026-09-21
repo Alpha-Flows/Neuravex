@@ -12,6 +12,9 @@
  */
 
 import { isLegalKind } from "./legal/pages";
+import { normalizeSiteFields } from "./site-fields";
+import { normalizeBlockTreeJson, clampSortOrder } from "./block-tree";
+import { slugify } from "./utils";
 
 export const ARCHIVE_VERSION = 3;
 
@@ -125,20 +128,29 @@ const SITE_DEFAULTS: Row = {
 /** Everything but the slug, which the caller settles against what is taken. */
 export type SiteCreateData = Row & { name: string; headerOpacity: number };
 
-/** What Prisma needs to write the site back, minus the slug. */
+/**
+ * What Prisma needs to write the site back, minus the slug.
+ *
+ * Every field goes through the same `normalizeSiteFields()` the settings API
+ * uses. Import used to copy the archive verbatim — the one writer in the app
+ * that validated nothing — so an archive could set `headerShape: "<b>x"`,
+ * `headerOpacity: 999` and, the one that mattered, an accent carrying a second
+ * CSS declaration that then rendered on the builder's own dashboard.
+ */
 export function siteCreateData(archive: { site?: Row }): SiteCreateData {
   const src = archive.site ?? {};
-  const out: Row = {};
+  const raw: Row = {};
   for (const f of SITE_FIELDS) {
     if (f === "slug") continue;
     const value = src[f];
-    out[f] = value === undefined || value === null ? SITE_DEFAULTS[f] ?? null : value;
+    raw[f] = value === undefined || value === null ? SITE_DEFAULTS[f] ?? null : value;
   }
+
+  const out = normalizeSiteFields(raw, { complete: true });
   return {
     ...out,
     name: String(out.name || "Untitled site"),
-    // A number that arrived as a string would fail the write.
-    headerOpacity: Number(out.headerOpacity ?? 80) || 0,
+    headerOpacity: typeof out.headerOpacity === "number" ? out.headerOpacity : 80,
   };
 }
 
@@ -156,23 +168,81 @@ export interface PageCreateData {
   legalKind: string | null;
 }
 
-/** One page, ready to be written. Dates come back as dates. */
+function optional(value: unknown, max: number): string | null {
+  return typeof value === "string" ? value.slice(0, max) || null : null;
+}
+
+/**
+ * One page, ready to be written. Dates come back as dates.
+ *
+ * Every other writer in the app slugifies and guards `isHome`; this one stored
+ * what the archive said. An archive with a raw slug such as `About Us`
+ * produced a page linked from the nav and unreachable at every encoding, a
+ * download that answered 502, and — because the `{legal}` footer substitution
+ * builds an href out of the raw slug — a slug that could close the attribute
+ * it was written into. `normalizeArchivePages()` below is what settles the
+ * cross-page rules; this settles one page.
+ */
 export function pageCreateData(page: Row): PageCreateData {
+  const tree = normalizeBlockTreeJson(typeof page.content === "string" ? page.content : []);
   return {
-    title: String(page.title ?? "Untitled"),
-    slug: String(page.slug ?? "page"),
-    content: typeof page.content === "string" ? page.content : "[]",
+    title: String(page.title ?? "Untitled").slice(0, 300),
+    slug: slugify(String(page.slug ?? "page")) || "page",
+    // An unreadable tree becomes an empty page rather than failing the whole
+    // import: the rest of the archive is still worth having, and an empty
+    // page is something the owner can see and fix.
+    content: tree.ok ? tree.json : "[]",
     published: !!page.published,
     isHome: !!page.isHome,
-    sortOrder: Number(page.sortOrder ?? 0) || 0,
-    metaTitle: (page.metaTitle as string) ?? null,
-    metaDescription: (page.metaDescription as string) ?? null,
-    ogImage: (page.ogImage as string) ?? null,
+    sortOrder: clampSortOrder(Number(page.sortOrder ?? 0)) ?? 0,
+    metaTitle: optional(page.metaTitle, 1000),
+    metaDescription: optional(page.metaDescription, 1000),
+    ogImage: optional(page.ogImage, 2000),
     // An imported site keeps the link between its details and its legal
     // pages, so re-importing does not turn the Impressum into an ordinary
     // page that the footer can no longer find.
     legalKind: isLegalKind(page.legalKind) ? page.legalKind : null,
   };
+}
+
+/** How many pages one archive may carry. */
+export const MAX_ARCHIVE_PAGES = 500;
+
+/**
+ * Every page in an archive, with the rules that span pages settled.
+ *
+ * Nothing used to check these across the archive, so one import could produce
+ * two home pages — both exported as `index.html`, the second renamed
+ * `index-2.html` and holding the same content — two Impressum pages both
+ * linked in the footer, and two pages fighting over one slug.
+ */
+export function normalizeArchivePages(pages: Row[]): PageCreateData[] {
+  const taken = new Set<string>();
+  const legalTaken = new Set<string>();
+  let homeTaken = false;
+
+  return pages.slice(0, MAX_ARCHIVE_PAGES).map((page) => {
+    const data = pageCreateData(page);
+
+    let slug = data.slug;
+    let suffix = 0;
+    while (taken.has(slug)) {
+      suffix += 1;
+      slug = `${data.slug}-${suffix}`;
+    }
+    taken.add(slug);
+    data.slug = slug;
+
+    if (data.isHome && homeTaken) data.isHome = false;
+    else if (data.isHome) homeTaken = true;
+
+    if (data.legalKind) {
+      if (legalTaken.has(data.legalKind)) data.legalKind = null;
+      else legalTaken.add(data.legalKind);
+    }
+
+    return data;
+  });
 }
 
 /** True for anything shaped like one of our archives, including version 1. */

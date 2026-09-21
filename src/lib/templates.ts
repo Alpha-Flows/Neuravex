@@ -1,6 +1,8 @@
 import { uid } from "./utils";
 import { BlockType, BaseBlock } from "@/types";
 import { templateLink } from "./page-links";
+import { parseHex } from "./site-theme";
+import { safeAccent } from "./site-fields";
 
 export type TemplateBlock = BaseBlock;
 
@@ -3002,6 +3004,12 @@ export function getTemplate(id: string): Template | undefined {
  * server create sites, and they have to agree about this.
  */
 export function resolveSiteAccent(requested: string | undefined | null, template?: Template | null): string {
-  const asked = typeof requested === "string" ? requested.trim() : "";
-  return asked || template?.accent || "#6366f1";
+  // The request is a colour or it is nothing. This used to hand back whatever
+  // it was given, and the value lands in three inline styles the builder's own
+  // dashboard renders — so an accent of
+  // `#fff 0%, #000 100%);background-image:url(https://attacker/ping);/*` made
+  // the owner's browser call out on every visit to the site list, without the
+  // poisoned site ever being opened.
+  const asked = typeof requested === "string" && parseHex(requested.trim()) ? requested.trim() : "";
+  return safeAccent(asked || template?.accent || "#6366f1");
 }

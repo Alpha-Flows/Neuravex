@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useCallback, useState } from "react";
 import { FormattingToolbar } from "./FormattingToolbar";
-import { sanitizeHtml } from "@/lib/sanitize";
+import { sanitizeInlineHtml } from "@/lib/sanitize";
 
 interface Props {
   value: string;
@@ -47,15 +47,22 @@ export function Editable({
 
   useEffect(() => {
     if (!ref.current) return;
-    if (ref.current.innerHTML !== value) {
-      ref.current.innerHTML = value;
-      lastValueRef.current = value;
+    // On the way in: what is about to be parsed by the browser, on the
+    // builder's origin, is only ever the inline-text profile.
+    const clean = sanitizeInlineHtml(value);
+    if (ref.current.innerHTML !== clean) {
+      ref.current.innerHTML = clean;
+      lastValueRef.current = clean;
     }
   }, [value]);
 
   const report = useCallback(() => {
     if (!ref.current) return;
-    const html = ref.current.innerHTML;
+    // On the way out: what autosave stores is the same profile, so markup
+    // pasted into the element cannot survive a round trip. Comparing the
+    // sanitised form against the last reported one also stops a paste that
+    // sanitises to nothing from reporting an endless stream of changes.
+    const html = sanitizeInlineHtml(ref.current.innerHTML);
     if (html !== lastValueRef.current) {
       lastValueRef.current = html;
       onChange(html);
@@ -65,7 +72,7 @@ export function Editable({
   const Tag = as as any;
 
   if (disabled) {
-    return <Tag className={className} style={style} dangerouslySetInnerHTML={{ __html: sanitizeHtml(value) }} />;
+    return <Tag className={className} style={style} dangerouslySetInnerHTML={{ __html: sanitizeInlineHtml(value) }} />;
   }
 
   return (

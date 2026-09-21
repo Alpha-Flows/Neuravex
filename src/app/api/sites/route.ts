@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
 import { resolveSiteToken } from "@/lib/page-links";
 import { getTemplate, resolveSiteAccent } from "@/lib/templates";
+import { normalizeSiteFields } from "@/lib/site-fields";
+import { readJsonObject } from "@/lib/request-body";
+import { normalizeBlockTreeJson } from "@/lib/block-tree";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +20,19 @@ export async function GET() {
 
 // Create a new site, optionally seeded from a template
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}));
-  const name: string = (body.name || "Untitled site").toString().trim();
-  let slug = slugify(name);
-  const description: string | null = body.description ? String(body.description) : null;
-  const templateId: string | null = body.templateId ? String(body.templateId) : null;
+  const parsed = await readJsonObject(req);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
+
+  const fields = normalizeSiteFields(body);
+  const name = String(fields.name ?? "Untitled site");
+  let slug = slugify(name) || "site";
+  const description = (fields.description as string | null) ?? null;
+  const templateId: string | null = typeof body.templateId === "string" ? body.templateId : null;
   const tpl = templateId ? getTemplate(templateId) : null;
-  const accent = resolveSiteAccent(body.accent ? String(body.accent) : null, tpl);
+  // `resolveSiteAccent` used to hand the request straight back; it now checks
+  // the colour, and `fields.accent` has already been through the same test.
+  const accent = resolveSiteAccent(typeof body.accent === "string" ? body.accent : null, tpl);
 
   // Ensure unique slug
   let suffix = 0;
@@ -50,7 +59,7 @@ export async function POST(req: NextRequest) {
           sortOrder: i,
           // A template links between its own pages with a stand-in for the
           // site address, which only exists now that the site does.
-          content: resolveSiteToken(JSON.stringify(page.blocks), slug),
+          content: resolveSiteToken(templateContent(page.blocks), slug),
         },
       });
     }
@@ -70,4 +79,17 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(site, { status: 201 });
+}
+
+/**
+ * A template's blocks, through the same validator every other write uses.
+ *
+ * The bundled templates are ours, so this is not a trust boundary — it is the
+ * one place that would otherwise let a tree into the database without having
+ * been normalised, and a template that stopped matching the schema should
+ * fail here rather than in somebody's editor.
+ */
+function templateContent(blocks: unknown): string {
+  const tree = normalizeBlockTreeJson(blocks);
+  return tree.ok ? tree.json : "[]";
 }

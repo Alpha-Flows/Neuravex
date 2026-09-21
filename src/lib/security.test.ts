@@ -5,7 +5,7 @@ import {
   isDangerousExtension,
   sanitizeSvg,
  } from "@/lib/security";
-import { sanitizeCssValue } from "@/lib/css-value";
+import { sanitizeCssValue, cssFontStack, cssColor, cssLength } from "@/lib/css-value";
 
 describe("sanitizeCss", () => {
   // These assert what the CSS can no longer do, not how the sanitiser spells
@@ -127,9 +127,9 @@ describe("sanitizeCssValue", () => {
     expect(sanitizeCssValue("red; background: url(evil)")).not.toContain(";");
   });
 
-  it("keeps a normal font-family value intact", () => {
+  it("takes the quotes out — a font name cannot end the string it sits in", () => {
     expect(sanitizeCssValue("'Helvetica Neue', Arial, sans-serif")).toBe(
-      "'Helvetica Neue', Arial, sans-serif"
+      "Helvetica Neue, Arial, sans-serif"
     );
   });
 
@@ -367,5 +367,69 @@ describe("a stylesheet that used to take every page down", () => {
   it("keeps a nesting depth a person would actually write", () => {
     const css = ".a { color: rgb(calc(1 + 1), 2, 3) }";
     expect(sanitizeCss(css)).toContain("rgb(");
+  });
+});
+
+describe("cssFontStack", () => {
+  it("re-quotes a multi-word family around a cleaned value", () => {
+    expect(cssFontStack("'Helvetica Neue', Arial, sans-serif")).toBe(
+      "'Helvetica Neue', Arial, sans-serif",
+    );
+  });
+
+  it("cannot be made to end the string it is written into", () => {
+    expect(cssFontStack("Arial'; background: url(https://evil.example/x); font-family: '")).not.toContain(";");
+    expect(cssFontStack("Arial'; x")).not.toContain("evil");
+  });
+});
+
+describe("cssColor — the second declaration that used to ride along", () => {
+  it("refuses a colour with another declaration after it", () => {
+    // React serialises a style object without checking it, so this rendered
+    // as two declarations and the second was a per-view beacon.
+    expect(cssColor("red;background:url(https://attacker.example/x)")).toBeUndefined();
+  });
+
+  it("refuses a comment, a brace and a backslash", () => {
+    expect(cssColor("red/*x*/")).toBeUndefined();
+    expect(cssColor("red}")).toBeUndefined();
+    expect(cssColor("\\72 ed")).toBeUndefined();
+  });
+
+  it("keeps the things a colour actually is", () => {
+    expect(cssColor("#3b82f6")).toBe("#3b82f6");
+    expect(cssColor("#fff")).toBe("#fff");
+    expect(cssColor("rgba(0, 0, 0, 0.4)")).toBe("rgba(0, 0, 0, 0.4)");
+    expect(cssColor("hsl(210 40% 98%)")).toBe("hsl(210 40% 98%)");
+    expect(cssColor("transparent")).toBe("transparent");
+    expect(cssColor("currentColor")).toBe("currentColor");
+    expect(cssColor("var(--site-accent, #6366f1)")).toBe("var(--site-accent, #6366f1)");
+  });
+
+  it("checks a var() fallback, which is the part an author writes", () => {
+    expect(cssColor("var(--x, red;background:url(https://evil.example))")).toBeUndefined();
+  });
+
+  it("refuses a url() dressed as a colour", () => {
+    expect(cssColor("url(https://evil.example/x)")).toBeUndefined();
+  });
+});
+
+describe("cssLength", () => {
+  it("takes a number as pixels", () => {
+    expect(cssLength(24)).toBe("24px");
+    expect(cssLength(Infinity)).toBeUndefined();
+    expect(cssLength(NaN)).toBeUndefined();
+  });
+
+  it("takes a string with a unit it knows", () => {
+    expect(cssLength("1.5rem")).toBe("1.5rem");
+    expect(cssLength("100%")).toBe("100%");
+    expect(cssLength("0")).toBe("0");
+  });
+
+  it("refuses anything with a call or a separator in it", () => {
+    expect(cssLength("calc(100% - 1px)")).toBeUndefined();
+    expect(cssLength("10px;background:url(https://evil.example)")).toBeUndefined();
   });
 });

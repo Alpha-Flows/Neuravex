@@ -5,6 +5,8 @@ import { InlineEdit } from "@/components/ui/InlineEdit";
 import { ButtonProps } from "@/types";
 import { cn } from "@/lib/utils";
 import { TOKEN, readableTextOn } from "@/lib/site-theme";
+import { cssColor } from "@/lib/css-value";
+import { isSafeHref } from "@/lib/security";
 
 interface Props {
   props: ButtonProps;
@@ -42,12 +44,22 @@ export function ButtonBlock({ props, onChange, disabled }: Props) {
   // its label in the accent itself — it used to be handed the same #ffffff as
   // a filled one, which on a light page is white text on white.
   const filled = props.variant === "primary" || props.variant === "secondary";
-  const accent = props.color || TOKEN.accent;
+  const ownColor = cssColor(props.color);
+  const accent = ownColor ?? TOKEN.accent;
   // A button with its own colour works out its own readable label; only one
   // riding the site accent defers to the accent's contrast token.
   const labelColor =
-    props.textColor ||
-    (filled ? (props.color ? readableTextOn(props.color) : TOKEN.accentContrast) : accent);
+    cssColor(props.textColor) ??
+    (filled ? (ownColor ? readableTextOn(ownColor) : TOKEN.accentContrast) : accent);
+
+  /**
+   * The address this button goes to, checked here as well as at the door.
+   *
+   * Every write path validates the scheme now — but a row written before that
+   * existed is still in people's databases, and this is the element visitors
+   * click most. On the exported site there is no CSP behind it.
+   */
+  const href = isSafeHref(props.href);
 
   const inner = (
     <Editable
@@ -72,7 +84,7 @@ export function ButtonBlock({ props, onChange, disabled }: Props) {
   );
 
   if (disabled) {
-    return <div className={alignClass[props.align]}>{props.href ? <a href={props.href}>{inner}</a> : inner}</div>;
+    return <div className={alignClass[props.align]}>{href ? <a href={href}>{inner}</a> : inner}</div>;
   }
 
   return (
