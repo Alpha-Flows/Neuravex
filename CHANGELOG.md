@@ -165,6 +165,20 @@ identifier in brackets is the finding it closes.
 
 ### Fixed
 
+- `npm run desktop` rebuilds when the source has moved. It asked only whether
+  `.next` existed, so `git pull && npm run desktop` served the previous
+  bundle — and served it against a database the same launcher had just
+  migrated to the new schema, which is the one pairing nothing else in the app
+  is written to survive. `INSTALL.md` had promised a rebuild the whole time.
+  The launcher now compares the source against a fingerprint recorded beside
+  the schema fingerprint in `prisma/.neuravex-state.json`, and `npm run build`
+  records it too, so building by hand and launching do not build twice. The
+  fingerprint is a walk of paths, sizes and timestamps rather than a hash of
+  the contents: `public/` is 53 MB of bundled photographs, and the walk takes
+  about 18 ms. An existing install with no fingerprint recorded is judged on
+  whether the bundle is newer than every source file, so updating does not
+  force a build that is not needed. A failed build now stops the launcher
+  instead of falling through to serve the old one.
 - `npm run test:e2e` builds its own database instead of using yours. It ran
   against whatever `.env` named — on a developer's machine, their real sites —
   and the specs clean up after themselves with ninety-five permanent deletes,

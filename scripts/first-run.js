@@ -178,7 +178,7 @@ function firstRun() {
   return { created };
 }
 
-module.exports = { firstRun, ensureEnv, ensureDatabase, databaseFile, schemaFingerprint, lossIsIntentional, STATE_FILE };
+module.exports = { firstRun, ensureEnv, ensureDatabase, databaseFile, schemaFingerprint, lossIsIntentional, readState, writeState, STATE_FILE };
 
 if (require.main === module) {
   try {
