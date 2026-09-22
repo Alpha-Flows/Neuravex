@@ -52,7 +52,28 @@ async function restrictPermissions(): Promise<void> {
   }
 }
 
+/**
+ * Say which step was missed, rather than letting Prisma say which line of the
+ * schema it was on.
+ *
+ * `.env` is not in the repository — it is written by `npm run setup` and by
+ * the desktop launcher — so a checkout that has only ever had `npm install`
+ * run on it has no `DATABASE_URL`. What that produced was a Prisma validation
+ * error pointing at `schema.prisma:10`, which tells a first-time reader
+ * nothing about the command they have not run yet.
+ */
+function requireDatabaseUrl(): void {
+  if (process.env.DATABASE_URL?.trim()) return;
+  throw new Error(
+    "DATABASE_URL is not set, so Neuravex does not know where your sites are kept.\n" +
+      "Run `npm run setup` once — it writes .env, creates the database and adds the demo site.\n" +
+      "`npm run desktop` does the same thing on its way up.",
+  );
+}
+
 const prismaClientSingleton = () => {
+  requireDatabaseUrl();
+
   const client = new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });

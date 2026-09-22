@@ -186,6 +186,21 @@ identifier in brackets is the finding it closes.
 
 ### Fixed
 
+- A stale `node_modules` says so. `git pull` brings new source and not new
+  dependencies, so a pull across a major leaves the code and the framework it
+  runs on disagreeing — and what surfaces then is whatever breaks first, which
+  is rarely anything to do with installing. React 18 under React 19 source
+  reported "Maximum update depth exceeded" from inside the drag-and-drop
+  library, with a stack pointing at somebody else's code entirely. Every
+  command now checks the majors of `next`, `react` and `react-dom` against
+  what `package.json` asks for and says `run npm install` when they differ.
+  A warning, not a refusal: a wrong hint must not be what stops somebody
+  working.
+- A missing `DATABASE_URL` names the command that was not run. `.env` is not
+  in the repository — `npm run setup` and the desktop launcher write it — so a
+  checkout that has only had `npm install` run on it produced a Prisma
+  validation error pointing at a line of `schema.prisma`, which says nothing
+  about the step that was skipped.
 - The eight `react-hooks/set-state-in-effect` warnings the Next 16 migration
   left behind are gone, and the rule is an error. They were written up as one
   problem with one defence — a value the server cannot know, read after mount
