@@ -28,15 +28,17 @@ Step-by-step instructions for setting up Neuravex on your machine. Covers local 
 
 | Requirement | Minimum Version | Check |
 |-------------|-----------------|-------|
-| **Node.js** | 20 LTS or newer | `node -v` |
+| **Node.js** | 22.12 LTS or newer | `node -v` |
 | **npm** | 10+ (ships with Node) | `npm -v` |
 | **Git** | Any recent version | `git --version` |
 
-> Node 18 reached end of life in April 2025 and cannot run this project: the
-> test runner and the browser tests both refuse it, and Next.js needs at least
-> 18.17 to start at all. `package.json` states `"engines": { "node": ">=20" }`
-> and `.npmrc` sets `engine-strict=true`, so `npm install` stops rather than
-> half-working. There is a `.nvmrc` if you use nvm.
+> Node 20 reached end of life in April 2026, and `sanitize-html` — the library
+> that stands between a visitor's HTML and your published page — requires
+> 22.12 from 2.17.6 onward, which is the release carrying the two fixes this
+> project depends on. So 22.12 is the floor. `package.json` states
+> `"engines": { "node": ">=22.12.0" }` and `.npmrc` sets `engine-strict=true`,
+> so `npm install` stops rather than half-working. There is a `.nvmrc` if you
+> use nvm.
 
 No other system dependencies are needed. Neuravex uses SQLite (bundled via Prisma), so there is no external database to install.
 
