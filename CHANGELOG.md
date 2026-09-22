@@ -178,6 +178,22 @@ identifier in brackets is the finding it closes.
 
 ### Fixed
 
+- Saved blocks go through the shared block-tree validator. A saved block is
+  not a note about a block: it is stored markup that a later click drops
+  straight into a page, which makes the route a write path into a block tree
+  like save, import, paste and the MCP server — and it was the one guarding
+  with a local `isBlock()` that asked only whether `id` and `type` were
+  strings. A `javascript:` href, a `style` that fetches, or a tree deep enough
+  to overflow the stack was stored verbatim and inserted verbatim. It is now
+  checked on the way in and again on the way out, since rows kept by an
+  earlier version are already in the database and the picker is where one
+  becomes part of a page.
+- The last three routes that read a request body with an uncapped
+  `req.json()` — saved blocks, revision restore and the legal profile — read
+  through the size-checked reader the rest of the API already used. No route
+  in `src/app/api` calls `req.json()` now. The legal routes keep an absent
+  body distinct from an empty one, so generating from the details on file
+  still works.
 - The editor read a page's content with a bare `JSON.parse` in a `try`/`catch`
   — the one read path that trusted the database rather than checking it. It
   survived malformed JSON but handed the editor whatever the array happened to

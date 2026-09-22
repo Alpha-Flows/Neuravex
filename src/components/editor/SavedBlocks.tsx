@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BaseBlock } from "@/types";
 import { getBlockDefinition } from "@/lib/blocks";
 import { withFreshIds, cloneTree } from "@/lib/tree-utils";
+import { normalizeBlockTree } from "@/lib/block-tree";
 import { cn } from "@/lib/utils";
 
 export interface SavedBlockRow {
@@ -39,13 +40,21 @@ export function SavedBlocks({ refreshKey, onInsert }: Props) {
   useEffect(load, [load, refreshKey]);
 
   function insert(row: SavedBlockRow) {
+    // Checked on the way out as well as in, the way `pasteable()` checks the
+    // clipboard. The route validates what it stores now, but rows kept by an
+    // earlier version are already in the database and were never checked at
+    // all — and this is the moment one of them becomes part of a page.
+    // A row holds one block, not a list, so it is wrapped before checking.
+    let stored: unknown;
     try {
-      const parsed = JSON.parse(row.content);
-      // Fresh ids: the same saved block may already be on this page.
-      onInsert(withFreshIds(cloneTree(parsed)));
+      stored = JSON.parse(row.content);
     } catch {
-      /* A damaged entry is not worth crashing the editor over. */
+      return; // A damaged entry is not worth crashing the editor over.
     }
+    const checked = normalizeBlockTree([stored]);
+    if (!checked.ok || checked.tree.length === 0) return;
+    // Fresh ids: the same saved block may already be on this page.
+    onInsert(withFreshIds(cloneTree(checked.tree[0])));
   }
 
   async function forget(row: SavedBlockRow) {

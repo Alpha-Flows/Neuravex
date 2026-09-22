@@ -4,11 +4,34 @@ import { applyLegalPages } from "@/lib/legal/apply";
 import { auditSite } from "@/lib/legal/audit";
 import { isLegalKind } from "@/lib/legal/pages";
 import { legalProfileSchema, missingFor, parseProfile } from "@/lib/legal/profile";
+import { readBodyText } from "@/lib/request-body";
 
 export const dynamic = "force-dynamic";
 
 interface Params {
   params: Promise<{ id: string }>;
+}
+
+/**
+ * The body, size-checked, with "there was no body" preserved.
+ *
+ * Both handlers here distinguish an absent body from an empty object: POST
+ * generates from what is on file when nothing is sent, and would otherwise
+ * overwrite a stored profile with an empty one. So this returns null for an
+ * absent body rather than `{}`, which is what `readJsonBody` would give.
+ *
+ * `zod` validates the shape a line later; what it cannot do is stop the body
+ * being read into memory first, which is what the cap is for.
+ */
+async function readProfileBody(req: NextRequest): Promise<{ ok: true; body: unknown } | { ok: false; response: NextResponse }> {
+  const raw = await readBodyText(req);
+  if (!raw.ok) return raw;
+  if (!raw.body.trim()) return { ok: true, body: null };
+  try {
+    return { ok: true, body: JSON.parse(raw.body) };
+  } catch {
+    return { ok: false, response: NextResponse.json({ error: "That request body is not valid JSON." }, { status: 400 }) };
+  }
 }
 
 /** The details on file, what is still missing, and what the site itself does. */
@@ -69,8 +92,9 @@ export async function GET(_req: NextRequest, props: Params) {
  */
 export async function PUT(req: NextRequest, props: Params) {
   const params = await props.params;
-  const body = await req.json().catch(() => null);
-  const parsed = legalProfileSchema.safeParse(body);
+  const read = await readProfileBody(req);
+  if (!read.ok) return read.response;
+  const parsed = legalProfileSchema.safeParse(read.body);
   if (!parsed.success) {
     return NextResponse.json({ error: "These details are not in a shape this can store." }, { status: 400 });
   }
@@ -85,7 +109,9 @@ export async function PUT(req: NextRequest, props: Params) {
 /** Write both documents onto the site, creating or rewriting the two pages. */
 export async function POST(req: NextRequest, props: Params) {
   const params = await props.params;
-  const body = await req.json().catch(() => null);
+  const read = await readProfileBody(req);
+  if (!read.ok) return read.response;
+  const body = read.body;
   const site = await prisma.site.findUnique({ where: { id: params.id }, select: { legal: true } });
   if (!site) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
