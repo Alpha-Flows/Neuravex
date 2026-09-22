@@ -18,6 +18,7 @@ import { uid, slugify, cn } from "@/lib/utils";
 import { siteThemeCss, SiteThemeInput } from "@/lib/site-theme";
 import { scopeCss } from "@/lib/scope-css";
 import { readClipboard, writeClipboard, pasteable, subscribeClipboard, clipboardLabel as readClipboardLabel, clipboardServerLabel } from "@/lib/clipboard";
+import { containerChoices } from "@/lib/containers";
 import { railsSnapshot, railsServerSnapshot, subscribeRails, setRails, RailState } from "@/lib/rails";
 import { SiteHeader, SiteFooter, SiteChrome, NavPage, LegalPage } from "@/components/public/SiteChrome";
 import { mapBlocks, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount, removeBlock, withFreshIds } from "@/lib/tree-utils";
@@ -407,6 +408,43 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     if (!moved) return;
     pushHistory(insertIntoContainer(removed, `col-${selectedPlacement.columnsBlockId}-${target}`, moved, undefined));
   }
+
+  /**
+   * Move the selected block into another container.
+   *
+   * This exists for floating blocks. A float is placed rather than ordered, so
+   * `Sortable.tsx` switches its sortable off — dragging it within a list it
+   * does not occupy would move nothing — and its handle means "move it across
+   * the page" instead. That left no way to get a float out of the container it
+   * was made in short of putting it back in the flow, dragging it, and
+   * floating it again, which lost its position twice.
+   *
+   * Its `x`, `y` and `width` are shares of whatever it floats in, so they
+   * survive the move and mean the same thing in the new box.
+   */
+  function moveSelectedToContainer(target: string) {
+    if (!selectedId) return;
+    const from = parentMap.get(selectedId);
+    if (!from || from === target) return;
+
+    let moved: BaseBlock | undefined;
+    const removed = removeFromContainer(blocks, from, selectedId, (b) => (moved = b));
+    if (!moved) return;
+
+    // `insertIntoContainer` returns the tree unchanged when the id names no
+    // container — and the block has already been taken out of the old one by
+    // then, so publishing that tree would delete it. The block has to be
+    // somewhere in the result before this becomes the page.
+    const next = insertIntoContainer(removed, target, moved, undefined);
+    if (!findBlock(next, selectedId)) return;
+    pushHistory(next);
+  }
+
+  /** Where the selected block could go, and where it is now. */
+  const containerTargets = useMemo(
+    () => (selectedId ? containerChoices(blocks, selectedId) : []),
+    [blocks, selectedId],
+  );
 
   // Where a palette click drops the new block: straight after the selection,
   // in whichever container holds it — including the specific column.
@@ -925,6 +963,15 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
                   : undefined
               }
               levels={selectedLevels}
+              containers={
+                selectedBlock.layer?.mode === "float"
+                  ? {
+                      current: parentMap.get(selectedBlock.id) ?? "page",
+                      choices: containerTargets,
+                      onMove: moveSelectedToContainer,
+                    }
+                  : undefined
+              }
               onSaveForReuse={saveForReuse}
               linkTargets={linkTargets}
               siteSlug={siteSlug}

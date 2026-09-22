@@ -8,12 +8,27 @@ import { Button } from "@/components/ui/Button";
 import { MediaPicker } from "./MediaPicker";
 import { getBlockDefinition } from "@/lib/blocks";
 import { isInternalLink, pagePath, targetOf, type LinkTarget } from "@/lib/page-links";
+import type { ContainerChoice } from "@/lib/containers";
 
 interface Placement {
   /** Zero-based column this block currently sits in. */
   current: number;
   count: number;
   onMove: (column: number) => void;
+}
+
+/**
+ * Where a floating block floats, and where else it could.
+ *
+ * Only floats need this. Every other block is moved by dragging it, but a
+ * float's drag already means "move it across the page" — see
+ * `src/lib/containers.ts` for why that left it stuck in one container.
+ */
+interface ContainerPlacement {
+  /** The container id the block is in now. */
+  current: string;
+  choices: ContainerChoice[];
+  onMove: (containerId: string) => void;
 }
 
 interface Props {
@@ -28,6 +43,8 @@ interface Props {
    * number somebody has to guess.
    */
   levels?: { min: number; max: number };
+  /** Where a floating block sits, and the other containers it could sit in. */
+  containers?: ContainerPlacement;
   /** Keeps this block, under a name, for use on any page. */
   onSaveForReuse?: (name: string) => Promise<void> | void;
   /** Every page of this site, so a link can be picked instead of typed. */
@@ -35,7 +52,7 @@ interface Props {
   siteSlug?: string;
 }
 
-export function BlockInspector({ block, onChange, onClose, placement, levels, onSaveForReuse, linkTargets, siteSlug }: Props) {
+export function BlockInspector({ block, onChange, onClose, placement, levels, containers, onSaveForReuse, linkTargets, siteSlug }: Props) {
   if (!block) {
     return (
       <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full p-4 text-sm text-fg-muted">
@@ -60,7 +77,7 @@ export function BlockInspector({ block, onChange, onClose, placement, levels, on
       <div className="p-4 space-y-4">
         {placement ? <ColumnPlacement placement={placement} /> : null}
         <InspectorBody block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />
-        <DepthPanel block={block} onChange={onChange} levels={levels ?? { min: 0, max: 0 }} />
+        <DepthPanel block={block} onChange={onChange} levels={levels ?? { min: 0, max: 0 }} containers={containers} />
         {onSaveForReuse ? <SaveForReuse block={block} onSave={onSaveForReuse} /> : null}
       </div>
     </aside>
@@ -178,10 +195,12 @@ function DepthPanel({
   block,
   onChange,
   levels,
+  containers,
 }: {
   block: BaseBlock;
   onChange: (next: BaseBlock) => void;
   levels: { min: number; max: number };
+  containers?: ContainerPlacement;
 }) {
   const layer = layerOf(block);
   const floating = layer.mode === "float";
@@ -270,6 +289,9 @@ function DepthPanel({
             same place on a phone as on a desktop. Drag the ✥ handle to move it, or the bar on its right edge to set
             how wide it is. The arrow keys nudge it whenever the caret is not in its own text.
           </p>
+          {containers && containers.choices.length > 1 ? (
+            <FloatsIn containers={containers} />
+          ) : null}
         </>
       ) : (
         <p className="text-xs text-fg-subtle">
@@ -277,6 +299,44 @@ function DepthPanel({
           neighbours instead — a headline on a photograph, a badge on a card.
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Which container a floating block floats in.
+ *
+ * Dragging is how every other block changes container, and a float's drag is
+ * already spoken for — it moves the block within whatever it floats in. So the
+ * containers are listed by name instead. The list is indented the way the
+ * outline is, because "Section 2" means little until you can see it sits
+ * inside the first one.
+ */
+function FloatsIn({ containers }: { containers: ContainerPlacement }) {
+  return (
+    <div className="pt-1">
+      <Label>Floats in</Label>
+      <div className="rounded-md border border-bg-border overflow-hidden">
+        {containers.choices.map((choice) => (
+          <button
+            key={choice.id}
+            onClick={() => containers.onMove(choice.id)}
+            aria-pressed={choice.id === containers.current}
+            style={{ paddingLeft: 8 + choice.depth * 12 }}
+            className={`w-full text-left pr-2 h-8 text-xs ${
+              choice.id === containers.current
+                ? "bg-brand text-white"
+                : "text-fg-muted hover:text-fg hover:bg-bg-card"
+            }`}
+          >
+            {choice.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-fg-subtle mt-1.5">
+        It keeps its position, which is a share of whatever it floats in — so moving it to a narrower container
+        makes it narrower too.
+      </p>
     </div>
   );
 }
