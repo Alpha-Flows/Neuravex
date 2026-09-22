@@ -165,6 +165,17 @@ identifier in brackets is the finding it closes.
 
 ### Fixed
 
+- `npm run test:e2e` builds its own database instead of using yours. It ran
+  against whatever `.env` named — on a developer's machine, their real sites —
+  and the specs clean up after themselves with ninety-five permanent deletes,
+  so a run in the wrong place emptied the trash on the way out. Adding a
+  `DATABASE_URL` to the Playwright config would not have been enough:
+  `reuseExistingServer` was on, and the port it watched is the desktop
+  launcher's, so a developer with Neuravex open had their running app adopted
+  as the server under test. The suite now builds and seeds a throwaway
+  database and upload directory under `data/e2e/`, never adopts a server it
+  did not start, and proves before the first test that the server it is
+  talking to is reading that database and not another one.
 - The SQLite PRAGMAs the web app documents are actually executed. [NVX-030]
 - The download, sitemap and robots routes no longer derive their origin from a
   client-supplied `X-Forwarded-Proto`. [NVX-026, NVX-051]

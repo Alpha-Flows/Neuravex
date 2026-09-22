@@ -70,11 +70,6 @@ jobs:
       - name: Install Chromium
         run: node scripts/run-local.js playwright install --with-deps chromium
 
-      - name: Prepare the database
-        run: |
-          npm run db:push -- --skip-generate
-          npm run db:seed
-
       - name: Build
         run: npm run build
 

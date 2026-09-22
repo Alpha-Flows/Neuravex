@@ -8,7 +8,10 @@ import { test, expect } from "@playwright/test";
  * were told: delete a site, rewrite a page, empty the trash.
  */
 
-const BASE = "http://127.0.0.1:3939";
+// The same-origin value, taken from the run's own baseURL rather than
+// written out again — the port moved once already, and a stale literal here
+// fails as a 403 from the Origin check, which reads like a real defect.
+const BASE = `http://127.0.0.1:${process.env.NEURAVEX_E2E_PORT || "3940"}`;
 
 test.describe("A request that changes something", () => {
   test("is refused when it comes from another site", async ({ request }) => {
