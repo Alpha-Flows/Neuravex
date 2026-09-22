@@ -11,8 +11,9 @@ export const dynamic = "force-dynamic";
  * the one-card version of that; the collection route next door does "all of
  * them" and "everything older than".
  */
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const deleted = await prisma.submission.delete({ where: { id: params.id } }).catch(() => null);
-  if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ ok: true });
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+ const params = await props.params;
+ const deleted = await prisma.submission.delete({ where: { id: params.id } }).catch(() => null);
+ if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
+ return NextResponse.json({ ok: true });
 }

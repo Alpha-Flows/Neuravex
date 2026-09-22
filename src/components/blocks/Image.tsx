@@ -43,7 +43,7 @@ export function Image({ props, onChange, disabled }: Props) {
     // than sit in the flow: in the flow they pushed everything below them down,
     // so the canvas showed a layout the published page never has.
     <figure className={cn("mx-auto relative", widthClass[props.width])}>
-      {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={props.src || PLACEHOLDER}
         alt={props.alt || ""}

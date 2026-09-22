@@ -4,12 +4,12 @@ const nextConfig = {
   // Nothing about this server is a secret, but the version in the banner is a
   // free hint about which advisories to try.
   poweredByHeader: false,
-  experimental: {
-    // The site download compiles a stylesheet for the exported pages at
-    // request time. These are CommonJS build tools — let them be required
-    // from node_modules rather than bundled into the server output.
-    serverComponentsExternalPackages: ["tailwindcss", "postcss", "autoprefixer"],
-  },
+  // The site download compiles a stylesheet for the exported pages at request
+  // time. These are CommonJS build tools — let them be required from
+  // node_modules rather than bundled into the server output. This was
+  // `experimental.serverComponentsExternalPackages` until Next 15 stabilised
+  // it under this name.
+  serverExternalPackages: ["tailwindcss", "postcss", "autoprefixer"],
   images: {
     /**
      * The image optimizer is off, because nothing here uses it.

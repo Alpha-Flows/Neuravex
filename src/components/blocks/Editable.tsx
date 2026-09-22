@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, type JSX } from "react";
 import { FormattingToolbar } from "./FormattingToolbar";
 import { sanitizeInlineHtml } from "@/lib/sanitize";
 

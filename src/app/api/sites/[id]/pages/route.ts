@@ -8,7 +8,8 @@ import { readJsonObject } from "@/lib/request-body";
 export const dynamic = "force-dynamic";
 
 // /api/sites/:id/pages
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { searchParams } = new URL(req.url);
   const includeUnpublished = searchParams.get("all") === "1";
   // Same order the site admin and the published nav use, so a page sits in
@@ -20,7 +21,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json(pages);
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const parsed = await readJsonObject(req);
   if (!parsed.ok) return parsed.response;
   const body = parsed.body;

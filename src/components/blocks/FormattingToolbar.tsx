@@ -25,8 +25,14 @@ export function FormattingToolbar({ onFormat }: Props) {
   // The text that was selected when the link button was pressed. Focus moves
   // to the input below, and the browser drops the selection when it does.
   const savedRange = useRef<Range | null>(null);
+  // Read by the `selectionchange` listener, which is installed once and so
+  // closes over the first `linking`. Kept in step here rather than assigned
+  // during render: a render can be thrown away and re-run, and writing a ref
+  // on the way through is not safe under concurrent rendering.
   const linkingRef = useRef(false);
-  linkingRef.current = linking;
+  useEffect(() => {
+    linkingRef.current = linking;
+  }, [linking]);
   // The toolbar is centred on the selection, and the link field makes it much
   // wider than the three buttons. Near the edge of the window that put half of
   // it off-canvas, over the block palette.

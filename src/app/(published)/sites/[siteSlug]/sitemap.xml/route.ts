@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
  * none, so a published site's inner pages were found only by crawling links
  * from the home page, if at all.
  */
-export async function GET(req: NextRequest, { params }: { params: { siteSlug: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ siteSlug: string }> }) {
+  const params = await props.params;
   const site = await prisma.site.findUnique({
     where: { slug: params.siteSlug },
     include: {

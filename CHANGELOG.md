@@ -59,15 +59,16 @@ identifier in brackets is the finding it closes.
 - `style-src` is split into `style-src-elem` (nonced) and `style-src-attr`, and
   violations are reported to `/api/csp-report`. [NVX-033]
 - `next` 14.2.35 and `sanitize-html` 2.17.7. [NVX-010, NVX-035]
-- Four transitive packages are pinned past their advisories with `overrides`,
-  because the dependency that pulls each one in has not moved yet: `postcss`
-  (the copy nested under `next`, GHSA-r28c-9q8g-f849 and GHSA-6g55-p6wh-862q),
-  and `fast-uri`, `hono` and `qs`, all reached through
-  `@modelcontextprotocol/sdk`. Each is a same-major bump. `npm audit
-  --omit=dev` goes from five advisories to one: the pair of criticals against
-  the `next` 14 line, which only the 16.x migration closes and which NVX-004
-  and NVX-012 mitigate in the meantime. Remove an entry once its parent ships
-  a version that carries the fix on its own.
+- `next` 16.3.5 on React 19, up from 14.2.35 on React 18. The `next` 14 line
+  is out of support: it carried two unauthenticated remote code executions
+  with no 14.x fix — GHSA-p293-qw3h-jr36 on Windows hosts and
+  GHSA-2xp9-vwfh-vxw4 through the image optimizer — plus twenty-odd other
+  advisories. `npm audit --omit=dev` now reports nothing at all against what
+  ships, and the audit gate's allowlist is empty. [NVX-004, NVX-010]
+- The `overrides` that pinned `postcss`, `fast-uri`, `hono` and `qs` past
+  their advisories are gone. They existed because the dependency pulling each
+  one in had not moved; on the Next 16 tree npm resolves every one of them to
+  a fixed release on its own, which the gate confirms.
 - The image optimizer is off and its wildcard remote patterns are gone.
   [NVX-012]
 - `X-Powered-By` is off; `Cross-Origin-Opener-Policy`,
@@ -118,6 +119,20 @@ identifier in brackets is the finding it closes.
 
 ### Changed
 
+- Next.js 16 renames what the framework calls things, and the app follows:
+  `src/middleware.ts` is `src/proxy.ts` and exports `proxy`; `params` and
+  `searchParams` on a page, a layout and a route handler are Promises, so the
+  twenty places that read one now await it; `headers()` is awaited too;
+  `experimental.serverComponentsExternalPackages` is `serverExternalPackages`.
+  Builds run on Turbopack, which is the default in 16.
+- `next lint` was removed in Next 16, so linting is `eslint .` against a flat
+  `eslint.config.mjs` on ESLint 9. Two rules that arrived with it are written
+  down rather than silently disabled: `react-hooks/set-state-in-effect` is a
+  warning, because every instance is a value the server cannot know read after
+  mount to avoid a hydration mismatch, and `react-hooks/refs` is off for the
+  two files that use dnd-kit, whose hook returns plain values beside a ref
+  setter and trips the rule for reading them. It caught one real write of a
+  ref during render in `FormattingToolbar`, which is fixed.
 - Node 22.12 is the documented and enforced minimum, in `.nvmrc`, `engines`,
   the Dockerfile and the install guide. It was Node 20 (NVX-028), and the
   `sanitize-html` bump that closed NVX-035 raised the floor under it:

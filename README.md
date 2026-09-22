@@ -32,7 +32,7 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 22 or
 
 | Layer        | Choice                                  |
 | ------------ | --------------------------------------- |
-| Framework    | [Next.js 14](https://nextjs.org) (App Router) |
+| Framework    | [Next.js 16](https://nextjs.org) (App Router) |
 | Language     | TypeScript                              |
 | UI           | React 18 + Tailwind CSS                 |
 | Drag & drop  | [@dnd-kit](https://dndkit.com)          |

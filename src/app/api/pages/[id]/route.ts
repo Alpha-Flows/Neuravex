@@ -10,10 +10,11 @@ import { readJsonObject } from "@/lib/request-body";
 export const dynamic = "force-dynamic";
 
 interface Params {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, props: Params) {
+  const params = await props.params;
   const page = await prisma.page.findUnique({ where: { id: params.id } });
   if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
   // ?cost=1 — what deleting this page would take with it.
@@ -23,7 +24,8 @@ export async function GET(req: NextRequest, { params }: Params) {
   return NextResponse.json(page);
 }
 
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
+  const params = await props.params;
   const parsed = await readJsonObject(req);
   if (!parsed.ok) return parsed.response;
   const body = parsed.body as Record<string, any>;
@@ -122,7 +124,8 @@ async function retargetSiteLinks(
   return relinkSite(siteId, movePath(pagePath(site.slug, oldSlug, false), pagePath(site.slug, newSlug, false)));
 }
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, props: Params) {
+  const params = await props.params;
   if (new URL(req.url).searchParams.get("permanent") === "1") {
     await prisma.page.delete({ where: { id: params.id } }).catch(() => null);
     return NextResponse.json({ ok: true, trashed: false });

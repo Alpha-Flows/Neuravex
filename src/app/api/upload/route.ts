@@ -87,7 +87,12 @@ export async function POST(req: NextRequest) {
       );
     }
     const filename = generatedName(validation.ext);
-    await writeFile(join(dir, filename), Buffer.from(sanitized, "utf8"), { mode: 0o600 });
+    // `turbopackIgnore` because `dir` is the uploads directory, resolved at
+    // request time from NEURAVEX_UPLOAD_DIR. Turbopack cannot see it
+    // statically and so traces the whole project — the source tree and
+    // `public/` — into the server output on the strength of it.
+    const svgPath = join(/*turbopackIgnore: true*/ dir, filename);
+    await writeFile(svgPath, Buffer.from(sanitized, "utf8"), { mode: 0o600 });
     const svgUrl = `/uploads/${filename}`;
     await remember(svgUrl, upload.name);
     // An SVG scales to whatever box it is given, so there is nothing to report.
@@ -111,7 +116,9 @@ export async function POST(req: NextRequest) {
   const clean = Buffer.from(stripImageMetadata(bytes));
 
   const filename = generatedName(validation.ext);
-  await writeFile(join(dir, filename), clean, { mode: 0o600 });
+  // Same runtime uploads directory as the SVG branch above.
+  const imagePath = join(/*turbopackIgnore: true*/ dir, filename);
+  await writeFile(imagePath, clean, { mode: 0o600 });
 
   const url = `/uploads/${filename}`;
   await remember(url, upload.name);

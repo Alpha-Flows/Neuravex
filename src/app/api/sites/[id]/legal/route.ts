@@ -8,11 +8,12 @@ import { legalProfileSchema, missingFor, parseProfile } from "@/lib/legal/profil
 export const dynamic = "force-dynamic";
 
 interface Params {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 /** The details on file, what is still missing, and what the site itself does. */
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, props: Params) {
+  const params = await props.params;
   const site = await prisma.site.findUnique({
     where: { id: params.id },
     select: {
@@ -66,7 +67,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
  * checks. Losing an address because somebody closed the tab at step three is
  * the failure worth avoiding here.
  */
-export async function PUT(req: NextRequest, { params }: Params) {
+export async function PUT(req: NextRequest, props: Params) {
+  const params = await props.params;
   const body = await req.json().catch(() => null);
   const parsed = legalProfileSchema.safeParse(body);
   if (!parsed.success) {
@@ -81,7 +83,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 /** Write both documents onto the site, creating or rewriting the two pages. */
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   const body = await req.json().catch(() => null);
   const site = await prisma.site.findUnique({ where: { id: params.id }, select: { legal: true } });
   if (!site) return NextResponse.json({ error: "Not found" }, { status: 404 });
