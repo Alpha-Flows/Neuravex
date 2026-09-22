@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { readClipboard, writeClipboard, clearClipboard, pasteable, isBlock } from "@/lib/clipboard";
+import { readClipboard, writeClipboard, clearClipboard, pasteable, isBlock, clipboardLabel, clipboardServerLabel, subscribeClipboard } from "@/lib/clipboard";
 import { BaseBlock } from "@/types";
 
 /** A stand-in for localStorage, including one that refuses to co-operate. */
@@ -114,5 +114,23 @@ describe("isBlock", () => {
     for (const bad of [null, undefined, {}, { id: "a" }, { type: "text" }, "text", 42]) {
       expect(isBlock(bad)).toBe(false);
     }
+  });
+});
+
+describe("the clipboard label, as something to subscribe to", () => {
+  it("is nothing as far as the server is concerned", () => {
+    expect(clipboardServerLabel()).toBeNull();
+  });
+
+  it("follows a copy without anyone being told to update it", () => {
+    // The editor used to keep its own copy of this and set it by hand at the
+    // one place that copies, which is two places to forget.
+    let calls = 0;
+    const stop = subscribeClipboard(() => calls++);
+    const store = memoryStorage();
+    writeClipboard({ id: "b1", type: "heading", props: {} } as never, "Heading", store);
+    expect(calls).toBe(1);
+    expect(clipboardLabel()).toBe("Heading");
+    stop();
   });
 });

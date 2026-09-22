@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useHydrated } from "@/lib/use-hydrated";
 
 const LOCAL = new Set(["localhost", "127.0.0.1", "::1", "[::1]", "0.0.0.0"]);
 
@@ -13,14 +13,13 @@ const LOCAL = new Set(["localhost", "127.0.0.1", "::1", "[::1]", "0.0.0.0"]);
  * edit or delete these sites. Nothing said so.
  */
 export function NetworkNotice() {
-  const [host, setHost] = useState<string | null>(null);
+  // The address in the URL bar is not something the server can know, so this
+  // renders nothing until the browser has the page — which is also when the
+  // question first means anything.
+  const hydrated = useHydrated();
+  const host = hydrated ? window.location.hostname : null;
 
-  useEffect(() => {
-    const h = window.location.hostname;
-    if (!LOCAL.has(h)) setHost(h);
-  }, []);
-
-  if (!host) return null;
+  if (!host || LOCAL.has(host)) return null;
 
   return (
     <div className="border-b border-amber-500/30 bg-amber-500/10">

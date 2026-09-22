@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
@@ -71,9 +71,11 @@ export function LegalFlow({ siteId, siteSlug }: { siteId: string; siteSlug: stri
     setProfile(data.profile);
   }, [siteId]);
 
-  useEffect(() => {
-    if (open && !state) void load();
-  }, [open, state, load]);
+  /** Opening is what asks for the details, so the click is where it belongs. */
+  const openFlow = useCallback(() => {
+    setOpen(true);
+    if (!state) void load();
+  }, [state, load]);
 
   const form = legalForm(profile.legalForm);
 
@@ -158,7 +160,7 @@ export function LegalFlow({ siteId, siteSlug }: { siteId: string; siteSlug: stri
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
+      <Button variant="outline" onClick={openFlow}>
         Impressum &amp; Datenschutz
       </Button>
       {!open ? null : (

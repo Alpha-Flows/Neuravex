@@ -34,20 +34,29 @@ function count(n: number, one: string, many = `${one}s`): string {
  * with them. Now it counts them, and deleting moves the whole thing to the
  * trash where it can be put back.
  */
-export function ConfirmDelete({ open, onClose, kind, name, costUrl, onConfirm, backupUrl }: Props) {
+export function ConfirmDelete({ open, ...rest }: Props) {
+  // Closing unmounts the body, and that is what clears the counts, the
+  // in-flight flag and any failure. They used to be reset by the same effect
+  // that fetched them, watching `open` — so between closing and that effect
+  // running, the dialog still held the last deletion's numbers, and reopening
+  // it quickly showed them for a frame against a different site's name.
+  if (!open) return null;
+  return <ConfirmDeleteBody {...rest} />;
+}
+
+function ConfirmDeleteBody({ onClose, kind, name, costUrl, onConfirm, backupUrl }: Omit<Props, "open">) {
   const [cost, setCost] = useState<DeletionCost | null>(null);
   const [working, setWorking] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (!open) { setCost(null); setFailed(false); return; }
     let live = true;
     fetch(costUrl)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (live && d) setCost({ pages: d.pages ?? 0, revisions: d.revisions ?? 0, submissions: d.submissions ?? 0 }); })
       .catch(() => {});
     return () => { live = false; };
-  }, [open, costUrl]);
+  }, [costUrl]);
 
   async function confirm() {
     setWorking(true);
@@ -70,7 +79,7 @@ export function ConfirmDelete({ open, onClose, kind, name, costUrl, onConfirm, b
 
   return (
     <Modal
-      open={open}
+      open
       onClose={onClose}
       title={kind === "site" ? `Delete "${name}"?` : `Delete the page "${name}"?`}
       subtitle="It goes to the trash, where you can put it back."

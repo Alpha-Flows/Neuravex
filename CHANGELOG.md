@@ -178,6 +178,21 @@ identifier in brackets is the finding it closes.
 
 ### Fixed
 
+- The eight `react-hooks/set-state-in-effect` warnings the Next 16 migration
+  left behind are gone, and the rule is an error. They were written up as one
+  problem with one defence — a value the server cannot know, read after mount
+  so the first render matches the HTML it sent — but they were three, and only
+  four of them had that defence. A client-only value read once is now
+  `useSyncExternalStore` with a server snapshot, which is React's own API for
+  the question and does not cost the extra render. The folded-rails preference
+  and the clipboard label were state copied out of `localStorage` and re-seeded
+  on mount; they are read from the store that already holds them, so the two
+  copies cannot disagree and the first paint no longer shows the wrong one.
+  State that was reset by an effect watching a prop is now reset by unmounting
+  (the delete confirmation and the picture library keep nothing from the last
+  time they were open) or in the handler that caused the change (picking a page
+  of form answers clears the previous page's as it asks for the new ones,
+  rather than a frame later).
 - Saved blocks go through the shared block-tree validator. A saved block is
   not a note about a block: it is stored markup that a later click drops
   straight into a page, which makes the route a write path into a block tree

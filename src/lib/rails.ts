@@ -51,3 +51,41 @@ export function writeRails(state: RailState, storage?: Storage): boolean {
     return false;
   }
 }
+
+/**
+ * The same preference, as something a component can subscribe to.
+ *
+ * The editor used to keep its own copy in `useState` and seed it from storage
+ * in an effect, which meant two places could disagree about which rails were
+ * folded and the first paint always showed the wrong one. There is only one
+ * answer to this question and `localStorage` already holds it, so this exposes
+ * it as a store and the editor reads it directly.
+ *
+ * `useSyncExternalStore` compares snapshots by identity and re-renders when
+ * they differ, so returning a fresh object from every read would never stop
+ * rendering. The snapshot is therefore cached until something writes.
+ */
+let snapshot: RailState | null = null;
+const listeners = new Set<() => void>();
+
+/** What the server renders: nobody has folded anything it can know about. */
+export function railsServerSnapshot(): RailState {
+  return RAILS_OPEN;
+}
+
+export function railsSnapshot(): RailState {
+  if (!snapshot) snapshot = readRails();
+  return snapshot;
+}
+
+export function subscribeRails(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** Store the preference and tell everyone reading it. */
+export function setRails(state: RailState): void {
+  writeRails(state);
+  snapshot = { left: state.left === true, right: state.right === true };
+  for (const listener of listeners) listener();
+}
