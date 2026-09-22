@@ -57,11 +57,21 @@ const SIDECARS = ["-wal", "-shm", "-journal"];
  */
 function scratchPaths() {
   const dir = path.join(ROOT, "data", "e2e");
+  const port = process.env.NEURAVEX_E2E_PORT || "3940";
   return {
     dir,
     database: path.join(dir, "e2e.db"),
     uploads: path.join(dir, "uploads"),
-    port: process.env.NEURAVEX_E2E_PORT || "3940",
+    port,
+    // A second, empty database, and a second server reading it. It is the
+    // only reliable way to make a page throw: every render path in this app
+    // is deliberately guarded — `normalizeBlockTree`, `safeProps`,
+    // `BlockBoundary`, `safeAccent` — so a bad row no longer reaches a
+    // renderer, and the error boundaries would otherwise have no test at all.
+    // A zero-byte file is a valid, table-less SQLite database, so every query
+    // against it fails the way a genuinely broken install would.
+    broken: path.join(dir, "broken.db"),
+    brokenPort: String(Number(port) + 1),
   };
 }
 
@@ -78,6 +88,7 @@ function testEnv(paths = scratchPaths()) {
     DATABASE_URL: `file:${paths.database}`,
     NEURAVEX_UPLOAD_DIR: paths.uploads,
     NEURAVEX_E2E_PORT: paths.port,
+    NEURAVEX_E2E_BROKEN_DB: paths.broken,
     NEURAVEX_E2E: "1",
   };
 }
@@ -100,6 +111,7 @@ function remove(file) {
 
 function cleanup(paths) {
   remove(paths.database);
+  remove(paths.broken);
   try {
     fs.rmSync(paths.uploads, { recursive: true, force: true });
   } catch {
@@ -131,10 +143,12 @@ async function main(args = []) {
   // Playwright is told never to adopt a server it did not start, so a busy
   // port is a failure. Saying which port and why here is friendlier than the
   // timeout Playwright would otherwise report two minutes later.
-  if (await portIsBusy(paths.port)) {
-    say(`Something is already answering on port ${paths.port}.`);
-    say("Quit it, or choose another port with NEURAVEX_E2E_PORT.");
-    return 1;
+  for (const port of [paths.port, paths.brokenPort]) {
+    if (await portIsBusy(port)) {
+      say(`Something is already answering on port ${port}.`);
+      say("Quit it, or choose another port with NEURAVEX_E2E_PORT.");
+      return 1;
+    }
   }
 
   // The suite runs against `next start`, so it tests the bundle on disk. A
@@ -161,6 +175,8 @@ async function main(args = []) {
     runBin("prisma", ["db", "push", "--force-reset", "--skip-generate"], { env });
     // Seeded, not merely empty: `e2e/public.spec.ts` visits `/sites/demo`.
     runBin("tsx", ["prisma/seed.ts"], { env });
+    // Left empty on purpose — see `broken` above.
+    fs.writeFileSync(paths.broken, "");
   } catch {
     cleanup(paths);
     say("Could not build the test database. Your own sites are untouched.");
