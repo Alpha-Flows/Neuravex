@@ -35,6 +35,7 @@ const fs = require("fs");
 const net = require("net");
 const path = require("path");
 const { runBin } = require("./local-bin");
+const { buildIsCurrent } = require("./build-state");
 
 const ROOT = path.resolve(__dirname, "..");
 
@@ -133,6 +134,21 @@ async function main(args = []) {
   if (await portIsBusy(paths.port)) {
     say(`Something is already answering on port ${paths.port}.`);
     say("Quit it, or choose another port with NEURAVEX_E2E_PORT.");
+    return 1;
+  }
+
+  // The suite runs against `next start`, so it tests the bundle on disk. A
+  // bundle older than the source fails in ways that look like the change
+  // under test — a page added since the last build simply 404s — so say which
+  // it is rather than letting someone debug the wrong thing.
+  const build = buildIsCurrent();
+  if (!build.current) {
+    say(
+      build.reason === "no build"
+        ? "There is no production build to test. Run `npm run build` first."
+        : "The source has changed since the last build, so these tests would run against the old one.",
+    );
+    say("Run `npm run build`, then try again.");
     return 1;
   }
 

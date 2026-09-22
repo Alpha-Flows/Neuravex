@@ -408,7 +408,7 @@ node electron/server.js 4000
 
 The launcher will:
 1. Set up `.env` and the database if this is a fresh copy
-2. Check for a production build (runs `next build` if missing)
+2. Rebuild if the source has changed since the last build, or build if there is none
 3. Start the server on `127.0.0.1` at the given port
 4. Wait for the server to be ready
 5. Open your default browser
@@ -538,8 +538,11 @@ npm install
 npm run desktop    # applies any schema changes and rebuilds on the way up
 ```
 
-The launcher notices when the schema has moved and applies it before starting, so an
-update does not need anything else. Doing it by hand is `npm run db:push` followed by
+The launcher notices when the schema has moved and applies it before starting, and it
+notices when the source has moved and rebuilds, so an update does not need anything
+else. It compares the source against a fingerprint recorded at the last build — a walk
+of sizes and timestamps, so it costs milliseconds rather than reading the 53 MB of
+bundled photographs on every launch. Doing it by hand is `npm run db:push` followed by
 `npm run build`; `db:push` is safe on an existing database, applying new columns and
 tables without deleting data. If it ever cannot apply a change without losing data it
 refuses and says so, rather than doing it.

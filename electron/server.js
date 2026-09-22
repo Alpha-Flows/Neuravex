@@ -11,10 +11,10 @@
 
 const { exec } = require("child_process");
 const http = require("http");
-const path = require("path");
-const fs = require("fs");
 const { firstRun } = require("../scripts/first-run");
-const { ROOT, runBin, spawnBin, serverHost, exposureWarning } = require("../scripts/local-bin");
+const { spawnBin, serverHost, exposureWarning } = require("../scripts/local-bin");
+const { buildIsCurrent } = require("../scripts/build-state");
+const { runBuild } = require("../scripts/build");
 const { version: VERSION } = require("../package.json");
 
 const PORT = parseInt(process.argv[2] || process.env.PORT || "3939", 10);
@@ -53,13 +53,32 @@ function openBrowser(url) {
   });
 }
 
-// Check if .next build exists
+/**
+ * Make sure the bundle about to be served was built from the source on disk.
+ *
+ * This used to ask only whether `.next` existed, so `git pull && npm run
+ * desktop` served last month's bundle — and by this point `firstRun()` has
+ * already migrated the database to the new schema, so the old code is running
+ * against a shape it does not know. `INSTALL.md` promised a rebuild all along.
+ */
 function ensureBuilt() {
-  const dotNext = path.join(ROOT, ".next");
-  if (!fs.existsSync(dotNext)) {
-    log("Production build not found. Running `next build`…");
-    runBin("next", ["build"]);
+  const { current, reason } = buildIsCurrent();
+  if (current) return;
+
+  log(
+    reason === "no build"
+      ? "Production build not found. Running `next build`…"
+      : "The source has changed since the last build. Rebuilding…",
+  );
+  try {
+    runBuild();
     log("Build complete.");
+  } catch {
+    // There is no falling back on what is already there: the database has
+    // just been migrated, and the old bundle against the new schema is the
+    // exact failure this check exists to prevent.
+    log("Could not build. Run `npm run build` to see what it needs.");
+    process.exit(1);
   }
 }
 
