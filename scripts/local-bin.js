@@ -102,6 +102,88 @@ function childEnv(extra = {}) {
 }
 
 /**
+ * Say so when `node_modules` is older than the checkout.
+ *
+ * `git pull` brings new source; it does not bring new dependencies. When a
+ * pull crosses a major version the two stop matching, and what the reader
+ * gets is not "your install is stale" but whatever the mismatch happens to
+ * break first — a React 18 runtime under React 19 source surfaced as
+ * "Maximum update depth exceeded" from inside a drag-and-drop library, which
+ * is about as far from the cause as a message can get.
+ *
+ * Majors only. A patch or minor behind is normal between installs and not
+ * worth a word; a major behind is the case that produces mystifying failures.
+ *
+ * Checked once per process, and never fatal: it is a hint, and a wrong hint
+ * must not be the thing that stops somebody working.
+ */
+const MAJOR_MUST_MATCH = ["next", "react", "react-dom"];
+let installChecked = false;
+
+/** The leading number of a version or a range: `^19.3.0` and `19.3.0` are both 19. */
+function majorOf(version) {
+  const match = /(\d+)/.exec(String(version ?? ""));
+  return match ? match[1] : null;
+}
+
+/**
+ * Which of the packages that must match are a major behind, as a pure
+ * function of what was asked for and what is there — so the decision can be
+ * tested without an actual stale `node_modules`.
+ *
+ * A package that is absent is not reported: `resolveBin` already says so, and
+ * says it better, for the one package the caller actually asked to run.
+ */
+function staleMajors(wanted, installed) {
+  const behind = [];
+  for (const pkg of MAJOR_MUST_MATCH) {
+    const want = majorOf(wanted[pkg]);
+    const has = majorOf(installed[pkg]);
+    if (!want || !has) continue;
+    if (want !== has) behind.push(`${pkg} ${has} installed, ${want} expected`);
+  }
+  return behind;
+}
+
+/** What is actually in `node_modules` right now, for the packages that matter. */
+function installedMajors() {
+  const out = {};
+  for (const pkg of MAJOR_MUST_MATCH) {
+    try {
+      out[pkg] = require(require.resolve(`${pkg}/package.json`, { paths: [ROOT] })).version;
+    } catch {
+      // Absent; see `staleMajors`.
+    }
+  }
+  return out;
+}
+
+function warnIfInstallIsStale() {
+  if (installChecked) return;
+  installChecked = true;
+
+  let wanted;
+  try {
+    wanted = require(path.join(ROOT, "package.json")).dependencies ?? {};
+  } catch {
+    return;
+  }
+
+  const behind = staleMajors(wanted, installedMajors());
+  if (behind.length === 0) return;
+  for (const line of [
+    "",
+    "WARNING: node_modules is older than this checkout.",
+    `WARNING: ${behind.join("; ")}.`,
+    "WARNING: run `npm install`. Until then errors here may make no sense,",
+    "WARNING: because the code and the framework it runs on do not match.",
+    "",
+  ]) {
+    process.stderr.write(`[neuravex] ${line}\n`);
+  }
+}
+
+/**
  * The file a locally installed package runs, as an absolute path.
  *
  * Throws when the package is not installed, which is the point: the caller
@@ -130,6 +212,7 @@ function nodeArgsFor(pkg, args = []) {
 
 /** Runs a local command to completion, with its output on this terminal. */
 function runBin(pkg, args, options = {}) {
+  warnIfInstallIsStale();
   return execFileSync(process.execPath, nodeArgsFor(pkg, args), {
     cwd: ROOT,
     stdio: "inherit",
@@ -164,6 +247,7 @@ function captureBin(pkg, args, options = {}) {
  * process group so the whole tree can be signalled at once.
  */
 function spawnBin(pkg, args, options = {}) {
+  warnIfInstallIsStale();
   return spawn(process.execPath, nodeArgsFor(pkg, args), {
     cwd: ROOT,
     detached: process.platform !== "win32",
@@ -177,6 +261,10 @@ module.exports = {
   OFFLINE_ENV,
   dotEnv,
   childEnv,
+  majorOf,
+  staleMajors,
+  installedMajors,
+  warnIfInstallIsStale,
   serverHost,
   exposureWarning,
   resolveBin,

@@ -551,6 +551,41 @@ refuses and says so, rather than doing it.
 
 ## Troubleshooting
 
+### "Environment variable not found: DATABASE_URL"
+
+Neuravex has not been set up in this copy yet. `.env` is not part of the repository — it is
+written the first time you run the app — so a checkout that has only had `npm install` run on it
+does not have one.
+
+**Fix:**
+
+```bash
+npm run setup
+```
+
+That writes `.env`, creates the database, applies the schema and adds the demo site. It is safe
+to run again; it does nothing it has already done. `npm run desktop` does the same on its way up.
+
+### Errors that make no sense after `git pull`
+
+`git pull` brings new source. It does not bring new dependencies, so a pull that crosses a major
+version leaves the code and the framework it runs on disagreeing — and what you see then is
+whatever breaks first, which is rarely anything to do with installing. A React 18 install under
+React 19 source, for instance, surfaced as "Maximum update depth exceeded" from inside the
+drag-and-drop library, with a stack pointing at somebody else's code entirely.
+
+Neuravex warns about this now: `WARNING: node_modules is older than this checkout.`
+
+**Fix:**
+
+```bash
+npm install
+```
+
+If that refuses with `EBADENGINE`, your Node is older than Neuravex needs — see
+[Requirements](#requirements). The version is enforced rather than suggested, because an install
+on the wrong Node fails later and less clearly.
+
 ### "Cannot find module '@prisma/client'"
 
 The Prisma client wasn't generated.
