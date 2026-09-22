@@ -6,7 +6,8 @@ import { robotsTxt } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 
 /** GET /sites/[siteSlug]/robots.txt — what a crawler may read, and the sitemap. */
-export async function GET(req: NextRequest, { params }: { params: { siteSlug: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ siteSlug: string }> }) {
+  const params = await props.params;
   const site = await prisma.site.findUnique({
     where: { slug: params.siteSlug },
     select: { slug: true, _count: { select: { pages: { where: { published: true } } } } },

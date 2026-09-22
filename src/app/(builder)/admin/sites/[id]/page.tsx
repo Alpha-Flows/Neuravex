@@ -16,7 +16,8 @@ import { safeAccent } from "@/lib/site-fields";
 
 export const dynamic = "force-dynamic";
 
-export default async function SiteAdmin({ params }: { params: { id: string } }) {
+export default async function SiteAdmin(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const site = await prisma.site.findUnique({
     where: { id: params.id },
     include: { pages: { orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }] } },

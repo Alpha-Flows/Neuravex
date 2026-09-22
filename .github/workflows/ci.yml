@@ -49,7 +49,7 @@ jobs:
 
   # The Origin check — the whole of the CSRF defence — is asserted in the
   # browser suite and nowhere else, and the browser suite never ran here. A
-  # refactor of the middleware could land green. It also runs against the
+  # refactor of the proxy could land green. It also runs against the
   # production server, so the policy being tested is the one customers get,
   # not the dev server's looser one.
   e2e:

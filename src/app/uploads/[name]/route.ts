@@ -33,7 +33,8 @@ export const dynamic = "force-dynamic";
 /** Long enough to be worth it; short enough that a replaced file shows up. */
 const CACHE = "private, max-age=3600, must-revalidate";
 
-export async function GET(_req: NextRequest, { params }: { params: { name: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ name: string }> }) {
+  const params = await props.params;
   const name = decodeURIComponentSafe(params.name);
   if (!name) return notFound();
 

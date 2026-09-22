@@ -16,13 +16,18 @@ export const dynamic = "force-dynamic";
  * styling rather than the builder's dark chrome, which the download then had
  * to strip back off.
  */
-export default async function PublishedSiteLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
-  params: { siteSlug: string };
-}) {
+export default async function PublishedSiteLayout(
+  props: {
+    children: React.ReactNode;
+    params: Promise<{ siteSlug: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    children
+  } = props;
+
   const site = await prisma.site.findUnique({
     where: { slug: params.siteSlug },
     select: { language: true },

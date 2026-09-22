@@ -42,12 +42,18 @@ Step-by-step instructions for setting up Neuravex on your machine. Covers local 
 
 No other system dependencies are needed. Neuravex uses SQLite (bundled via Prisma), so there is no external database to install.
 
-> **Windows and the network.** The Next.js 14 line no longer receives security
-> fixes, and one of the advisories still open against it is an unauthenticated
-> remote code execution on Windows hosts with no known workaround. Neuravex
-> binds `127.0.0.1` by default, which is what keeps that unreachable. On a
-> Windows machine, leave it there: do not set `HOST`, and do not publish the
-> port. See `docs/SECURITY_REVIEW.md` (NVX-004) for the state of the upgrade.
+> **The network.** Neuravex binds `127.0.0.1` by default and has no sign-in:
+> the only browser that can reach it is the one on this machine, and that is
+> the whole of the access control. Anyone who can reach the port can read,
+> change and delete every site on it. Leave the bind where it is unless
+> something that authenticates sits in front — see "Reaching Neuravex over a
+> network" below.
+>
+> The unauthenticated remote code execution that used to make this urgent on
+> Windows hosts (NVX-004) was an advisory against the Next.js 14 line, which
+> had no 14.x fix. Neuravex is on Next.js 16 now and `npm audit` reports
+> nothing against what ships, so the loopback default is a defence in depth
+> rather than the only thing holding.
 
 ### Platform Support
 

@@ -20,7 +20,6 @@ export interface BaseBlock {
   type: BlockType;
   // Block-specific props. Typed permissively so the tree can be serialized
   // freely; block components cast to their specific shape at the boundary.
-  // eslint-disable-next-line
   props: any;
   children?: BaseBlock[];
   /**

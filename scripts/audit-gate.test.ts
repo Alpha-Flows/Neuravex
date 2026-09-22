@@ -131,24 +131,21 @@ describe("what fails the build", () => {
 });
 
 describe("the exceptions this repository actually ships", () => {
-  it("accepts exactly the two `next` criticals, by id", () => {
-    expect(ACCEPTED.map((a: { id: string }) => a.id).sort()).toEqual([
-      "GHSA-2xp9-vwfh-vxw4",
-      "GHSA-p293-qw3h-jr36",
-    ]);
+  it("has none — and the aim is to keep it that way", () => {
+    // It held the two `next` 14 criticals until the Next 16 upgrade closed
+    // them. If this ever grows again, the assertions below say what an entry
+    // has to carry to be worth believing.
+    expect(ACCEPTED).toEqual([]);
   });
 
-  it("each names the finding and the mitigation it rests on", () => {
-    for (const a of ACCEPTED as { finding: string; mitigation: string }[]) {
+  it("would make any entry name its finding, its mitigation, and re-check it", () => {
+    for (const a of ACCEPTED as { id: string; finding: string; mitigation: string; holds: () => boolean }[]) {
+      expect(a.id).toMatch(/^GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}$/i);
       expect(a.finding).toMatch(/^NVX-\d+$/);
       expect(a.mitigation.length).toBeGreaterThan(40);
-    }
-  });
-
-  it("and every mitigation is still in place", () => {
-    // This is the real assertion: turn off the loopback default or switch the
-    // image optimizer back on, and this fails here as well as in CI.
-    for (const a of ACCEPTED as { id: string; holds: () => boolean }[]) {
+      expect(typeof a.holds).toBe("function");
+      // The real assertion, for whenever there is an entry: an exception is
+      // only worth anything while the thing that makes it survivable is true.
       expect(a.holds(), `${a.id} mitigation no longer holds`).toBe(true);
     }
   });

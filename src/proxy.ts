@@ -149,7 +149,7 @@ export function contentSecurityPolicy(nonce: string, dev = process.env.NODE_ENV 
   ].join("; ");
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   // Before anything else, and before a nonce is minted for a page that should
   // never have been rendered: is this server even supposed to answer to that
   // name?

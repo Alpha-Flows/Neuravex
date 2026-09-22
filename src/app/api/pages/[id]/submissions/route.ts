@@ -19,7 +19,8 @@ const MAX_PAGE_SIZE = 500;
  * somebody typed into a contact form is the operator's to keep and there was
  * no way to get it out.
  */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const url = new URL(req.url);
   const take = clamp(Number(url.searchParams.get("take")) || PAGE_SIZE, 1, MAX_PAGE_SIZE);
   const skip = clamp(Number(url.searchParams.get("skip")) || 0, 0, Number.MAX_SAFE_INTEGER);

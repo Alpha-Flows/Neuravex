@@ -8,7 +8,7 @@ import { readJsonObject } from "@/lib/request-body";
 export const dynamic = "force-dynamic";
 
 interface Params {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 interface SaveBody {
@@ -25,7 +25,8 @@ interface SaveBody {
 }
 
 // Persist the full page (title, slug, flags, and the entire block tree as JSON).
-export async function PUT(req: NextRequest, { params }: Params) {
+export async function PUT(req: NextRequest, props: Params) {
+  const params = await props.params;
   // Size-checked before it is parsed, not after: the previous shape read the
   // whole body into memory and then decided whether it was too big.
   const parsed = await readJsonObject(req);

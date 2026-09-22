@@ -20,7 +20,8 @@ const STYLESHEET_PATH = "assets/site.css";
  * HTML next to a stylesheet and the images it uses, so the download opens by
  * double-clicking index.html and can be dropped onto any static host as-is.
  */
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const site = await prisma.site.findUnique({
     where: { id: params.id },
     include: {
@@ -121,7 +122,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       // customer's download.
       const stats = await lstat(full);
       if (!stats.isFile()) throw new Error("not a regular file");
-      entries.push({ path: rel, data: await readFile(full) });
+      // `turbopackIgnore` because this reads the customer's uploads at
+      // request time, not a module at build time. Without it Turbopack
+      // traces the whole project into the server output on the strength of a
+      // path it cannot see statically.
+      entries.push({ path: rel, data: await readFile(/*turbopackIgnore: true*/ full) });
     } catch {
       missingAssets.push(rel);
     }

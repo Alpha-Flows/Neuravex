@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
-import { middleware, contentSecurityPolicy, isServableHost } from "./middleware";
+import { proxy, contentSecurityPolicy, isServableHost } from "./proxy";
 
 /**
  * The Origin check is the whole of the CSRF defence and, until now, it was
@@ -8,7 +8,7 @@ import { middleware, contentSecurityPolicy, isServableHost } from "./middleware"
  * could land green. These are the assertions that belong next to the code.
  */
 
-/** A request the way Next hands one to the middleware. */
+/** A request the way Next hands one to the proxy. */
 function request(
   url: string,
   { method = "GET", headers = {} }: { method?: string; headers?: Record<string, string> } = {},
@@ -64,7 +64,7 @@ describe("DNS rebinding", () => {
   // 127.0.0.1. From then on the page's fetches carry a matching Origin and
   // Host, which is exactly what the old check asked for.
   it("refuses a foreign Host on POST even when Origin matches it", async () => {
-    const res = await middleware(
+    const res = await proxy(
       request("http://attacker.tld:3939/api/sites", {
         method: "POST",
         headers: { host: "attacker.tld:3939", origin: "http://attacker.tld:3939" },
@@ -75,21 +75,21 @@ describe("DNS rebinding", () => {
 
   it("refuses a foreign Host on GET as well", async () => {
     // A GET is enough: the export route hands back every site as JSON.
-    const res = await middleware(
+    const res = await proxy(
       request("http://attacker.tld:3939/api/sites/x/export", { headers: { host: "attacker.tld:3939" } }),
     );
     expect(res.status).toBe(421);
   });
 
   it("still answers the owner's own browser", async () => {
-    const res = await middleware(request("http://localhost:3939/api/sites"));
+    const res = await proxy(request("http://localhost:3939/api/sites"));
     expect(res.status).toBe(200);
   });
 });
 
 describe("the Origin check", () => {
   it("refuses a POST from another site", async () => {
-    const res = await middleware(
+    const res = await proxy(
       request("http://localhost:3939/api/sites", {
         method: "POST",
         headers: { origin: "http://evil.tld" },
@@ -99,7 +99,7 @@ describe("the Origin check", () => {
   });
 
   it("allows a POST from this site", async () => {
-    const res = await middleware(
+    const res = await proxy(
       request("http://localhost:3939/api/sites", {
         method: "POST",
         headers: { origin: "http://localhost:3939" },
@@ -109,19 +109,19 @@ describe("the Origin check", () => {
   });
 
   it("allows a POST with no Origin at all — that is a terminal, not a page", async () => {
-    const res = await middleware(request("http://localhost:3939/api/sites", { method: "POST" }));
+    const res = await proxy(request("http://localhost:3939/api/sites", { method: "POST" }));
     expect(res.status).toBe(200);
   });
 
   it("refuses an Origin that is not a URL", async () => {
-    const res = await middleware(
+    const res = await proxy(
       request("http://localhost:3939/api/sites", { method: "POST", headers: { origin: "null" } }),
     );
     expect(res.status).toBe(403);
   });
 
   it("leaves GET alone", async () => {
-    const res = await middleware(
+    const res = await proxy(
       request("http://localhost:3939/api/sites", { headers: { origin: "http://evil.tld" } }),
     );
     expect(res.status).toBe(200);
@@ -130,7 +130,7 @@ describe("the Origin check", () => {
 
 describe("X-Forwarded-Host", () => {
   it("is ignored unless the operator says there is a proxy", async () => {
-    const res = await middleware(
+    const res = await proxy(
       request("http://localhost:3939/api/sites", {
         method: "POST",
         headers: { host: "localhost:3939", origin: "http://evil.tld", "x-forwarded-host": "evil.tld" },
@@ -143,7 +143,7 @@ describe("X-Forwarded-Host", () => {
     process.env.NEURAVEX_TRUST_PROXY = "1";
     process.env.NEURAVEX_ALLOWED_HOSTS = "neuravex.example.com";
 
-    const good = await middleware(
+    const good = await proxy(
       request("http://localhost:3939/api/sites", {
         method: "POST",
         headers: {
@@ -156,7 +156,7 @@ describe("X-Forwarded-Host", () => {
     );
     expect(good.status).toBe(200);
 
-    const bad = await middleware(
+    const bad = await proxy(
       request("http://localhost:3939/api/sites", {
         method: "POST",
         headers: {
@@ -173,7 +173,7 @@ describe("X-Forwarded-Host", () => {
   it("compares the scheme too once the proxy reports it", async () => {
     process.env.NEURAVEX_TRUST_PROXY = "1";
     process.env.NEURAVEX_ALLOWED_HOSTS = "neuravex.example.com";
-    const res = await middleware(
+    const res = await proxy(
       request("http://localhost:3939/api/sites", {
         method: "POST",
         headers: {
@@ -216,7 +216,7 @@ describe("the policy the page carries", () => {
   });
 
   it("is on the response, and on the request for Next to read back", async () => {
-    const res = await middleware(request("http://localhost:3939/"));
+    const res = await proxy(request("http://localhost:3939/"));
     expect(res.headers.get("content-security-policy")).toContain("nonce-");
   });
 });

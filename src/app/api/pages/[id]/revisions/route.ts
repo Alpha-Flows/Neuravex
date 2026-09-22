@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 // GET /api/pages/[id]/revisions — list revisions
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const revs = await prisma.revision.findMany({
     where: { pageId: params.id },
     orderBy: { createdAt: "desc" },
@@ -14,7 +15,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 // POST /api/pages/[id]/restore — restore a revision
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const body = await req.json().catch(() => ({}));
   const revId: string | undefined = body.revisionId;
   if (!revId) return NextResponse.json({ error: "revisionId required" }, { status: 400 });

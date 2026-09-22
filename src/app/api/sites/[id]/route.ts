@@ -10,10 +10,11 @@ import { readJsonObject } from "@/lib/request-body";
 export const dynamic = "force-dynamic";
 
 interface Params {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, props: Params) {
+  const params = await props.params;
   // ?cost=1 answers "what exactly would deleting this take with it", which the
   // confirmation asks before anyone presses the button.
   if (new URL(req.url).searchParams.get("cost") === "1") {
@@ -30,7 +31,8 @@ export async function GET(req: NextRequest, { params }: Params) {
   return NextResponse.json(site);
 }
 
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
+  const params = await props.params;
   const parsed = await readJsonObject(req);
   if (!parsed.ok) return parsed.response;
   const body = parsed.body;
@@ -66,7 +68,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   return NextResponse.json(relinked ? { ...site, relinked } : site);
 }
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, props: Params) {
+  const params = await props.params;
   // Into the trash, whole, rather than gone. It can be put back from there.
   // ?permanent=1 skips that, for a caller that has already made its mind up.
   if (new URL(req.url).searchParams.get("permanent") === "1") {

@@ -9,11 +9,12 @@ import { safeAccent } from "@/lib/site-fields";
 
 export const dynamic = "force-dynamic";
 
-export default async function PageEditorRoute({
-  params,
-}: {
-  params: { id: string; pageId: string };
-}) {
+export default async function PageEditorRoute(
+  props: {
+    params: Promise<{ id: string; pageId: string }>;
+  }
+) {
+  const params = await props.params;
   const page = await prisma.page.findUnique({ where: { id: params.pageId } });
   const site = await prisma.site.findUnique({
     where: { id: params.id },
@@ -86,7 +87,7 @@ export default async function PageEditorRoute({
       linkTargets={linkTargets}
       // The <style> elements the editor writes are the app's own, so they
       // carry the request's nonce and `style-src-elem` needs nothing looser.
-      nonce={headers().get("x-nonce") ?? undefined}
+      nonce={(await headers()).get("x-nonce") ?? undefined}
       initial={{
         title: page.title,
         slug: page.slug,

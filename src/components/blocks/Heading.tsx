@@ -1,4 +1,5 @@
 "use client";
+import type { JSX } from "react";
 import { Editable } from "./Editable";
 import { HeadingProps } from "@/types";
 import { cn } from "@/lib/utils";

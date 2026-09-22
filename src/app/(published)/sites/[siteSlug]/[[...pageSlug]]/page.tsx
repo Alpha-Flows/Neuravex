@@ -16,10 +16,11 @@ import { normalizeBlockTree } from "@/lib/block-tree";
 export const dynamic = "force-dynamic";
 
 interface Props {
-  params: { siteSlug: string; pageSlug?: string[] };
+  params: Promise<{ siteSlug: string; pageSlug?: string[] }>;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const params = await props.params;
   const site = await prisma.site.findUnique({
     where: { slug: params.siteSlug },
     select: { id: true, slug: true, name: true, description: true, metaTitle: true, metaDescription: true, ogImage: true, favicon: true },
@@ -46,7 +47,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // instance advertised its internal port whatever Host it was asked on.
   let metadataBase: URL | undefined;
   try {
-    metadataBase = new URL(publicOrigin(headers()));
+    metadataBase = new URL(publicOrigin(await headers()));
   } catch {
     metadataBase = undefined;
   }
@@ -61,7 +62,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function PublicSitePage({ params }: Props) {
+export default async function PublicSitePage(props: Props) {
+  const params = await props.params;
   /**
    * Only the columns the page draws with.
    *
@@ -140,7 +142,7 @@ export default async function PublicSitePage({ params }: Props) {
 
   // These two are the app's own stylesheets, so they carry the request nonce
   // and `style-src-elem` can stay as tight as `script-src`.
-  const nonce = headers().get("x-nonce") ?? undefined;
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (
     <>

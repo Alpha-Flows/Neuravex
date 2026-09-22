@@ -39,50 +39,32 @@ const ROOT = path.join(__dirname, "..");
 /**
  * Critical advisories we ship with knowingly.
  *
- * Both are the `next` 14 line, which is out of support: there is no 14.x
- * release that carries either fix, and `npm audit` answers `next@16.3.5`,
- * a major this project has not migrated to. Until it does, these two are
- * accepted on the strength of the mitigations below — which is what
- * `docs/SECURITY_REVIEW.md` already concluded, written into the check so the
- * conclusion is executable rather than filed.
+ * Empty, and the aim is to keep it that way. It held two once — the
+ * unauthenticated RCEs against the out-of-support `next` 14 line
+ * (GHSA-p293-qw3h-jr36 and GHSA-2xp9-vwfh-vxw4), accepted on the strength of
+ * the loopback bind and the image optimizer being off. The Next 16 upgrade
+ * closed both, and this gate is what said so: it refuses an entry whose
+ * advisory has stopped being reported, so the list was pruned because the
+ * check failed rather than because somebody remembered.
+ *
+ * An entry needs an `id`, the `package` and `title` it belongs to, the finding
+ * in docs/SECURITY_REVIEW.md that accepted it, the `mitigation` that makes it
+ * survivable, and a `holds()` that re-checks that mitigation on every run. If
+ * you cannot write the last two honestly, the advisory is not accepted — it is
+ * unfixed, and this is not the place to record that.
  */
-const ACCEPTED = [
-  {
-    id: "GHSA-p293-qw3h-jr36",
-    package: "next",
-    title: "Unauthenticated Remote Code Execution on windows-hosted servers",
-    finding: "NVX-004",
-    mitigation:
-      "The server binds 127.0.0.1 unless HOST says otherwise, so the vulnerable " +
-      "path is not reachable from the network at all. INSTALL.md tells Windows " +
-      "users in particular to leave it there.",
-    /** Still true only while the default bind is loopback. */
-    holds() {
-      const had = Object.prototype.hasOwnProperty.call(process.env, "HOST");
-      const previous = process.env.HOST;
-      delete process.env.HOST;
-      try {
-        return require(path.join(ROOT, "scripts", "local-bin.js")).serverHost().loopback === true;
-      } finally {
-        if (had) process.env.HOST = previous;
-      }
-    },
-  },
-  {
-    id: "GHSA-2xp9-vwfh-vxw4",
-    package: "next",
-    title: "Unauthenticated Remote Code Execution in Image Optimization API when AVIF files are used",
-    finding: "NVX-012",
-    mitigation:
-      "`images.unoptimized` is true in next.config.js, so /_next/image is not " +
-      "served and there is no code path that decodes an AVIF.",
-    /** Still true only while the optimizer is off. */
-    holds() {
-      const config = require(path.join(ROOT, "next.config.js"));
-      return config && config.images && config.images.unoptimized === true;
-    },
-  },
-];
+/**
+ * @typedef {object} AcceptedAdvisory
+ * @property {string} id            GHSA id, which is what the allowlist matches on.
+ * @property {string} package       The package the advisory is against.
+ * @property {string} title         Its headline, for the CI log.
+ * @property {string} finding       The docs/SECURITY_REVIEW.md finding that accepted it.
+ * @property {string} mitigation    Why it is survivable here, in a sentence.
+ * @property {() => boolean} holds  Re-checks that mitigation on every run.
+ */
+
+/** @type {AcceptedAdvisory[]} */
+const ACCEPTED = [];
 
 /**
  * Every critical advisory in the report, by id.

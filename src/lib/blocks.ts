@@ -11,7 +11,6 @@ export interface BlockDefinition {
   category: "layout" | "content" | "media" | "form";
   icon: string;
   description: string;
-  // eslint-disable-next-line
   defaultProps: any;
 }
 

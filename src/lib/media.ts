@@ -40,7 +40,6 @@ export function cleanName(raw: string): string {
 function stripFormatting(raw: string): string {
   return raw
     .normalize("NFC")
-    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f]/g, " ")
     .replace(/\p{Cf}/gu, "");
 }
