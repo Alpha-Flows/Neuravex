@@ -41,7 +41,7 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 22 or
 
 ## Quick start
 
-You need **Node.js 20 LTS or newer** installed. From the project root:
+You need **Node.js 22.12 LTS or newer** installed. From the project root:
 
 ```bash
 npm install
