@@ -128,7 +128,16 @@ npm run db:push    # Apply schema to dev.db (creates tables)
 npm run db:seed    # Insert the demo site (idempotent)
 npm run db:reset   # Drop the database, recreate, and re-seed
 npm run lint       # Lint
+npm test           # Unit tests
+npm run test:e2e   # Browser tests (needs a build first: npm run build)
 ```
+
+`npm run test:e2e` builds its own throwaway database and upload directory under
+`data/e2e/`, seeds them, runs against a production server on port 3940 and deletes
+them afterwards. It never reads `prisma/dev.db`, and it refuses to start if
+something is already answering on its port rather than testing against whatever
+that is. Run Playwright directly and it will stop and tell you to use this script:
+the specs delete every site they create, so the database they find matters.
 
 ## Resetting the database
 
