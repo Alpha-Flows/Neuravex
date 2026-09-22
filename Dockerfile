@@ -22,7 +22,7 @@
 # see the "Reaching Neuravex over a network" section of INSTALL.md.
 
 # ── dependencies ──────────────────────────────────────────────────
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 
 # The schema first: `postinstall` runs `prisma generate`, which needs it.
@@ -32,7 +32,7 @@ COPY scripts ./scripts
 RUN npm ci
 
 # ── build ─────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV CHECKPOINT_DISABLE=1
@@ -46,7 +46,7 @@ ENV DATABASE_URL="file:/tmp/build.db"
 RUN npm run build
 
 # ── runner ────────────────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

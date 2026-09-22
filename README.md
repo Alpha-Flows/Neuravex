@@ -2,7 +2,7 @@
 
 A self-contained website builder with a working CMS. Design sites visually, drag and drop blocks, edit text inline, and publish instantly. Runs entirely on your machine — no cloud, no signup, and nothing phoning home from the sites you build.
 
-Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 20 or newer).
+Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 22 or newer).
 
 ## Features
 
