@@ -97,7 +97,12 @@ identifier in brackets is the finding it closes.
 
 ### Changed
 
-- Node 20 is the documented and enforced minimum. [NVX-028]
+- Node 22.12 is the documented and enforced minimum, in `.nvmrc`, `engines`,
+  the Dockerfile and the install guide. It was Node 20 (NVX-028), and the
+  `sanitize-html` bump that closed NVX-035 raised the floor under it:
+  `sanitize-html` declares `node >=22.12.0` from 2.17.6 onward, and `.npmrc`
+  sets `engine-strict=true`, so `npm ci` refused to install on 20 and every
+  CI job died before it could build or test anything. [NVX-028, NVX-035]
 - The legal wizard asks about the hosting DPA and what happens to form input
   instead of assuming answers, and the generated text matches how the site is
   actually served. [NVX-020, NVX-040]
