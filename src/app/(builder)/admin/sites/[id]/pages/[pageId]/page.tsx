@@ -3,6 +3,7 @@ import { sanitizeCss } from "@/lib/security";
 import { prisma } from "@/lib/prisma";
 import { PageEditor } from "@/components/editor/PageEditor";
 import { BaseBlock } from "@/types";
+import { normalizeBlockTree } from "@/lib/block-tree";
 import { isLegalKind } from "@/lib/legal/pages";
 import { headers } from "next/headers";
 import { safeAccent } from "@/lib/site-fields";
@@ -39,13 +40,14 @@ export default async function PageEditorRoute(
     select: { slug: true, title: true, isHome: true, published: true },
   });
 
-  let blocks: BaseBlock[] = [];
-  try {
-    const parsed = JSON.parse(page.content || "[]");
-    if (Array.isArray(parsed)) blocks = parsed as BaseBlock[];
-  } catch {
-    blocks = [];
-  }
+  // The same reading every other path uses. This was a bare `JSON.parse` with
+  // a `catch`, which survived malformed JSON but happily handed the editor a
+  // tree full of whatever was in it — the one read path that trusted the
+  // database rather than checking it. `normalizeBlockTree` never throws: it
+  // repairs what it can, drops what it cannot, and refuses the whole thing
+  // only when it is not a block list at all.
+  const checked = normalizeBlockTree(page.content || "[]");
+  const blocks: BaseBlock[] = checked.ok ? checked.tree : [];
 
   return (
     <PageEditor

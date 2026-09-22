@@ -88,6 +88,19 @@ identifier in brackets is the finding it closes.
 
 ### Added
 
+- Error and 404 pages, in the builder and on published sites. `block-tree.ts`
+  was written because a malformed block tree became "a durable 500 the owner
+  could not click past"; it stops one being stored, but nothing caught what a
+  render still threw, and every page is `force-dynamic`, so each one is a live
+  database read that can fail on its own. There is now a `not-found.tsx` and
+  an `error.tsx` beside each root layout — one per layout, because both live
+  inside route groups, and a single file at the top would render above both
+  `<html>` elements — and a `global-error.tsx` for a throw in a root layout
+  itself, which is the only thing that could catch the published layout's own
+  query. None of them shows the error's message, which on a client-side throw
+  arrives intact and can carry a filesystem path or a fragment of SQL; the
+  digest is shown instead, which is what matches the line in the terminal.
+
 - **Depth.** Every block now carries a level, and can be lifted out of the flow
   to float over its neighbours — so a headline can sit on a photograph instead
   of pushing it down the page. The inspector has a Depth panel (in the flow or
@@ -165,6 +178,11 @@ identifier in brackets is the finding it closes.
 
 ### Fixed
 
+- The editor read a page's content with a bare `JSON.parse` in a `try`/`catch`
+  — the one read path that trusted the database rather than checking it. It
+  survived malformed JSON but handed the editor whatever the array happened to
+  contain. It now goes through `normalizeBlockTree`, like every other read and
+  write path.
 - `npm run desktop` rebuilds when the source has moved. It asked only whether
   `.next` existed, so `git pull && npm run desktop` served the previous
   bundle — and served it against a database the same launcher had just
