@@ -657,12 +657,12 @@ Still open:
 
 ## 1. What the app is today
 
-Neuravex is a **local-first visual website builder + CMS**. Next.js 14 + React + Tailwind
+Neuravex is a **local-first visual website builder + CMS**. Next.js 16 + React 19 + Tailwind
 front end, SQLite via Prisma for storage, no accounts and no cloud.
 
 | Area | What ships |
 | --- | --- |
-| Editor | 3-pane editor: block palette, canvas, inspector. Drag & drop inside and across containers, inline text editing, undo/redo (80 steps), autosave + `Cmd/Ctrl+S`, unsaved-changes guard, preview with 4 viewport widths |
+| Editor | 3-pane editor: block palette, canvas, inspector. Drag & drop inside and across containers, depth levels so blocks can be stacked over each other instead of pushing each other apart, inline text editing, undo/redo (80 steps), autosave + `Cmd/Ctrl+S`, unsaved-changes guard, preview with 4 viewport widths |
 | Blocks | 13 types — heading, text, image, button, divider, spacer, section, columns, video, quote, list, form, custom HTML |
 | Templates | 28 starter templates across landing / portfolio / business / blog / minimal, 11 of them multi-page with their pages linked to each other |
 | Legal (DE) | Guided Impressum (§ 5 DDG) and Datenschutzerklärung (Art. 13 DSGVO), generated from the operator's details and from what the site itself does, linked in the footer of every page |
@@ -674,7 +674,7 @@ front end, SQLite via Prisma for storage, no accounts and no cloud.
 | Portability | Site export/import as JSON |
 | Integrations | MCP server exposing 16 tools so an AI agent can build and publish sites, German legal pages included |
 | Packaging | Cross-platform desktop launcher script (`npm run desktop`) |
-| Quality | 381 unit tests (sanitization, security, tree utils, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes, clipboard, page starters, page links, German legal pages) — all passing; 148 Playwright specs |
+| Quality | 574 unit tests in 32 files (sanitization, security, tree utils, block depth, revisions, zip, static export, forms, block defaults, site theme, SEO, site archive, CSS scoping, MCP parity, first run, image sizes, clipboard, page starters, page links, German legal pages, the audit gate) — all passing; 169 Playwright tests in 24 spec files, run in CI against a production server |
 
 ---
 

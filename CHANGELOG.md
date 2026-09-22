@@ -150,6 +150,18 @@ identifier in brackets is the finding it closes.
   as one. [NVX-021, NVX-056, NVX-057]
 - `INSTALL.md`'s reverse-proxy recipe is safe as pasted, and its MCP tool table
   is generated from the server's own registrations. [NVX-036, NVX-038]
+- `docs/LAUNCH_CHECKLIST.md` describes the repository again. It was written
+  against `8e56c06` and never revisited, so it read as a list of things nobody
+  had started: forty-four items were done and still open, and twenty-three
+  references pointed at code that had moved — every mention of
+  `src/middleware.ts` among them. It also contradicted itself, demanding an
+  image-optimizer change three lines below the entry recording that change as
+  made. Each state has been re-verified against the source and carries the
+  `file:line` that proves it; the items that are genuinely half-done now say
+  which half is missing rather than describing the whole thing as untouched.
+  The counts in it and in `docs/PRODUCT_REVIEW.md` come from a real run
+  (574 unit tests in 32 files, 169 browser tests in 24 files) instead of three
+  different stale numbers.
 
 ### Fixed
 
