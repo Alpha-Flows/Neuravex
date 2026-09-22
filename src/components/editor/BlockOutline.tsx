@@ -2,6 +2,7 @@
 import { BaseBlock } from "@/types";
 import { getBlockDefinition } from "@/lib/blocks";
 import { columnCount, groupIntoColumns } from "@/lib/tree-utils";
+import { isFloating, layerOf } from "@/lib/block-layer";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -89,6 +90,19 @@ export function BlockOutline({ blocks, selectedId, onSelect }: Props) {
             <span className="font-medium shrink-0">{def?.label ?? block.type}</span>
             {column != null ? (
               <span className="text-[10px] text-fg-subtle shrink-0">col {column + 1}</span>
+            ) : null}
+            {/* A floating block is not where the list says it is — it is over
+                whatever it was placed on — and the outline is the one view of
+                the page that can say so without you hunting for it. */}
+            {isFloating(block) ? (
+              <span className="text-[10px] text-brand shrink-0" title="Floats over its neighbours">
+                ✥
+              </span>
+            ) : null}
+            {layerOf(block).level !== 0 ? (
+              <span className="text-[10px] text-fg-subtle shrink-0" title="Depth level">
+                L{layerOf(block).level}
+              </span>
             ) : null}
             {detail ? <span className="truncate text-fg-subtle">{detail}</span> : null}
           </button>

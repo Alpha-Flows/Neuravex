@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isSafeHref } from "@/lib/url-safety";
+import { Overlay } from "@/components/ui/Overlay";
 
 interface Props {
   /** Called when bold/italic/link is toggled. The caller re-reads innerHTML. */
@@ -98,39 +99,44 @@ export function FormattingToolbar({ onFormat }: Props) {
   const keepFocus = (e: React.MouseEvent) => e.preventDefault();
 
   return (
-    <div
-      ref={ref}
-      data-formatting-toolbar
-      style={{ left: left ?? pos.x, top: pos.y }}
-      className="fixed z-50 flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-bg-card border border-bg-border shadow-xl -translate-x-1/2"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {linking ? (
-        <>
-          <input
-            autoFocus
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-              if (e.key === "Enter") { e.preventDefault(); applyLink(); }
-              if (e.key === "Escape") { e.preventDefault(); setLinking(false); }
-            }}
-            placeholder="https://example.com"
-            aria-label="Link URL"
-            className="h-7 w-56 px-2 rounded-md bg-bg border border-bg-border text-fg text-xs placeholder:text-fg-subtle focus:outline-none focus:ring-2 focus:ring-brand/40"
-          />
-          <button onMouseDown={keepFocus} onClick={applyLink} className="h-7 px-2 rounded-md text-xs font-medium bg-brand text-white hover:opacity-90">Link</button>
-          <button onMouseDown={keepFocus} onClick={() => setLinking(false)} className="h-7 px-2 rounded-md text-xs text-fg-muted hover:text-fg hover:bg-bg-soft">Cancel</button>
-        </>
-      ) : (
-        <>
-          <button onMouseDown={keepFocus} onClick={() => exec("bold")} className="w-7 h-7 rounded hover:bg-bg-soft flex items-center justify-center text-sm font-bold text-fg-muted hover:text-fg" title="Bold (Ctrl+B)">B</button>
-          <button onMouseDown={keepFocus} onClick={() => exec("italic")} className="w-7 h-7 rounded hover:bg-bg-soft flex items-center justify-center text-sm italic text-fg-muted hover:text-fg" title="Italic (Ctrl+I)">I</button>
-          <div className="w-px h-4 bg-bg-border" />
-          <button onMouseDown={keepFocus} onClick={startLinking} className="w-7 h-7 rounded hover:bg-bg-soft flex items-center justify-center text-xs text-fg-muted hover:text-fg underline" title="Link">🔗</button>
-        </>
-      )}
-    </div>
+    // Drawn on the body. Inside a block it would be held in that block's
+    // layer, and a toolbar for a block sent behind its neighbours would be
+    // behind them too.
+    <Overlay>
+      <div
+        ref={ref}
+        data-formatting-toolbar
+        style={{ left: left ?? pos.x, top: pos.y }}
+        className="fixed z-50 flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-bg-card border border-bg-border shadow-xl -translate-x-1/2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {linking ? (
+          <>
+            <input
+              autoFocus
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") { e.preventDefault(); applyLink(); }
+                if (e.key === "Escape") { e.preventDefault(); setLinking(false); }
+              }}
+              placeholder="https://example.com"
+              aria-label="Link URL"
+              className="h-7 w-56 px-2 rounded-md bg-bg border border-bg-border text-fg text-xs placeholder:text-fg-subtle focus:outline-none focus:ring-2 focus:ring-brand/40"
+            />
+            <button onMouseDown={keepFocus} onClick={applyLink} className="h-7 px-2 rounded-md text-xs font-medium bg-brand text-white hover:opacity-90">Link</button>
+            <button onMouseDown={keepFocus} onClick={() => setLinking(false)} className="h-7 px-2 rounded-md text-xs text-fg-muted hover:text-fg hover:bg-bg-soft">Cancel</button>
+          </>
+        ) : (
+          <>
+            <button onMouseDown={keepFocus} onClick={() => exec("bold")} className="w-7 h-7 rounded hover:bg-bg-soft flex items-center justify-center text-sm font-bold text-fg-muted hover:text-fg" title="Bold (Ctrl+B)">B</button>
+            <button onMouseDown={keepFocus} onClick={() => exec("italic")} className="w-7 h-7 rounded hover:bg-bg-soft flex items-center justify-center text-sm italic text-fg-muted hover:text-fg" title="Italic (Ctrl+I)">I</button>
+            <div className="w-px h-4 bg-bg-border" />
+            <button onMouseDown={keepFocus} onClick={startLinking} className="w-7 h-7 rounded hover:bg-bg-soft flex items-center justify-center text-xs text-fg-muted hover:text-fg underline" title="Link">🔗</button>
+          </>
+        )}
+      </div>
+    </Overlay>
   );
 }

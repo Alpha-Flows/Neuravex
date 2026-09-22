@@ -4,6 +4,7 @@ import { isSafeHref } from "./url-safety";
 import { sanitizeStyleAttribute } from "./css-safety";
 import { sanitizeInlineHtml, sanitizeHtml } from "./sanitize";
 import { cssColor, cssLength } from "./css-value";
+import { normalizeLayer } from "./block-layer";
 
 /**
  * What a block tree is allowed to be, checked at every door.
@@ -278,6 +279,14 @@ function normalizeNode(node: unknown, depth: number, budget: Budget): BaseBlock 
   if (typeof raw.column === "number" && Number.isFinite(raw.column)) {
     out.column = Math.min(Math.max(Math.trunc(raw.column), 0), 3);
   }
+
+  // Depth. A stored layer is three numbers and an enum, and every one of them
+  // goes into an inline style, so they are clamped here rather than trusted:
+  // an imported page could otherwise carry `zIndex: 1e12`, which lifts a block
+  // over the builder's own chrome, or a `width` React would write out as
+  // `NaN%`. A layer that says nothing is left off entirely.
+  const layer = normalizeLayer(raw.layer);
+  if (layer) out.layer = layer;
 
   budget.bytes += JSON.stringify(out.props).length + out.type.length + out.id.length;
   return out;

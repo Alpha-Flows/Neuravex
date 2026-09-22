@@ -118,7 +118,8 @@ test.describe("The picture library", () => {
     await page.getByRole("button", { name: /^Edit Quay at dawn$/ }).click();
     await page.locator("#media-name").fill("Quay at first light");
     await page.locator("#media-alt").fill("Fishing boats at the quay as the sun comes up");
-    await page.getByRole("figure").getByRole("button", { name: "Save" }).click();
+    // Scoped to the picker: the editor's own Save button is in the top bar.
+    await page.getByRole("dialog", { name: "Pictures" }).getByRole("button", { name: "Save" }).click();
     await expect(page.locator(".grid").getByText("Quay at first light")).toBeVisible();
 
     // Choosing it carries the description onto the page, the way a bundled

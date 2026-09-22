@@ -29,6 +29,12 @@ export interface BaseBlock {
    * content authored before columns tracked placement explicitly.
    */
   column?: number;
+  /**
+   * Depth: which blocks this one sits over, and whether it is lifted out of
+   * the flow to overlap them at all. Absent means an ordinary block in the
+   * flow — see `BlockLayer`.
+   */
+  layer?: BlockLayer;
 }
 
 export interface SectionProps {
@@ -173,4 +179,42 @@ export interface FormProps {
 
 export interface HtmlProps {
   html: string;
+}
+
+/**
+ * Where a block sits relative to the blocks around it — the third dimension
+ * the page never had.
+ *
+ * Everything on a page used to be in one flat stack: a text block dropped on
+ * a picture pushed the picture down, and the picture pushed the text back,
+ * because the only place either could be was after the other. A headline over
+ * a photograph — the thing every hero section is — could not be built at all.
+ *
+ * Two pieces answer that. `level` says which of two overlapping blocks is in
+ * front, and applies whether or not a block is floating. `mode: "float"`
+ * lifts a block out of the flow so it takes no room of its own and sits over
+ * whatever shares its container, placed by `x`, `y` and `width`.
+ *
+ * Absent — which is every block written before this existed — means a block
+ * in the flow at level 0, i.e. exactly what the page did before.
+ */
+export interface BlockLayer {
+  /**
+   * "flow" keeps the block in the stack, taking its own room.
+   * "float" takes it out, so it overlaps its neighbours instead of moving
+   * them.
+   */
+  mode?: "flow" | "float";
+  /**
+   * Which block is drawn in front where two overlap. Higher is nearer the
+   * reader; negative puts a block behind its neighbours. Blocks that share a
+   * level fall back to the order they are in.
+   */
+  level?: number;
+  /** Left edge, as a percentage of the width of the area it floats in. */
+  x?: number;
+  /** Top edge, as a percentage of the height of the area it floats in. */
+  y?: number;
+  /** How wide the block is, as a percentage of that same area. */
+  width?: number;
 }

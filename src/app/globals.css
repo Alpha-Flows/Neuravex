@@ -222,3 +222,51 @@ html, body {
   opacity: 0;
   pointer-events: none;
 }
+
+/* ---------------------------------------------------------------------
+ * Depth: one stack of blocks, and the blocks that float over it.
+ *
+ * Every container of blocks — the page, a section, one column — draws its
+ * children into a stack. The stack is positioned, so a floating block can be
+ * placed against it, and isolated, so the whole question of what is in front
+ * of what is settled inside it: a block sent behind its neighbours goes behind
+ * them and no further, never behind the section's own background or out from
+ * under the page.
+ *
+ * The same class is used by the canvas and by the published page, which is
+ * what keeps the two showing the same layout.
+ * ------------------------------------------------------------------- */
+.nvx-block-stack {
+  position: relative;
+  isolation: isolate;
+}
+
+/*
+ * A stack whose blocks all float has no content left in the flow, so it has no
+ * height — and everything in it would land on the same invisible line with the
+ * container collapsed to nothing. This gives it something to stand in. It is
+ * in globals.css rather than the editor so the published page and the download
+ * do exactly what the canvas showed.
+ */
+.nvx-block-stack[data-floats-only="true"] {
+  min-height: 16rem;
+}
+
+/* The wrapper a floating block is placed by. It spans its stack — or, straight
+ * on the page, the site's content column — and the block inside it carries the
+ * horizontal offset and the width, so a float stays where it was put at every
+ * window width. */
+.nvx-layer {
+  pointer-events: none;
+}
+.nvx-layer > * {
+  pointer-events: auto;
+}
+
+/* A block that has been lifted out of the flow keeps a faint ring of its own
+ * in the editor, so it is clear at a glance which blocks on the canvas are
+ * floating over the page and which are holding it apart. Hover and selection
+ * still speak louder. */
+.editor-mode .editor-block.is-floating:not(.is-selected):not(:hover) > .editor-outline {
+  outline-color: rgba(99, 102, 241, 0.3);
+}

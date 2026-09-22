@@ -1,6 +1,8 @@
 "use client";
 import { BaseBlock } from "@/types";
 import { BlockView } from "@/components/blocks/BlockView";
+import { LayerFrame } from "@/components/blocks/LayerFrame";
+import { floatsOnly } from "@/lib/block-layer";
 
 interface Props {
   blocks: BaseBlock[];
@@ -13,20 +15,19 @@ interface Props {
  */
 export function PublicBlocks({ blocks, pageId }: Props) {
   return (
-    <>
-      {blocks.map((b) =>
+    // The page's own stack. It is what a floating block is placed against, and
+    // it settles which of two overlapping blocks is in front — the same class
+    // the canvas uses, so the two draw the page the same way.
+    <div className="nvx-block-stack" data-floats-only={floatsOnly(blocks) ? "true" : undefined}>
+      {blocks.map((b) => (
         // A section spans the window and lays out its own inside; anything else
         // placed straight on the page belongs in the page's content column,
         // lined up with the header and the footer rather than jammed against
         // the edge of the window.
-        b.type === "section" ? (
-          <BlockView key={b.id} block={b} disabled pageId={pageId} />
-        ) : (
-          <div key={b.id} className="nvx-site-column">
-            <BlockView block={b} disabled pageId={pageId} />
-          </div>
-        ),
-      )}
-    </>
+        <LayerFrame key={b.id} block={b} inPageColumn={b.type !== "section"}>
+          <BlockView block={b} disabled pageId={pageId} />
+        </LayerFrame>
+      ))}
+    </div>
   );
 }
