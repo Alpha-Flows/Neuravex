@@ -88,12 +88,12 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # Advisories are a standing report, not a gate that blocks a bug fix: the
-  # Next.js 14 line is out of support and cannot go green until the migration
-  # lands (see NVX-004 in docs/SECURITY_REVIEW.md). Production dependencies at
-  # critical severity are the line that does fail the build — every one of
-  # them except the two that line is already carrying, which are named, with
-  # their mitigations, in scripts/audit-gate.js.
+  # Advisories are a standing report, not a gate that blocks a bug fix. The
+  # line that does fail the build is what ships: a high or critical advisory
+  # against a production dependency. Anything knowingly accepted has to be
+  # named in scripts/audit-gate.js, with the mitigation that makes it
+  # survivable and a check that re-reads that mitigation on every run. The
+  # list is empty today, which is the point of keeping it visible.
   audit:
     runs-on: ubuntu-latest
     steps:
@@ -112,9 +112,8 @@ jobs:
       - name: Report every advisory
         run: npm audit || true
 
-      # Not `npm audit --audit-level=critical`: that fails on the two `next`
-      # advisories this project knowingly ships, so it could never pass and
-      # was never a gate. This fails on any *other* critical, and on either of
-      # those two the moment its mitigation stops holding.
-      - name: Fail on a critical one in what ships
+      # Not `npm audit --audit-level=high`: that has no way to say "this one,
+      # for this reason, while this mitigation holds". This does, and it
+      # refuses an exception whose advisory has gone, so the list cannot rot.
+      - name: Fail on a high or critical one in what ships
         run: node scripts/audit-gate.js

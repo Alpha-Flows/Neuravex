@@ -1,33 +1,34 @@
 #!/usr/bin/env node
 
 /**
- * The line that fails the build: a critical advisory in what ships.
+ * The line that fails the build: a high or critical advisory in what ships.
  *
- * This replaces a bare `npm audit --omit=dev --audit-level=critical`, which
- * could never pass and so was never a gate. The CI workflow already said as
- * much in its own comment — "the Next.js 14 line is out of support and cannot
- * go green until the migration lands" — and then gated on exactly the
- * advisories it had just described as a standing report. The check was added
- * in the same round that broke `npm ci`, so it had never once run to the end
- * and nobody had seen the contradiction.
+ * This replaces a bare `npm audit --omit=dev --audit-level=…`, which has no
+ * way to say "this one, for this reason, while this mitigation holds" — so
+ * the only options it offers are block everything or lower the bar, and a
+ * project carrying one known advisory ends up lowering the bar.
  *
- * A check that cannot pass is not a check. People stop reading it, and the
- * next real critical arrives into a build that was already red.
+ * The rule here says what it means:
  *
- * So the rule is narrower and says what it means:
- *
- *   - Any critical advisory against a production dependency fails the build.
+ *   - Any advisory at or above SEVERITY_FLOOR against a production dependency
+ *     fails the build.
  *   - Except the ones written down in ACCEPTED below, by advisory id — not by
- *     package. A *new* critical against `next` still fails, which is the whole
- *     point of keeping the gate rather than lowering `--audit-level`.
+ *     package. A *new* advisory in an already-accepted package still fails,
+ *     which is the whole point of keeping a gate rather than dropping the
+ *     floor.
  *   - An accepted advisory is only skipped while its mitigation still holds.
  *     Each entry carries a `holds()` that re-checks the thing that makes it
- *     survivable. Turn the image optimizer back on and the exception stops
- *     applying, in the same commit, without anyone remembering to come here.
+ *     survivable, so the exception lapses in the commit that breaks it rather
+ *     than whenever somebody next reads the list.
  *   - An entry whose advisory no longer appears fails too, with a note to
  *     delete it. An allowlist nobody prunes eventually hides something.
  *
- * Everything below critical is reported by the step before this one and
+ * The floor was `critical` while the out-of-support Next 14 line made `high`
+ * undrawable. Next 16 closed that, and `npm audit --omit=dev` now reports
+ * nothing at any severity — which is the moment to raise a bar, rather than
+ * when something is already failing against it.
+ *
+ * Everything below the floor is reported by the step before this one and
  * blocks nothing. That part was always the intent.
  */
 
@@ -35,6 +36,26 @@ const { execFileSync } = require("child_process");
 const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
+
+/** npm's severities, weakest first. Anything it does not name sorts below all. */
+const SEVERITY_ORDER = ["info", "low", "moderate", "high", "critical"];
+
+/**
+ * How bad an advisory has to be to stop a release.
+ *
+ * `high` rather than `critical`: the difference between the two is often which
+ * way a scorer rounded, and a high-severity remote read in what ships is not
+ * something to carry quietly. `moderate` is deliberately not the floor — it
+ * would gate on denial-of-service findings in build tooling and teach people
+ * to skip the check.
+ */
+const SEVERITY_FLOOR = "high";
+
+/** True when `severity` is at or above the floor. */
+function blocksAtFloor(severity, floor = SEVERITY_FLOOR) {
+  const rank = SEVERITY_ORDER.indexOf(severity);
+  return rank >= 0 && rank >= SEVERITY_ORDER.indexOf(floor);
+}
 
 /**
  * Critical advisories we ship with knowingly.
@@ -67,14 +88,14 @@ const ROOT = path.join(__dirname, "..");
 const ACCEPTED = [];
 
 /**
- * Every critical advisory in the report, by id.
+ * Every advisory in the report at or above the floor, by id.
  *
  * `npm audit --json` groups by package, and each package's `via` mixes
  * advisory objects with the names of packages it is vulnerable *through*. The
  * same advisory shows up under every package that reaches it, so this
  * de-duplicates on the GitHub advisory id in the URL.
  */
-function criticalAdvisories(report) {
+function blockingAdvisories(report, floor = SEVERITY_FLOOR) {
   const found = new Map();
   const packages = (report && report.vulnerabilities) || {};
 
@@ -82,10 +103,15 @@ function criticalAdvisories(report) {
     for (const via of (entry && entry.via) || []) {
       // A string here names a package, not an advisory.
       if (!via || typeof via !== "object") continue;
-      if (via.severity !== "critical") continue;
+      if (!blocksAtFloor(via.severity, floor)) continue;
       const id = advisoryId(via.url);
       if (!id || found.has(id)) continue;
-      found.set(id, { id, package: via.name || entry.name, title: via.title || "" });
+      found.set(id, {
+        id,
+        package: via.name || entry.name,
+        title: via.title || "",
+        severity: via.severity,
+      });
     }
   }
   return found;
@@ -102,19 +128,19 @@ function advisoryId(url) {
  * What the report means: what blocks, what is accepted, and what is written
  * down but no longer real.
  */
-function assess(report, accepted = ACCEPTED) {
-  const criticals = criticalAdvisories(report);
+function assess(report, accepted = ACCEPTED, floor = SEVERITY_FLOOR) {
+  const found = blockingAdvisories(report, floor);
   const blocking = [];
   const skipped = [];
   const stale = [];
 
   for (const entry of accepted) {
-    const advisory = criticals.get(entry.id);
+    const advisory = found.get(entry.id);
     if (!advisory) {
       stale.push(entry);
       continue;
     }
-    criticals.delete(entry.id);
+    found.delete(entry.id);
     let held;
     try {
       held = entry.holds() === true;
@@ -126,7 +152,7 @@ function assess(report, accepted = ACCEPTED) {
     else blocking.push({ ...advisory, lapsed: entry });
   }
 
-  for (const advisory of criticals.values()) blocking.push(advisory);
+  for (const advisory of found.values()) blocking.push(advisory);
 
   return { ok: blocking.length === 0 && stale.length === 0, blocking, skipped, stale };
 }
@@ -172,28 +198,26 @@ function main() {
   }
 
   for (const entry of result.blocking) {
+    say(`BLOCKING  ${entry.severity ?? "?"}  ${entry.id}  ${entry.package} — ${entry.title}`);
     if (entry.lapsed) {
-      say(`BLOCKING  ${entry.id}  ${entry.package} — ${entry.title}`);
       say(`          This was accepted under ${entry.lapsed.finding}, but the mitigation no longer holds:`);
       say(`          ${entry.lapsed.mitigation}`);
-    } else {
-      say(`BLOCKING  ${entry.id}  ${entry.package} — ${entry.title}`);
     }
   }
 
   if (result.ok) {
     say(
       result.skipped.length > 0
-        ? `\nNo unaccepted critical advisory in what ships (${result.skipped.length} accepted).`
-        : "\nNo critical advisory in what ships.",
+        ? `\nNothing unaccepted at ${SEVERITY_FLOOR} or above in what ships (${result.skipped.length} accepted).`
+        : `\nNothing at ${SEVERITY_FLOOR} or above in what ships.`,
     );
     return 0;
   }
-  say("\nA critical advisory in a production dependency is a build failure.");
+  say(`\nA ${SEVERITY_FLOOR}-or-above advisory in a production dependency is a build failure.`);
   return 1;
 }
 
-module.exports = { ACCEPTED, advisoryId, criticalAdvisories, assess };
+module.exports = { ACCEPTED, SEVERITY_FLOOR, advisoryId, blocksAtFloor, blockingAdvisories, assess };
 
 if (require.main === module) {
   try {

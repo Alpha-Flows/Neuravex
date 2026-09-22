@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ACCEPTED, advisoryId, criticalAdvisories, assess } from "./audit-gate.js";
+import { ACCEPTED, SEVERITY_FLOOR, advisoryId, blocksAtFloor, blockingAdvisories, assess } from "./audit-gate.js";
 
 /**
  * The gate decides whether a critical advisory stops a release, so the way it
@@ -49,27 +49,63 @@ describe("reading an audit report", () => {
   it("ignores the package names npm mixes into `via`", () => {
     // A string in `via` is a package this one is vulnerable *through*, not an
     // advisory. Treating one as an advisory would invent a finding.
-    const found = criticalAdvisories(report({ next: ["postcss", advisory("GHSA-aaaa-bbbb-cccc")] }));
+    const found = blockingAdvisories(report({ next: ["postcss", advisory("GHSA-aaaa-bbbb-cccc")] }));
     expect([...found.keys()]).toEqual(["GHSA-aaaa-bbbb-cccc"]);
   });
 
-  it("leaves everything below critical alone", () => {
-    const found = criticalAdvisories(
-      report({ next: [advisory("GHSA-aaaa-bbbb-cccc", { severity: "high" })] }),
-    );
+  it("leaves everything below the floor alone", () => {
+    for (const severity of ["info", "low", "moderate"]) {
+      const found = blockingAdvisories(report({ next: [advisory("GHSA-aaaa-bbbb-cccc", { severity })] }));
+      expect(found.size, `${severity} should not block`).toBe(0);
+    }
+  });
+
+  it("takes everything at or above it", () => {
+    for (const severity of ["high", "critical"]) {
+      const found = blockingAdvisories(report({ next: [advisory("GHSA-aaaa-bbbb-cccc", { severity })] }));
+      expect(found.size, `${severity} should block`).toBe(1);
+    }
+  });
+
+  it("keeps the severity, so the log says which line was crossed", () => {
+    const found = blockingAdvisories(report({ next: [advisory("GHSA-aaaa-bbbb-cccc", { severity: "high" })] }));
+    expect(found.get("GHSA-aaaa-bbbb-cccc")?.severity).toBe("high");
+  });
+
+  it("does not block on a severity npm has never heard of", () => {
+    // An unknown string must not sort above the floor by accident — that would
+    // turn a parsing change upstream into a build that cannot pass.
+    const found = blockingAdvisories(report({ next: [advisory("GHSA-aaaa-bbbb-cccc", { severity: "spicy" })] }));
     expect(found.size).toBe(0);
   });
 
   it("counts an advisory once even when several packages reach it", () => {
-    const found = criticalAdvisories(
+    const found = blockingAdvisories(
       report({ next: [advisory("GHSA-aaaa-bbbb-cccc")], "next-mdx": [advisory("GHSA-aaaa-bbbb-cccc")] }),
     );
     expect(found.size).toBe(1);
   });
 
   it("survives a report with nothing in it", () => {
-    expect(criticalAdvisories({ vulnerabilities: {} }).size).toBe(0);
-    expect(criticalAdvisories(undefined).size).toBe(0);
+    expect(blockingAdvisories({ vulnerabilities: {} }).size).toBe(0);
+    expect(blockingAdvisories(undefined).size).toBe(0);
+  });
+});
+
+describe("the severity floor", () => {
+  it("is `high`, and `critical` is above it", () => {
+    expect(SEVERITY_FLOOR).toBe("high");
+    expect(blocksAtFloor("critical")).toBe(true);
+    expect(blocksAtFloor("high")).toBe(true);
+    expect(blocksAtFloor("moderate")).toBe(false);
+  });
+
+  it("can be moved, so raising or lowering it is one argument", () => {
+    const one = report({ next: [advisory("GHSA-aaaa-bbbb-cccc", { severity: "moderate" })] });
+    expect(blockingAdvisories(one, "moderate").size).toBe(1);
+    expect(blockingAdvisories(one, "critical").size).toBe(0);
+    expect(assess(one, [], "moderate").ok).toBe(false);
+    expect(assess(one, [], "critical").ok).toBe(true);
   });
 });
 
