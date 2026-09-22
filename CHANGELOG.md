@@ -59,6 +59,15 @@ identifier in brackets is the finding it closes.
 - `style-src` is split into `style-src-elem` (nonced) and `style-src-attr`, and
   violations are reported to `/api/csp-report`. [NVX-033]
 - `next` 14.2.35 and `sanitize-html` 2.17.7. [NVX-010, NVX-035]
+- Four transitive packages are pinned past their advisories with `overrides`,
+  because the dependency that pulls each one in has not moved yet: `postcss`
+  (the copy nested under `next`, GHSA-r28c-9q8g-f849 and GHSA-6g55-p6wh-862q),
+  and `fast-uri`, `hono` and `qs`, all reached through
+  `@modelcontextprotocol/sdk`. Each is a same-major bump. `npm audit
+  --omit=dev` goes from five advisories to one: the pair of criticals against
+  the `next` 14 line, which only the 16.x migration closes and which NVX-004
+  and NVX-012 mitigate in the meantime. Remove an entry once its parent ships
+  a version that carries the fix on its own.
 - The image optimizer is off and its wildcard remote patterns are gone.
   [NVX-012]
 - `X-Powered-By` is off; `Cross-Origin-Opener-Policy`,
