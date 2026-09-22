@@ -103,6 +103,18 @@ identifier in brackets is the finding it closes.
 - A tested `Dockerfile` and `.dockerignore`. [NVX-011]
 - A browser-test job and an advisory report in CI, with actions pinned by
   commit and a `permissions:` block; `dependabot.yml`. [NVX-029, NVX-060]
+- `scripts/audit-gate.js`, which is what now fails the build on a critical
+  advisory in a production dependency. The step it replaces was
+  `npm audit --omit=dev --audit-level=critical`, which fails on the two
+  criticals the out-of-support `next` 14 line carries — so it could never
+  pass, and a check that cannot pass is one people stop reading. The gate
+  names those two by advisory id, with the finding and the mitigation each
+  rests on, and re-checks the mitigation on every run: bind past loopback by
+  default or turn the image optimizer back on, and the exception stops
+  applying in the commit that does it. A critical against any other advisory
+  id still fails, `next` included, and an entry whose advisory has gone fails
+  too, so the list cannot quietly outlive its reasons. [NVX-004, NVX-012,
+  NVX-029]
 
 ### Changed
 

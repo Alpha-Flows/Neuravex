@@ -89,9 +89,11 @@ jobs:
           retention-days: 7
 
   # Advisories are a standing report, not a gate that blocks a bug fix: the
-  # Next.js 14 line is out of support and cannot go green until the 15.x
-  # migration lands (see NVX-004 in docs/SECURITY_REVIEW.md). Production
-  # dependencies at critical severity are the line that does fail the build.
+  # Next.js 14 line is out of support and cannot go green until the migration
+  # lands (see NVX-004 in docs/SECURITY_REVIEW.md). Production dependencies at
+  # critical severity are the line that does fail the build — every one of
+  # them except the two that line is already carrying, which are named, with
+  # their mitigations, in scripts/audit-gate.js.
   audit:
     runs-on: ubuntu-latest
     steps:
@@ -110,5 +112,9 @@ jobs:
       - name: Report every advisory
         run: npm audit || true
 
+      # Not `npm audit --audit-level=critical`: that fails on the two `next`
+      # advisories this project knowingly ships, so it could never pass and
+      # was never a gate. This fails on any *other* critical, and on either of
+      # those two the moment its mitigation stops holding.
       - name: Fail on a critical one in what ships
-        run: npm audit --omit=dev --audit-level=critical
+        run: node scripts/audit-gate.js
