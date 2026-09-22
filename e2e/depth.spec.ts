@@ -29,8 +29,8 @@ const heading = (layer?: unknown) => ({
   ...(layer ? { layer } : {}),
 });
 
-const section = (children: unknown[]) => ({
-  id: "s1",
+const section = (children: unknown[], id = "s1") => ({
+  id,
   type: "section",
   props: { background: "#0f172a", paddingY: 40, paddingX: 24, maxWidth: "site", align: "center" },
   children,
@@ -167,6 +167,49 @@ test.describe("Setting a block's depth in the editor", () => {
     const back = (await block.boundingBox())!;
     expect(Math.round(back.x)).toBe(Math.round(before.x));
     expect(Math.round(back.width)).toBe(Math.round(before.width));
+
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
+  });
+});
+
+test.describe("Moving a float to another container", () => {
+  test("carries it and its placement, without putting it back in the flow", async ({ page, request }) => {
+    // A float's own drag means "move it across the page", so it is not a
+    // sortable and cannot be dragged into a different container. Before the
+    // inspector listed them, getting it out meant un-floating it, dragging it
+    // and floating it again — losing its position both times.
+    const float = { mode: "float", level: 2, x: 20, y: 30, width: 40 };
+    const { site, page: p } = await seed(request, [
+      section([image, heading(float)]),
+      section([], "s2"),
+    ]);
+    await page.goto(`/admin/sites/${site.id}/pages/${p.id}`);
+
+    await page.locator(".nvx-layer .editor-block").first().click();
+    await expect(page.getByText("Floats in", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Section 2", exact: true }).click();
+    await expect(page.locator("header span.text-xs").first()).toContainText("Saved", { timeout: 10000 });
+
+    const saved = await (await request.get(`/api/pages/${p.id}`)).json();
+    const tree = JSON.parse(saved.content) as { id: string; children?: { id: string; layer?: unknown }[] }[];
+    const first = tree.find((b) => b.id === "s1");
+    const second = tree.find((b) => b.id === "s2");
+
+    expect(first?.children?.some((c) => c.id === "h1")).toBe(false);
+    const landed = second?.children?.find((c) => c.id === "h1");
+    // Still floating, at the same share of whatever it now floats in.
+    expect(landed?.layer).toEqual({ mode: "float", level: 2, x: 20, y: 30, width: 40 });
+
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
+  });
+
+  test("is not offered for a block that is in the flow, which is dragged instead", async ({ page, request }) => {
+    const { site, page: p } = await seed(request, [section([image, heading()]), section([], "s2")]);
+    await page.goto(`/admin/sites/${site.id}/pages/${p.id}`);
+
+    await page.locator(".editor-block").filter({ hasText: "Words on the photograph" }).last().click();
+    await expect(page.getByText("Floats in", { exact: true })).toHaveCount(0);
 
     await request.delete(`/api/sites/${site.id}?permanent=1`);
   });

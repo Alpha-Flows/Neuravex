@@ -88,6 +88,14 @@ identifier in brackets is the finding it closes.
 
 ### Added
 
+- A floating block can be moved to another container without being put back in
+  the flow first. A float is placed rather than ordered, so its handle already
+  means "move it across the page" and it is not a sortable at all — which left
+  it stuck wherever it was made: getting it out meant un-floating it, dragging
+  it, and floating it again, losing its position both times. The inspector now
+  lists the containers on the page by name, indented the way the outline is,
+  and moving is the same remove-and-insert a drag performs. The block keeps its
+  level and its position, which are shares of whatever it floats in.
 - Error and 404 pages, in the builder and on published sites. `block-tree.ts`
   was written because a malformed block tree became "a durable 500 the owner
   could not click past"; it stops one being stored, but nothing caught what a
@@ -193,6 +201,11 @@ identifier in brackets is the finding it closes.
   time they were open) or in the handler that caused the change (picking a page
   of form answers clears the previous page's as it asks for the new ones,
   rather than a frame later).
+- An empty section can be moved into. Whether a block could hold other blocks
+  was read off its `children` array, and `normalizeBlockTree` drops an empty
+  one rather than storing it — so a section with nothing in it looked like a
+  block that holds nothing, which is exactly the container you most want to put
+  the first block into.
 - Saved blocks go through the shared block-tree validator. A saved block is
   not a note about a block: it is stored markup that a later click drops
   straight into a page, which makes the route a write path into a block tree

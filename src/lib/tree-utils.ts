@@ -20,10 +20,26 @@ export function findBlock(blocks: BaseBlock[], id: string): BaseBlock | null { r
 
 export function cloneTree<T>(v: T): T { return JSON.parse(JSON.stringify(v)); }
 
+/**
+ * The blocks that hold other blocks.
+ *
+ * Containerhood used to be implied by a block happening to have a `children`
+ * array, which is true of a section right up until it is empty:
+ * `normalizeBlockTree` drops an empty array rather than storing it, so a
+ * section with nothing in it looked like a block that cannot hold anything,
+ * and nothing could be put into it except by dragging onto its drop zone.
+ */
+export const CONTAINER_TYPES: ReadonlySet<string> = new Set(["section", "columns"]);
+
 export function updateContainer(blocks: BaseBlock[], containerId: string, fn: (list: BaseBlock[]) => BaseBlock[]): BaseBlock[] {
   if (containerId === "page") return fn(blocks);
   return blocks.map((b) => {
-    if (`section-${b.id}` === containerId && b.children) return { ...b, children: fn(b.children) };
+    // `b.children ?? []` so an empty container is still a container. The
+    // condition keeps the old reading as well as the new one, so nothing that
+    // was a drop target stops being one.
+    if (`section-${b.id}` === containerId && (b.children || CONTAINER_TYPES.has(b.type))) {
+      return { ...b, children: fn(b.children ?? []) };
+    }
     if (b.type === "columns" && b.children) {
       const cols = columnCount(b);
       const sub = groupIntoColumns(b.children, cols);
