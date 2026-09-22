@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -17,8 +17,8 @@ import { getBlockDefinition } from "@/lib/blocks";
 import { uid, slugify, cn } from "@/lib/utils";
 import { siteThemeCss, SiteThemeInput } from "@/lib/site-theme";
 import { scopeCss } from "@/lib/scope-css";
-import { readClipboard, writeClipboard, pasteable } from "@/lib/clipboard";
-import { readRails, writeRails, RailState, RAILS_OPEN } from "@/lib/rails";
+import { readClipboard, writeClipboard, pasteable, subscribeClipboard, clipboardLabel as readClipboardLabel, clipboardServerLabel } from "@/lib/clipboard";
+import { railsSnapshot, railsServerSnapshot, subscribeRails, setRails, RailState } from "@/lib/rails";
 import { SiteHeader, SiteFooter, SiteChrome, NavPage, LegalPage } from "@/components/public/SiteChrome";
 import { mapBlocks, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount, removeBlock, withFreshIds } from "@/lib/tree-utils";
 import { isFloating, layerOf, levelRange, withLayer } from "@/lib/block-layer";
@@ -113,7 +113,10 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
   // preference is applied after mount: read during the first render it would
   // not match the HTML the server sent, and React would throw the whole
   // canvas away and build it again.
-  const [rails, setRails] = useState<RailState>(RAILS_OPEN);
+  // Read straight from the store rather than copied into state: the
+  // preference lives in localStorage, and a second copy here only created
+  // something for it to disagree with on the first paint.
+  const rails = useSyncExternalStore(subscribeRails, railsSnapshot, railsServerSnapshot);
   /** Bumped when a block is kept, so the palette shows it straight away. */
   const [savedKey, setSavedKey] = useState(0);
   const [activeDrag, setActiveDrag] = useState<{ kind: "palette" | "block"; type?: BlockType; block?: BaseBlock } | null>(null);
@@ -295,8 +298,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
   }
 
   /** What is on the clipboard, for the hint in the palette. */
-  const [clipboardLabel, setClipboardLabel] = useState<string | null>(null);
-  useEffect(() => { setClipboardLabel(readClipboard()?.label ?? null); }, []);
+  const clipboardLabel = useSyncExternalStore(subscribeClipboard, readClipboardLabel, clipboardServerLabel);
 
   function pasteBlock(entry: ReturnType<typeof readClipboard>) {
     if (!entry) return;
@@ -440,8 +442,9 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
         if (block) {
           e.preventDefault();
           const label = getBlockDefinition(block.type)?.label ?? block.type;
+          // The palette's hint follows the store, so storing is all there is
+          // to do here.
           if (writeClipboard(block, label)) {
-            setClipboardLabel(label);
             if (e.key === "x") deleteBlock(selectedId);
           }
         }
@@ -507,16 +510,9 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     setDirty(true);
   }
 
-  useEffect(() => {
-    setRails(readRails());
-  }, []);
-
   const toggleRail = useCallback((side: keyof RailState) => {
-    setRails((current) => {
-      const next = { ...current, [side]: !current[side] };
-      writeRails(next);
-      return next;
-    });
+    const current = railsSnapshot();
+    setRails({ ...current, [side]: !current[side] });
   }, []);
 
   // Bring the selected block into view.

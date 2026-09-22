@@ -17,21 +17,29 @@ export default defineConfig([
   {
     /**
      * `react-hooks` 6 — which arrived with eslint-config-next 16 — reads a
-     * render function the way the React Compiler does. Two of its rules fire
-     * across this codebase for reasons worth writing down rather than
-     * silencing quietly.
+     * render function the way the React Compiler does. One of its rules fires
+     * for a reason worth writing down rather than silencing quietly; see the
+     * `react-hooks/refs` block below.
      *
-     * `set-state-in-effect` catches `useState` + a `useEffect` that sets it
-     * straight away. Every one here is the same deliberate shape: a value the
-     * server cannot know — `document.body`, a `localStorage` preference, the
-     * hostname the page was opened on — read after mount so that the first
-     * render matches the HTML the server sent. Reading it during render is
-     * precisely the hydration mismatch this avoids. The rule is right that it
-     * costs a second render; it is a warning here because the alternative it
-     * is steering toward is worse for this app, and a warning keeps the list
-     * visible.
+     * `set-state-in-effect` was a warning through the Next 16 migration, with
+     * eight instances and a note saying the alternative was worse. That was
+     * true of the shape it was read as — a value the server cannot know, read
+     * after mount so the first render matches the HTML that was sent — but it
+     * was three different problems wearing one rule's name, and only the
+     * hydration one had that defence. They are all gone now:
+     *
+     *   - A client-only value read once is `useSyncExternalStore` with a
+     *     server snapshot, which is the API React provides for exactly this
+     *     question and does not cost the extra render.
+     *   - A preference that lives in `localStorage` is a store, not something
+     *     to copy into state and re-seed on mount.
+     *   - State reset when a prop changes is either an unmount or a line in
+     *     the handler that caused the change.
+     *
+     * So it is an error: there is nothing left for it to catch that is not a
+     * mistake.
      */
-    rules: { "react-hooks/set-state-in-effect": "warn" },
+    rules: { "react-hooks/set-state-in-effect": "error" },
   },
 
   {

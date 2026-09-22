@@ -58,15 +58,25 @@ export function SubmissionsViewer({ siteId }: { siteId: string }) {
     [],
   );
 
-  useEffect(() => {
-    if (!selectedPage) {
+  /**
+   * Show a page's answers, from a given offset.
+   *
+   * Every one of these happens because somebody picked a page or turned a
+   * page of results, so the fetch hangs off the click rather than off an
+   * effect watching what the click changed. That also means the list is
+   * cleared and the request started together, instead of the previous page's
+   * answers sitting on screen until an effect caught up.
+   */
+  const show = useCallback(
+    (pageId: string | null, offset: number) => {
+      setSkip(offset);
       setSubs([]);
       setTotal(0);
-      setSkip(0);
-      return;
-    }
-    load(selectedPage, skip);
-  }, [selectedPage, skip, load]);
+      setSelectedPage(pageId);
+      if (pageId) load(pageId, offset);
+    },
+    [load],
+  );
 
   async function removeOne(id: string) {
     if (!confirm("Delete this submission? This cannot be undone.")) return;
@@ -104,10 +114,7 @@ export function SubmissionsViewer({ siteId }: { siteId: string }) {
         <label className="block text-xs font-medium text-fg-muted mb-1 uppercase tracking-wide">Page</label>
         <select
           value={selectedPage ?? ""}
-          onChange={(e) => {
-            setSkip(0);
-            setSelectedPage(e.target.value || null);
-          }}
+          onChange={(e) => show(e.target.value || null, 0)}
           className="h-9 w-full max-w-xs px-2 rounded-md bg-bg border border-bg-border text-fg text-sm focus:outline-none focus:border-brand/60"
         >
           <option value="">Select a page</option>
@@ -184,14 +191,14 @@ export function SubmissionsViewer({ siteId }: { siteId: string }) {
               <Button
                 className="h-8 px-3 text-xs"
                 disabled={skip === 0}
-                onClick={() => setSkip(Math.max(0, skip - PAGE_SIZE))}
+                onClick={() => show(selectedPage, Math.max(0, skip - PAGE_SIZE))}
               >
                 ← Newer
               </Button>
               <Button
                 className="h-8 px-3 text-xs"
                 disabled={to >= total}
-                onClick={() => setSkip(skip + PAGE_SIZE)}
+                onClick={() => show(selectedPage, skip + PAGE_SIZE)}
               >
                 Older →
               </Button>

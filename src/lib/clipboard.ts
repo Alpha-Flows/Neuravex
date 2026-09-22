@@ -47,13 +47,19 @@ export function readClipboard(storage?: Storage): ClipboardEntry | null {
 }
 
 export function writeClipboard(block: BaseBlock, label: string, storage?: Storage): boolean {
+  let stored = false;
   try {
     const store = storage ?? window.localStorage;
     store.setItem(KEY, JSON.stringify({ block: cloneTree(block), label, copiedAt: Date.now() }));
-    return true;
+    stored = true;
   } catch {
-    return false;
+    stored = false;
   }
+  if (stored) {
+    labelSnapshot = label;
+    notify();
+  }
+  return stored;
 }
 
 export function clearClipboard(storage?: Storage): void {
@@ -62,6 +68,43 @@ export function clearClipboard(storage?: Storage): void {
   } catch {
     /* nothing to clear */
   }
+  labelSnapshot = undefined;
+  notify();
+}
+
+/**
+ * The label of whatever is on the clipboard, as something to subscribe to.
+ *
+ * The palette shows "Paste Heading" when there is a heading to paste, and the
+ * editor used to keep that label in its own state: seeded from storage in an
+ * effect on mount, and updated by hand at the one place that copies. Two
+ * copies of one fact, and the first paint always showed the wrong one.
+ *
+ * A snapshot is cached because `useSyncExternalStore` compares by identity and
+ * re-reading storage on every render would be a fresh read each time. It is
+ * invalidated by the writes below, which are the only ways it changes within a
+ * tab.
+ */
+let labelSnapshot: string | null | undefined;
+const listeners = new Set<() => void>();
+
+function notify(): void {
+  for (const listener of listeners) listener();
+}
+
+/** Nothing is on the clipboard as far as the server can tell. */
+export function clipboardServerLabel(): string | null {
+  return null;
+}
+
+export function clipboardLabel(): string | null {
+  if (labelSnapshot === undefined) labelSnapshot = readClipboard()?.label ?? null;
+  return labelSnapshot;
+}
+
+export function subscribeClipboard(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }
 
 /**

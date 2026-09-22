@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { readRails, writeRails, RAILS_OPEN } from "@/lib/rails";
+import { readRails, writeRails, RAILS_OPEN, railsSnapshot, railsServerSnapshot, subscribeRails, setRails } from "@/lib/rails";
 
 /** A stand-in for localStorage, including one that refuses to co-operate. */
 function memoryStorage(): Storage {
@@ -50,5 +50,30 @@ describe("remembering which rails are folded", () => {
     const hostile = hostileStorage();
     expect(readRails(hostile)).toEqual(RAILS_OPEN);
     expect(writeRails({ left: true, right: true }, hostile)).toBe(false);
+  });
+});
+
+describe("the preference as something to subscribe to", () => {
+  it("hands back the same object until something writes", () => {
+    // `useSyncExternalStore` compares snapshots by identity. A fresh object
+    // from every read would be a render that never settles.
+    expect(railsSnapshot()).toBe(railsSnapshot());
+  });
+
+  it("shows both rails to the server, which cannot know the preference", () => {
+    expect(railsServerSnapshot()).toEqual(RAILS_OPEN);
+  });
+
+  it("tells subscribers when the preference changes, and stops when they leave", () => {
+    let calls = 0;
+    const stop = subscribeRails(() => calls++);
+    setRails({ left: true, right: false });
+    expect(calls).toBe(1);
+    expect(railsSnapshot()).toEqual({ left: true, right: false });
+
+    stop();
+    setRails({ left: false, right: true });
+    expect(calls).toBe(1);
+    expect(railsSnapshot()).toEqual({ left: false, right: true });
   });
 });

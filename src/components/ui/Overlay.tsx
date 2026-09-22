@@ -1,6 +1,7 @@
 "use client";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useHydrated } from "@/lib/use-hydrated";
 
 /**
  * Something drawn over the whole window, from wherever in the tree it was
@@ -23,8 +24,7 @@ export function Overlay({ children }: { children: ReactNode }) {
   // that rendered in place first and moved afterwards would be a hydration
   // mismatch. Both of the things drawn this way appear in answer to a click,
   // so there is nothing to show before the browser has the page.
-  const [host, setHost] = useState<HTMLElement | null>(null);
-  useEffect(() => setHost(document.body), []);
-  if (!host) return null;
-  return createPortal(children, host);
+  const hydrated = useHydrated();
+  if (!hydrated) return null;
+  return createPortal(children, document.body);
 }

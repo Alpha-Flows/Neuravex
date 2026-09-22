@@ -65,7 +65,16 @@ interface UploadedFile {
   usedOn?: string[];
 }
 
-export function MediaPicker({ open, onClose, onSelect }: Props) {
+export function MediaPicker({ open, ...rest }: Props) {
+  // Closing unmounts the body, which is what clears the search box, the
+  // picture being renamed and the loaded list. That used to be done by the
+  // effect below, on the way *in* — so the previous session's search term was
+  // still there for the frame before it ran.
+  if (!open) return null;
+  return <MediaPickerBody {...rest} />;
+}
+
+function MediaPickerBody({ onClose, onSelect }: Omit<Props, "open">) {
   const [tab, setTab] = useState<"uploads" | "stock">("uploads");
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -87,15 +96,11 @@ export function MediaPicker({ open, onClose, onSelect }: Props) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
-    setQuery("");
-    setEditing(null);
-    setJustEdited(null);
     fetch("/api/media").then((r) => r.json()).then(setFiles).catch(() => {});
-  }, [open]);
+  }, []);
 
   useEffect(() => {
-    if (!open || tab !== "stock" || stockLoaded) return;
+    if (tab !== "stock" || stockLoaded) return;
     fetch("/api/stock")
       .then((r) => r.json())
       .then((data) => {
@@ -104,7 +109,7 @@ export function MediaPicker({ open, onClose, onSelect }: Props) {
         setStockLoaded(true);
       })
       .catch(() => setStockLoaded(true));
-  }, [open, tab, stockLoaded]);
+  }, [tab, stockLoaded]);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -170,8 +175,6 @@ export function MediaPicker({ open, onClose, onSelect }: Props) {
     setFiles((f) => f.filter((x) => x.url !== url));
     setEditing((e) => (e?.url === url ? null : e));
   }
-
-  if (!open) return null;
 
   const visibleFiles = files.filter((f) => f.url === justEdited || matchesQuery(query, [f.name, f.alt]));
   const visibleStockPhotos = (activeCategory ? stockPhotos.filter((p) => p.category === activeCategory) : stockPhotos)
