@@ -1030,12 +1030,15 @@ html:has(.nvx-gallery-lightbox:target:not(.editor-mode *)) body {
   margin: 0.75rem 0 0;
   padding: 0;
   list-style: none;
-  /* The browser works out which dot's slide is in view and matches it with
-   * `:target-current` — from where the strip actually is, so it is right
-   * after a swipe as well as after a click. Browsers without it ignore the
-   * line and show every dot alike, which is honest; `:target` alone would go
-   * on naming the last slide linked to after a visitor had swiped away. */
-  scroll-target-group: auto;
+  /* Every dot is drawn alike: none is marked as the slide in view. The
+   * browser can work that out for itself — `scroll-target-group` and
+   * `:target-current`, from where the strip actually is — but only the
+   * newest Chromium knows the pseudo-class, and the CSS parser the build
+   * runs does not, so it printed "Parsing CSS source code failed" on every
+   * build, including the one the launcher runs on a customer's machine the
+   * first time they start Neuravex. `:target` alone would go on naming the
+   * last slide linked to after a visitor had swiped away, which is worse
+   * than naming none. */
 }
 .nvx-slider .nvx-slider-dot {
   display: grid;
@@ -1061,12 +1064,6 @@ html:has(.nvx-gallery-lightbox:target:not(.editor-mode *)) body {
 .nvx-slider .nvx-slider-dot:focus-visible {
   outline: 2px solid var(--site-accent, #6366f1);
   outline-offset: 1px;
-}
-@supports selector(:target-current) {
-  .nvx-slider-dot:target-current::before {
-    width: 1.125rem;
-    opacity: 1;
-  }
 }
 
 @container nvx-slider (max-width: 30rem) {

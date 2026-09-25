@@ -270,11 +270,9 @@ export function Slider({ props, onChange, disabled, blockId }: Props) {
       </div>
       {dots ? (
         /*
-          Links on the canvas as well as on the page, unlike the arrows. The
-          browser marks the dot of the slide in view by itself (see
-          `scroll-target-group` in globals.css), and it only does that for
-          links — buttons here would leave the canvas without the mark the
-          published page has.
+          Links on the canvas as well as on the page, unlike the arrows, so
+          the two are drawn from the same markup. The canvas cancels a
+          link's navigation, and `moveTo` scrolls the strip instead.
         */
         <ul className="nvx-slider-dots" aria-label="Choose a slide">
           {drawn.map(({ index }, position) => (
