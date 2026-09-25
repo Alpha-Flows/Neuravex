@@ -152,11 +152,8 @@ export function contentSecurityPolicy(nonce: string, dev = process.env.NODE_ENV 
 export function proxy(req: NextRequest) {
   // Before anything else, and before a nonce is minted for a page that should
   // never have been rendered: is this server even supposed to answer to that
-  // name?
-  const serving = servingHost(req);
-  if (!isServableHost(serving)) return misdirected();
-
-  const refusal = refuseIfCrossSite(req, serving);
+  // name, and did another site set this request off?
+  const refusal = gate(req);
   if (refusal) return refusal;
 
   const nonce = btoa(crypto.randomUUID());
@@ -171,6 +168,20 @@ export function proxy(req: NextRequest) {
   const res = NextResponse.next({ request: { headers } });
   res.headers.set("Content-Security-Policy", csp);
   return res;
+}
+
+/**
+ * The Host allowlist and the Origin check, as one call: the refusal to send,
+ * or null to carry on.
+ *
+ * The proxy runs this on every request. A route the proxy does not run on —
+ * the upload, see `config` below — runs it itself before it reads a byte, and
+ * `proxy.test.ts` fails if a route is left outside the proxy without it.
+ */
+export function gate(req: NextRequest): NextResponse | null {
+  const serving = servingHost(req);
+  if (!isServableHost(serving)) return misdirected();
+  return refuseIfCrossSite(req, serving);
 }
 
 /** The authority this request was addressed to, forwarded or direct. */
@@ -230,5 +241,14 @@ export const config = {
   // Everything the browser renders, so the policy travels with every page.
   // Next's own build output and the favicon are static files it serves
   // itself, and running this over them buys nothing.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  //
+  // And the upload, which runs `gate` itself. Next copies the body of every
+  // request the proxy runs on, in memory, and hands the route only the first
+  // 10 MB of it: an upload any larger arrived cut short, so no video longer
+  // than a minute or so could ever be put on a site. Raising Next's limit
+  // would have let any request to any route make the server hold that much;
+  // taking this one route out lets it stream the file to disk instead, with
+  // a limit of its own for each kind of file. The policy header is not
+  // missed: the route answers with JSON, never a page.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/upload$).*)"],
 };

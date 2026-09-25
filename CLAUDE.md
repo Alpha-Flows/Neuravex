@@ -106,6 +106,12 @@ GET because the export route reads out every site), an **Origin check** on the m
 change something, and a **CSP with a per-request nonce**. A request with no `Origin` at all is
 allowed — that is curl and your own scripts, and the loopback bind is the real defence.
 
+The one exception is `POST /api/upload`. Next copies every body the proxy sees into memory and
+cuts it off at 10 MB without telling the route, so the upload is left out of the matcher,
+streams the file to disk itself, and calls `gate()` — the first two layers — before it reads a
+byte. `src/proxy.test.ts` fails if any other route leaves the matcher or one that does skips the
+gate. Every other route's body limit has to fit inside `PROXY_BODY_LIMIT`.
+
 `src/lib/css-safety.ts` and `src/lib/url-safety.ts` are **dependency-free on purpose**: client
 components import them, and pulling `security.ts` (postcss) into a client bundle breaks the
 page. `src/lib/request-body.ts` caps a body before parsing it; no route under `src/app/api`

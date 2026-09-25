@@ -1,6 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterAll } from "vitest";
 import { inflateRawSync } from "zlib";
-import { createZip, crc32 } from "@/lib/zip";
+import { mkdtempSync, writeFileSync, symlinkSync, rmSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import { createZip, crc32, zipStream, MAX_ZIP_BYTES } from "@/lib/zip";
 
 const LOCAL_HEADER = 0x04034b50;
 const CENTRAL_HEADER = 0x02014b50;
@@ -88,3 +91,54 @@ describe("createZip", () => {
     expect(read[0].data).toHaveLength(0);
   });
 });
+
+describe("an archive sent as it is made", () => {
+  const dir = mkdtempSync(join(tmpdir(), "nvx-zip-"));
+  const video = Buffer.alloc(3 * 1024 * 1024 + 17, 0);
+  for (let i = 0; i < video.length; i += 4096) video[i] = i % 251;
+  writeFileSync(join(dir, "clip.mp4"), video);
+  writeFileSync(join(dir, "empty.txt"), "");
+  const read = async (stream: ReadableStream<Uint8Array>) => Buffer.from(await new Response(stream).arrayBuffer());
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  it("holds the same files as one made in memory, and says its length first", async () => {
+    const html = Buffer.from("<h1>Hello</h1>".repeat(200));
+    const made = zipStream([
+      { path: "index.html", data: html },
+      { path: "uploads/clip.mp4", file: join(dir, "clip.mp4"), size: video.length },
+      { path: "uploads/empty.txt", file: join(dir, "empty.txt"), size: 0 },
+    ]);
+    if (!made) throw new Error("refused");
+    const zip = await read(made.stream);
+    expect(zip.length).toBe(made.length);
+    const files = readZip(zip);
+    expect(files.map((f) => f.path)).toEqual(["index.html", "uploads/clip.mp4", "uploads/empty.txt"]);
+    expect(files[0].data.equals(html)).toBe(true);
+    expect(files[1].data.equals(video)).toBe(true);
+    expect(files[2].data).toHaveLength(0);
+  });
+
+  it("stores a file from disk as it is, rather than deflating it", async () => {
+    const made = zipStream([{ path: "clip.mp4", file: join(dir, "clip.mp4"), size: video.length }]);
+    const zip = await read(made!.stream);
+    const central = zip.readUInt32LE(zip.length - 22 + 16);
+    expect(zip.readUInt16LE(central + 10)).toBe(0);
+  });
+
+  it("refuses to read a file through a link", async () => {
+    symlinkSync(join(dir, "clip.mp4"), join(dir, "link.mp4"));
+    const made = zipStream([{ path: "link.mp4", file: join(dir, "link.mp4"), size: video.length }]);
+    await expect(read(made!.stream)).rejects.toThrow();
+  });
+
+  it("stops rather than send offsets that no longer add up", async () => {
+    const made = zipStream([{ path: "clip.mp4", file: join(dir, "clip.mp4"), size: video.length + 10 }]);
+    await expect(read(made!.stream)).rejects.toThrow();
+  });
+
+  it("is refused before a byte is read when it would not fit a plain ZIP", () => {
+    expect(zipStream([{ path: "huge.mp4", file: join(dir, "missing.mp4"), size: MAX_ZIP_BYTES }])).toBeNull();
+  });
+
+});
+

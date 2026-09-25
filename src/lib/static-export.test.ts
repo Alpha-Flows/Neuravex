@@ -306,6 +306,47 @@ describe("the words on a page", () => {
   });
 });
 
+describe("a picture offered at several sizes", () => {
+  // Only the first address in a srcset came straight after a quote, so the
+  // sharper ones were neither bundled nor made relative.
+  const html =
+    '<img src="/uploads/a.png" srcset="/uploads/a.png 1x, /uploads/a@2x.png 2x,/stock/nature/b.jpg 800w"/>' +
+    '<link rel="preload" as="image" imagesrcset="/uploads/c.png 1x, /uploads/c@2x.png 2x"/>';
+
+  it("brings every one of them into the download", () => {
+    expect(collectLocalAssets(html)).toEqual([
+      "stock/nature/b.jpg",
+      "uploads/a.png",
+      "uploads/a@2x.png",
+      "uploads/c.png",
+      "uploads/c@2x.png",
+    ]);
+  });
+
+  it("points every one of them at the copy beside the page, descriptors and spacing kept", () => {
+    expect(rewriteAssetPaths(html)).toBe(
+      '<img src="uploads/a.png" srcset="uploads/a.png 1x, uploads/a@2x.png 2x,stock/nature/b.jpg 800w"/>' +
+        '<link rel="preload" as="image" imagesrcset="uploads/c.png 1x, uploads/c@2x.png 2x"/>',
+    );
+  });
+
+  it("makes an absolute address back at the builder relative first", () => {
+    const absolute = '<img srcset="http://localhost:3939/uploads/a.png 1x, http://localhost:3939/uploads/b.png 2x"/>';
+    expect(relativizeSelfUrls(absolute, ["http://localhost:3939"])).toBe('<img srcset="/uploads/a.png 1x, /uploads/b.png 2x"/>');
+  });
+
+  it("does not cut a data: picture at the comma inside it", () => {
+    const inline = '<img srcset="data:image/png;base64,iVBORw0KGgo= 1x, /uploads/d.png 2x"/>';
+    expect(collectLocalAssets(inline)).toEqual(["uploads/d.png"]);
+    expect(rewriteAssetPaths(inline)).toBe('<img srcset="data:image/png;base64,iVBORw0KGgo= 1x, uploads/d.png 2x"/>');
+  });
+
+  it("leaves a list it has nothing to do with exactly as it was", () => {
+    const remote = "<img srcset=\"https://cdn.example.com/a.png 1x ,  https://cdn.example.com/b.png 2x,\"/>";
+    expect(rewriteAssetPaths(remote)).toBe(remote);
+  });
+});
+
 describe("a picture behind a section", () => {
   it("is found and made relative as React writes it", () => {
     // React puts the quotes of url("…") into the attribute as &quot;.

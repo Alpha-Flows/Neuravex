@@ -8,6 +8,7 @@ import {
   neutralizeStyleEnd,
   sanitizeStyleAttribute,
 } from "./css-safety";
+import { tooLargeMessage, uploadLimitFor } from "./media-kind";
 
 /**
  * The sanitisers that need a real CSS parser, and the ones for uploaded files.
@@ -104,16 +105,16 @@ const ALLOWED_EXTENSIONS = new Set([
 // SVG can contain scripts — strip them if accepted
 const DANGEROUS_EXTENSIONS = new Set(["svg"]);
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-
+/**
+ * Whether a file of this name and size may be uploaded, and its extension.
+ *
+ * The size is judged against the limit for the kind of file it is — see
+ * `UPLOAD_LIMITS` — which is why the extension is read first.
+ */
 export function validateUploadFile(
   filename: string,
   size: number
 ): { valid: true; ext: string } | { valid: false; error: string } {
-  if (size > MAX_FILE_SIZE) {
-    return { valid: false, error: `File too large. Max ${MAX_FILE_SIZE / 1024 / 1024}MB.` };
-  }
-
   const ext = filename.split(".").pop()?.toLowerCase() ?? "";
   if (!ext || !ALLOWED_EXTENSIONS.has(ext)) {
     return {
@@ -121,6 +122,8 @@ export function validateUploadFile(
       error: `File type .${ext} is not allowed. Allowed: ${Array.from(ALLOWED_EXTENSIONS).join(", ")}`,
     };
   }
+
+  if (size > uploadLimitFor(filename)) return { valid: false, error: tooLargeMessage(filename) };
 
   return { valid: true, ext };
 }

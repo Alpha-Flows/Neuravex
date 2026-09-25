@@ -11,6 +11,12 @@ in brackets is the finding it closes.
 
 ### Security
 
+- The upload route is the one route the proxy does not run on, because Next
+  copies every body the proxy sees into memory and cuts it off at 10 MB. It
+  runs the proxy's Host allowlist and Origin check itself, before it reads a
+  byte, and a test fails if any other route leaves the proxy or one that does
+  skips the check. An upload is written to disk as it arrives, so its size no
+  longer decides how much memory the server holds.
 - The server binds `127.0.0.1` by default, in the desktop launcher and in
   `npm start` alike. A wider bind needs `HOST` and prints a warning that there
   is no password behind the port. [NVX-003]
@@ -175,6 +181,18 @@ in brackets is the finding it closes.
 
 ### Changed
 
+- Uploads have a limit for each kind of file instead of 10 MB for everything:
+  250 MB for a video, 50 MB for a sound, 10 MB for a picture or a document.
+  The picker refuses a file over its limit before sending any of it. Scripts
+  that post a multipart form still can, up to 10 MB; anything larger is sent
+  as the file itself with its name in an `X-File-Name` header.
+- An uploaded file is streamed when it is served, including the parts a video
+  player asks for, rather than read whole for every request.
+- The site download is streamed as it is made. Pictures, sounds and videos
+  go in as they are instead of being deflated, the pages are still
+  compressed, and a site too large for a ZIP (4 GB) is refused with a message
+  rather than failing part-way. The example nginx configuration in
+  `INSTALL.md` allows a body of 251 MB to match.
 - Next.js 16 renames what the framework calls things, and the app follows:
   `src/middleware.ts` is `src/proxy.ts` and exports `proxy`; `params` and
   `searchParams` on a page, a layout and a route handler are Promises, so the
@@ -218,6 +236,17 @@ in brackets is the finding it closes.
 
 ### Fixed
 
+- A link to `#`, the top of the page, was stored as `#c-` and went nowhere.
+  It stays `#`, and links already stored as `#c-` are read back as `#`.
+- The download read only the first address in a `srcset`, so the larger
+  sizes after it would have been left pointing at the builder. Nothing on a
+  page carries one yet — the sanitiser drops `srcset` from content and no
+  block writes one — so this is fixed before it can bite: every address in
+  the list is copied and made relative, a `data:` picture's comma included.
+- An archive between 10 and 32 MB could not be imported: the route allowed
+  32 MB, but Next had already cut the body off at 10 and the import failed as
+  "not valid JSON". The limit is now the 10 MB Next passes on, and a larger
+  archive is refused for its size.
 - Renaming a page moved the links in buttons, plans and custom HTML but not the
   ones the formatting toolbar writes into text, list items, FAQ answers, table
   cells, plan features and captions, which were left pointing at a 404. The

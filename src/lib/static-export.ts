@@ -124,10 +124,59 @@ function inMarkup(html: string, edit: (markup: string) => string): string {
   return html.replace(/<style\b[^>]*>[\s\S]*?<\/style>|<[^>]*>/gi, (markup) =>
     /^<style\b/i.test(markup)
       ? edit(markup)
-      : markup.replace(ATTRIBUTE, (attribute, name: string, value: string) =>
-          URL_ATTRIBUTES.has(name.toLowerCase()) ? attribute.slice(0, -value.length) + edit(value) : attribute,
-        ),
+      : markup.replace(ATTRIBUTE, (attribute, name: string, value: string) => {
+          const lower = name.toLowerCase();
+          if (SRCSET_ATTRIBUTES.has(lower)) return attribute.slice(0, -value.length) + editSrcset(value, edit);
+          return URL_ATTRIBUTES.has(lower) ? attribute.slice(0, -value.length) + edit(value) : attribute;
+        }),
   );
+}
+
+/** Attributes that hold a list of pictures rather than one address. */
+const SRCSET_ATTRIBUTES = new Set(["srcset", "imagesrcset"]);
+
+/**
+ * A quoted `srcset` with `edit` applied to each address in it.
+ *
+ * `a.png 1x, b.png 2x` names two files, and only the first comes straight
+ * after a quote, which is what every pattern here looks for: the second was
+ * neither copied into the download nor made relative, so the sharper picture
+ * a high-density screen asks for pointed at a server the folder does not
+ * have. Each address is handed to `edit` on its own, in quotes, as if it were
+ * an attribute of its own.
+ *
+ * Split the way a browser splits it, not on every comma: an address runs to
+ * the next space, and a `data:` picture has a comma in the middle of it.
+ */
+function editSrcset(value: string, edit: (markup: string) => string): string {
+  const quote = value[0];
+  const list = value.slice(1, -1);
+  let out = "";
+  let i = 0;
+  while (i < list.length) {
+    while (i < list.length && /[\s,]/.test(list[i])) out += list[i++];
+    let end = i;
+    while (end < list.length && !/\s/.test(list[end])) end++;
+    let url = list.slice(i, end);
+    // A comma at the very end of the address ends the candidate instead.
+    const commas = /,+$/.exec(url)?.[0] ?? "";
+    url = url.slice(0, url.length - commas.length);
+    i = end;
+    if (url) {
+      const edited = edit(`${quote}${url}${quote}`);
+      out += edited.startsWith(quote) && edited.endsWith(quote) ? edited.slice(1, -1) : url;
+    }
+    out += commas;
+    if (commas) continue;
+    // The descriptors, up to the comma that ends this candidate.
+    let depth = 0;
+    while (i < list.length && !(list[i] === "," && depth === 0)) {
+      if (list[i] === "(") depth++;
+      else if (list[i] === ")") depth = Math.max(0, depth - 1);
+      out += list[i++];
+    }
+  }
+  return `${quote}${out}${quote}`;
 }
 
 /**
@@ -144,7 +193,7 @@ function inMarkup(html: string, edit: (markup: string) => string): string {
  * in an attribute too; only these carry an address.
  */
 const URL_ATTRIBUTES = new Set([
-  "src", "href", "srcset", "imagesrcset", "poster", "style", "content", "action", "data", "xlink:href",
+  "src", "href", "poster", "style", "content", "action", "data", "xlink:href",
 ]);
 const ATTRIBUTE = /\s([^\s"'<>/=]+)\s*=\s*("[^"]*"|'[^']*')/g;
 

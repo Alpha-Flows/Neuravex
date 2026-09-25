@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { lstat, readFile } from "fs/promises";
+import { lstat } from "fs/promises";
 import { join, resolve, sep } from "path";
 import { existingUploadPath } from "@/lib/uploads";
 import { prisma } from "@/lib/prisma";
-import { createZip, ZipEntry } from "@/lib/zip";
+import { zipStream, MAX_ZIP_BYTES, type ZipEntry, type ZipFileEntry } from "@/lib/zip";
 import { buildExportCss } from "@/lib/export-css";
 import { pageFileName, prepareExportedPage } from "@/lib/static-export";
 import { robotsTxt } from "@/lib/seo";
@@ -62,7 +62,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   const origin = internalOrigin();
   const documents: string[] = [];
   const assetPaths = new Set<string>();
-  const entries: ZipEntry[] = [];
+  const entries: (ZipEntry | ZipFileEntry)[] = [];
 
   for (const page of site.pages) {
     const url = page.isHome
@@ -125,11 +125,9 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
       // customer's download.
       const stats = await lstat(full);
       if (!stats.isFile()) throw new Error("not a regular file");
-      // `turbopackIgnore` because this reads the customer's uploads at
-      // request time, not a module at build time. Without it Turbopack
-      // traces the whole project into the server output on the strength of a
-      // path it cannot see statically.
-      entries.push({ path: rel, data: await readFile(/*turbopackIgnore: true*/ full) });
+      // Named rather than read: the archive reads it as it is sent. A video
+      // can be 250 MB now, and every file used to be held in memory at once.
+      entries.push({ path: rel, file: full, size: stats.size });
     } catch {
       missingAssets.push(rel);
     }
@@ -146,8 +144,18 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     data: Buffer.from(readme(site.name, [...pageFiles.values()], missingAssets), "utf8"),
   });
 
-  const zip = createZip(entries);
-  return new NextResponse(new Uint8Array(zip), {
+  const zip = zipStream(entries);
+  if (!zip) {
+    return NextResponse.json(
+      {
+        error:
+          `The pages and files of this site come to more than ${Math.floor(MAX_ZIP_BYTES / 1024 ** 3)} GB, ` +
+          "more than a download can hold. Take out a few of the largest videos and try again.",
+      },
+      { status: 413 },
+    );
+  }
+  return new NextResponse(zip.stream, {
     headers: {
       "content-type": "application/zip",
       "content-disposition": `attachment; filename="${site.slug}.zip"`,

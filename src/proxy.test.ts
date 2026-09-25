@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
-import { proxy, contentSecurityPolicy, isServableHost } from "./proxy";
+import { readdirSync, readFileSync } from "fs";
+import { join, relative } from "path";
+import { proxy, contentSecurityPolicy, isServableHost, gate, config } from "./proxy";
 
 /**
  * The Origin check is the whole of the CSRF defence and, until now, it was
@@ -220,3 +222,54 @@ describe("the policy the page carries", () => {
     expect(res.headers.get("content-security-policy")).toContain("nonce-");
   });
 });
+
+describe("a route the proxy does not run on", () => {
+  // Next compiles `/(...)` to a regular expression anchored at both ends.
+  const matcher = new RegExp(`^${config.matcher[0]}$`);
+
+  /** Every route handler under `src/app`, as the path it answers on. */
+  function routes(dir = join(process.cwd(), "src/app")): { path: string; file: string }[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) return routes(full);
+      if (entry.name !== "route.ts") return [];
+      const path = relative(join(process.cwd(), "src/app"), dir)
+        .split("/")
+        .filter((part) => !/^\(.*\)$/.test(part))
+        .map((part) => (part.startsWith("[") ? "x" : part))
+        .join("/");
+      return [{ path: `/${path}`, file: full }];
+    });
+  }
+
+  it("is the upload, and nothing else", () => {
+    const outside = routes().filter((r) => !matcher.test(r.path)).map((r) => r.path);
+    expect(outside).toEqual(["/api/upload"]);
+    // Anything near it still goes through the proxy.
+    for (const path of ["/api/uploads", "/api/upload/x", "/uploads/x", "/api/sites", "/"]) {
+      expect(matcher.test(path), path).toBe(true);
+    }
+  });
+
+  it("runs the same gate itself before it reads a byte", () => {
+    for (const route of routes().filter((r) => !matcher.test(r.path))) {
+      const source = readFileSync(route.file, "utf8");
+      const gated = source.indexOf("gate(req)");
+      expect(gated, route.path).toBeGreaterThan(-1);
+      for (const read of ["req.body", "req.formData(", "req.arrayBuffer(", "req.json(", "req.text("]) {
+        const at = source.indexOf(read);
+        if (at > -1) expect(at, `${route.path} reads ${read} before the gate`).toBeGreaterThan(gated);
+      }
+    }
+  });
+
+  it("gets the proxy's answers from that gate", () => {
+    expect(gate(request("http://evil.example:3939/api/upload", { method: "POST" }))?.status).toBe(421);
+    expect(
+      gate(request("http://localhost:3939/api/upload", { method: "POST", headers: { origin: "https://evil.example" } }))?.status,
+    ).toBe(403);
+    expect(gate(request("http://localhost:3939/api/upload", { method: "POST", headers: { origin: "http://localhost:3939" } }))).toBeNull();
+    expect(gate(request("http://localhost:3939/api/upload", { method: "POST" }))).toBeNull();
+  });
+});
+

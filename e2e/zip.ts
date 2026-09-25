@@ -8,6 +8,11 @@ import { inflateRawSync } from "zlib";
  * test was called "carry no script" and never opened `index.html` to see.
  */
 export function readFromZip(zip: Buffer, wanted: string): string | null {
+  return readBytesFromZip(zip, wanted)?.toString("utf8") ?? null;
+}
+
+/** The same, as the bytes themselves, for a file that is not text. */
+export function readBytesFromZip(zip: Buffer, wanted: string): Buffer | null {
   const end = zip.length - 22;
   const count = zip.readUInt16LE(end + 10);
   let pointer = zip.readUInt32LE(end + 16);
@@ -20,7 +25,7 @@ export function readFromZip(zip: Buffer, wanted: string): string | null {
     if (path === wanted) {
       const start = localOffset + 30 + zip.readUInt16LE(localOffset + 26) + zip.readUInt16LE(localOffset + 28);
       const body = zip.subarray(start, start + compressedSize);
-      return (method === 8 ? inflateRawSync(body) : Buffer.from(body)).toString("utf8");
+      return method === 8 ? inflateRawSync(body) : Buffer.from(body);
     }
     pointer += 46 + nameLength;
   }

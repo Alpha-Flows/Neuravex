@@ -79,6 +79,21 @@ function withIdPrefix(id: string): string {
 }
 
 /**
+ * An in-page link, pointed into the content's own ids — unless it names none.
+ *
+ * A bare `#` is "the top of this page", and it is what a button or a link an
+ * author has not finished yet points at. It went through the prefix like any
+ * fragment and was stored as `#c-`, which names an element no page has, so a
+ * visitor clicking it went nowhere at all. `#c-` itself is taken back to `#`:
+ * the prefix is never put on an empty id, so that is only ever a bare `#`
+ * stored by the old code, and every read passes through here to repair it.
+ */
+function fragmentHref(href: string): string {
+  const id = href.slice(1);
+  return id && id !== ID_PREFIX ? `#${withIdPrefix(id)}` : "#";
+}
+
+/**
  * The transform every element goes through, whatever its tag.
  *
  * `transformTags` is the only hook that sees an attribute before it is written
@@ -160,7 +175,7 @@ export function sanitizeHtml(dirty: string): string {
         const { attribs: base } = transformAny(tagName, attribs);
         const href = isSafeHref(base.href);
         if (href === undefined) delete base.href;
-        else base.href = base.href?.startsWith("#") ? `#${withIdPrefix(href.slice(1))}` : href;
+        else base.href = href.startsWith("#") ? fragmentHref(href) : href;
 
         // A new tab used to be handed a live reference to the page that
         // opened it. Current browsers imply this; saying it costs one token
@@ -226,7 +241,7 @@ function inlinePass(dirty: string): string {
         const { attribs: base } = transformAny(tagName, attribs);
         const href = isSafeHref(base.href);
         if (href === undefined) delete base.href;
-        else base.href = base.href?.startsWith("#") ? `#${withIdPrefix(href.slice(1))}` : href;
+        else base.href = href.startsWith("#") ? fragmentHref(href) : href;
         if (base.target === "_blank") base.rel = "noopener noreferrer";
         return { tagName, attribs: base };
       },

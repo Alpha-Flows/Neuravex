@@ -260,9 +260,11 @@ server {
 
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
-    # Slightly above the 10 MB upload limit, so an oversized upload is
-    # refused by Neuravex with a readable message rather than by nginx.
-    client_max_body_size 11m;
+    # Slightly above the largest upload, a 250 MB video, so an oversized
+    # upload is refused by Neuravex with a readable message rather than by
+    # nginx. Neuravex writes an upload to disk as it arrives, so this is not
+    # memory it holds; every other route refuses far smaller bodies itself.
+    client_max_body_size 251m;
 
     # Everything, by default, is the builder — and the builder is you.
     auth_basic           "Neuravex";

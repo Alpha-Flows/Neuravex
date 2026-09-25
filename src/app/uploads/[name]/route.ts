@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile } from "fs/promises";
+import { constants } from "fs";
+import { open, type FileHandle } from "fs/promises";
+import { Readable } from "stream";
 import { existingUploadPath, CONTENT_TYPES, servesInline } from "@/lib/uploads";
 import { validateUploadFile } from "@/lib/security";
 import { parseByteRange } from "@/lib/byte-range";
@@ -35,6 +37,11 @@ import { parseByteRange } from "@/lib/byte-range";
  * whenever somebody dragged it, and Safari will not play a sound or a video
  * from a server that ignores ranges at all. See `parseByteRange` for which
  * requests are answered in part.
+ *
+ * And it streams what it sends. It read the whole file for every request,
+ * which a picture never noticed and a video did: a player asks for a few
+ * hundred kilobytes at a time, and each of those asks read all 250 MB into
+ * memory to hand back a slice of it.
  */
 
 export const dynamic = "force-dynamic";
@@ -42,7 +49,22 @@ export const dynamic = "force-dynamic";
 /** Long enough to be worth it; short enough that a replaced file shows up. */
 const CACHE = "private, max-age=3600, must-revalidate";
 
-export async function GET(req: NextRequest, props: { params: Promise<{ name: string }> }) {
+type Props = { params: Promise<{ name: string }> };
+
+export async function GET(req: NextRequest, props: Props) {
+  return serve(req, props, true);
+}
+
+/**
+ * The headers alone. Next answers a HEAD with its GET and drops the body,
+ * which for a streamed file would leave the file open until something
+ * collected it; a player asks for these to learn a video's length.
+ */
+export async function HEAD(req: NextRequest, props: Props) {
+  return serve(req, props, false);
+}
+
+async function serve(req: NextRequest, props: Props, withBody: boolean): Promise<NextResponse> {
   const params = await props.params;
   const name = decodeURIComponentSafe(params.name);
   if (!name) return notFound();
@@ -56,10 +78,22 @@ export async function GET(req: NextRequest, props: { params: Promise<{ name: str
   const full = existingUploadPath(name);
   if (!full) return notFound();
 
-  let bytes: Buffer;
+  // Opened without following a link, and measured through the same handle,
+  // so what was checked above is what is sent: a link put in its place in
+  // between is refused by the open rather than read.
+  let file: FileHandle;
+  let length: number;
   try {
-    bytes = await readFile(full);
+    file = await open(full, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   } catch {
+    return notFound();
+  }
+  try {
+    const info = await file.stat();
+    if (!info.isFile()) throw new Error("not a file");
+    length = info.size;
+  } catch {
+    await file.close().catch(() => {});
     return notFound();
   }
 
@@ -76,22 +110,34 @@ export async function GET(req: NextRequest, props: { params: Promise<{ name: str
       : `attachment; filename="${name.replace(/["\\]/g, "")}"`,
   };
 
-  const range = parseByteRange(req.headers.get("range"), bytes.length);
+  const range = parseByteRange(req.headers.get("range"), length);
+  if (range === "unsatisfiable" || !withBody) await file.close().catch(() => {});
   if (range === "unsatisfiable") {
-    return new NextResponse(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${bytes.length}` } });
+    return new NextResponse(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${length}` } });
   }
   if (range) {
-    const part = bytes.subarray(range.start, range.end + 1);
-    return new NextResponse(new Uint8Array(part), {
+    return new NextResponse(withBody ? body(file, range.start, range.end) : null, {
       status: 206,
       headers: {
         ...headers,
-        "Content-Length": String(part.length),
-        "Content-Range": `bytes ${range.start}-${range.end}/${bytes.length}`,
+        "Content-Length": String(range.end - range.start + 1),
+        "Content-Range": `bytes ${range.start}-${range.end}/${length}`,
       },
     });
   }
-  return new NextResponse(new Uint8Array(bytes), { headers: { ...headers, "Content-Length": String(bytes.length) } });
+  return new NextResponse(withBody ? body(file, 0, length - 1) : null, {
+    headers: { ...headers, "Content-Length": String(length) },
+  });
+}
+
+/** Bytes `start` to `end` of the file, inclusive, read as they are sent. */
+function body(file: FileHandle, start: number, end: number): ReadableStream<Uint8Array> | null {
+  if (end < start) {
+    void file.close().catch(() => {});
+    return null;
+  }
+  // Closed with the stream, however it ends — sent, or the player moved on.
+  return Readable.toWeb(file.createReadStream({ start, end, autoClose: true })) as ReadableStream<Uint8Array>;
 }
 
 function decodeURIComponentSafe(value: string): string | null {
