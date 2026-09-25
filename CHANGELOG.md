@@ -103,6 +103,26 @@ in brackets is the finding it closes.
 
 ### Added
 
+- **A site palette.** Up to six brand colours beside the accent, set in the
+  site's settings and offered as swatches in every colour field and in the
+  text toolbar. A block given one stores a reference to its slot, so changing
+  the colour in settings changes every block that took it, on every page and
+  in the download; a slot taken away leaves those blocks in the colour it
+  last was. A button or a section filled with a palette colour picks readable
+  text from the slot, and follows it too.
+- **Text sizes for the whole site.** Heading 1 to 4 and body text are set
+  once in the Theme tab, and every heading and text block follows them —
+  a heading at the size for its level, or the level its own Size names, and
+  text blocks scaled from the body size by their Small to X-Large. On a
+  narrow window a heading is four fifths of its size, the step the old sizes
+  took. Unset, nothing changes.
+- **More formatting for selected text:** underline, strikethrough, a text
+  colour, a highlight — the site's palette and accent among the choices — and
+  Clear formatting, which takes all of it off and leaves links alone.
+- **Gradient fills.** A section or a single column can be filled with two
+  colours blended top to bottom, left to right or diagonally, instead of one.
+  Readable text is chosen for it the way it is for a flat colour, and the
+  download carries it as it is drawn.
 - **A frame on every block.** Any block can carry room inside and around it,
   a border, rounded corners, a shadow and a fill, set from a Frame panel in
   the inspector beside Depth. The frame sits on its own element inside the

@@ -4,7 +4,7 @@ import { Editable } from "./Editable";
 import { InlineEdit } from "@/components/ui/InlineEdit";
 import { ButtonProps } from "@/types";
 import { cn } from "@/lib/utils";
-import { TOKEN, readableTextOn } from "@/lib/site-theme";
+import { TOKEN, readableTextFor, readableTextOn } from "@/lib/site-theme";
 import { cssColor } from "@/lib/css-value";
 import { isSafeHref } from "@/lib/url-safety";
 
@@ -47,10 +47,12 @@ export function ButtonBlock({ props, onChange, disabled }: Props) {
   const ownColor = cssColor(props.color);
   const accent = ownColor ?? TOKEN.accent;
   // A button with its own colour works out its own readable label; only one
-  // riding the site accent defers to the accent's contrast token.
+  // riding the site accent defers to the accent's contrast token. A palette
+  // colour answers with its slot's contrast token, so the label follows the
+  // slot when the slot changes.
   const labelColor =
     cssColor(props.textColor) ??
-    (filled ? (ownColor ? readableTextOn(ownColor) : TOKEN.accentContrast) : accent);
+    (filled ? (ownColor ? readableTextFor(ownColor) ?? readableTextOn(ownColor) : TOKEN.accentContrast) : accent);
 
   /**
    * The address this button goes to, checked here as well as at the door.

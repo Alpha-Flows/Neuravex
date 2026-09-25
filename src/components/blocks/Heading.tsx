@@ -4,6 +4,7 @@ import { Editable } from "./Editable";
 import { HeadingProps } from "@/types";
 import { cn } from "@/lib/utils";
 import { cssColor } from "@/lib/css-value";
+import { headingSizeClass } from "@/lib/text-styles";
 
 interface Props {
   props: HeadingProps;
@@ -39,7 +40,14 @@ export function Heading({ props, onChange, disabled }: Props) {
       // The tag comes from `level`; how big it is drawn can be set apart from
       // it, so a heading can be an h2 in the outline without being 48px on
       // the page. Unset, the two stay the same thing.
-      className={cn(sizeClass[props.size ?? props.level], weightClass[props.weight], alignClass[props.align])}
+      // The second class is how the site's own size for that level finds it;
+      // with none set, nothing reads it and the first class is the size.
+      className={cn(
+        sizeClass[props.size ?? props.level],
+        headingSizeClass(props.size ?? props.level),
+        weightClass[props.weight],
+        alignClass[props.align],
+      )}
       // An empty colour is deliberate: the heading then inherits the page's
       // own text colour instead of pinning itself to a hex.
       // A colour, or nothing. React serialises a style object without

@@ -52,10 +52,21 @@ export interface BaseBlock {
   box?: BlockBox;
 }
 
+/**
+ * A two-colour linear gradient behind a section or a column. `angle` is in
+ * degrees as CSS reads it: 180 runs from top to bottom, 90 from left to right.
+ */
+export interface BackgroundGradient {
+  from: string;
+  to: string;
+  angle: number;
+}
+
 export interface SectionProps {
-  background: string; // hex / rgba / "transparent" — used when no backgroundImage is set
+  background: string; // hex / rgba / "transparent" — used when no backgroundImage or gradient is set
   backgroundImage?: string; // optional image URL, takes priority over background
   backgroundOverlay?: string; // optional rgba() tint layered over backgroundImage for legibility
+  backgroundGradient?: BackgroundGradient; // drawn instead of `background` when there is no image
   paddingY: number; // px
   paddingX: number; // px
   /**
@@ -74,9 +85,10 @@ export interface SectionProps {
  * without the whole row taking it.
  */
 export interface ColumnStyle {
-  background?: string; // hex / rgba / "transparent" — used when no backgroundImage is set
+  background?: string; // hex / rgba / "transparent" — used when no backgroundImage or gradient is set
   backgroundImage?: string; // optional image URL, takes priority over background
   backgroundOverlay?: string; // optional rgba() tint layered over backgroundImage for legibility
+  backgroundGradient?: BackgroundGradient; // drawn instead of `background` when there is no image
   padding?: number; // px of space between the column's edge and its blocks
   radius?: number; // px corner rounding
 }

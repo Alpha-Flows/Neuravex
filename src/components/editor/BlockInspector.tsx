@@ -7,7 +7,7 @@ import { Input, Label, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { getBlockDefinition } from "@/lib/blocks";
 import type { LinkTarget } from "@/lib/page-links";
-import { BackgroundImageField, ColorInput, Field, LinkField, OVERLAY_PRESETS, SegBtns, Select } from "./inspector-fields";
+import { BackgroundFill, BackgroundImageField, ColorInput, Field, LinkField, OVERLAY_PRESETS, SegBtns, Select } from "./inspector-fields";
 import { GalleryPanel } from "./inspectors/GalleryPanel";
 import { AccordionPanel } from "./inspectors/AccordionPanel";
 import { SliderPanel } from "./inspectors/SliderPanel";
@@ -546,7 +546,13 @@ function InspectorBody({
               />
             </Field>
           ) : (
-            <Field label="Background color"><ColorInput value={p.background} allowTransparent onChange={(v) => set("background", v)} /></Field>
+            <Field label="Fill">
+              <BackgroundFill
+                background={p.background}
+                gradient={p.backgroundGradient}
+                onChange={(fill) => onChange({ ...block, props: { ...p, background: fill.background ?? "", backgroundGradient: fill.backgroundGradient } })}
+              />
+            </Field>
           )}
           <Field label="Width">
             <Select value={p.maxWidth} onChange={(v) => set("maxWidth", v)} options={[
@@ -687,12 +693,23 @@ function ColumnBackground({ props, onChange }: { props: ColumnsProps; onChange: 
   const style: ColumnStyle = props.columnStyles?.[index] ?? {};
 
   function set<K extends keyof ColumnStyle>(key: K, value: ColumnStyle[K]) {
+    update({ [key]: value });
+  }
+
+  /** The colour and the gradient together, since one replaces the other. */
+  function setFill(background: string | undefined, backgroundGradient: ColumnStyle["backgroundGradient"]) {
+    update({ background, backgroundGradient });
+  }
+
+  function update(patch: Partial<ColumnStyle>) {
     const list = (props.columnStyles ?? []).slice();
     while (list.length <= index) list.push({});
-    const next: ColumnStyle = { ...list[index], [key]: value };
+    const next: ColumnStyle = { ...list[index], ...patch };
     // A backdrop with no inset puts the words hard against the edge of the
     // image, which is never what someone reaches for this to get.
-    if ((key === "backgroundImage" || key === "background") && value && next.padding == null) next.padding = 24;
+    const painted = patch.backgroundImage || patch.background || patch.backgroundGradient;
+    if (painted && next.padding == null) next.padding = 24;
+    if (!next.backgroundGradient) delete next.backgroundGradient;
     list[index] = next;
     const used = list.some((s) => Object.values(s).some((v) => v !== undefined && v !== "" && v !== 0));
     onChange({ ...props, columnStyles: used ? list : undefined });
@@ -723,12 +740,12 @@ function ColumnBackground({ props, onChange }: { props: ColumnsProps; onChange: 
           />
         </Field>
       ) : (
-        <Field label="Background color">
-          <ColorInput
-            value={style.background ?? ""}
-            allowTransparent
+        <Field label="Fill">
+          <BackgroundFill
+            background={style.background ?? ""}
+            gradient={style.backgroundGradient}
             inherit="No background"
-            onChange={(v) => set("background", v || undefined)}
+            onChange={(fill) => setFill(fill.background || undefined, fill.backgroundGradient)}
           />
         </Field>
       )}

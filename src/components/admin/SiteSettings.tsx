@@ -7,6 +7,9 @@ import { ConfirmDelete } from "./ConfirmDelete";
 import { CONTENT_WIDTHS, THEME_FALLBACK } from "@/lib/site-theme";
 import { familyOf, normalizeCustomFonts, type CustomFont } from "@/lib/fonts";
 import { FontPicker, SiteFontFiles } from "./FontPicker";
+import { PaletteEditor, TextSizeFields } from "./BrandFields";
+import { normalizePalette } from "@/lib/palette";
+import { normalizeTextStyles, type TextStyles } from "@/lib/text-styles";
 
 interface SiteInfo {
   id: string;
@@ -34,10 +37,12 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
   const [slug, setSlug] = useState(site.slug);
   const [description, setDescription] = useState(site.description ?? "");
   const [accent, setAccent] = useState(site.accent);
+  const [palette, setPalette] = useState<string[]>([]);
   // Theme
   const [fontFamily, setFontFamily] = useState("");
   const [headingFont, setHeadingFont] = useState("");
   const [fonts, setFonts] = useState<CustomFont[]>([]);
+  const [textStyles, setTextStyles] = useState<TextStyles>({});
   const [borderRadius, setBorderRadius] = useState("0.5rem");
   const [contentWidth, setContentWidth] = useState<string>(THEME_FALLBACK.contentWidth);
   // Layout
@@ -71,9 +76,11 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           setSlug(s.slug);
           setDescription(s.description ?? "");
           setAccent(s.accent);
+          setPalette(normalizePalette(s.palette));
           setFontFamily(s.fontFamily ?? "");
           setHeadingFont(s.headingFont ?? "");
           setFonts(normalizeCustomFonts(s.fonts));
+          setTextStyles(normalizeTextStyles(s.textStyles));
           setBorderRadius(s.borderRadius ?? "0.5rem");
           setContentWidth(s.contentWidth || THEME_FALLBACK.contentWidth);
           setHeaderBackground(s.headerBackground ?? "#ffffff");
@@ -101,10 +108,11 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name, slug, description: description || null, accent,
+          name, slug, description: description || null, accent, palette,
           fontFamily: fontFamily || null,
           headingFont: headingFont || null,
           fonts,
+          textStyles,
           borderRadius: borderRadius || null,
           contentWidth,
           headerBackground, headerOpacity, headerShape, headerPosition,
@@ -186,6 +194,7 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                       on it — the inspector&apos;s &quot;Use site accent&quot; hands it back.
                     </p>
                   </div>
+                  <PaletteEditor palette={palette} onChange={setPalette} />
                 </div>
               )}
               {tab === "theme" && (
@@ -198,6 +207,7 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                     pages, so a font looks the same on every visitor&apos;s screen with nothing fetched from
                     anywhere else.
                   </p>
+                  <TextSizeFields styles={textStyles} onChange={setTextStyles} />
                   <div><Label>Border radius</Label><Input value={borderRadius} onChange={(e) => setBorderRadius(e.target.value)} placeholder="0.5rem" /></div>
                   <div>
                     <Label>Content width</Label>

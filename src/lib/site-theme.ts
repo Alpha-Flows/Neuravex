@@ -14,6 +14,8 @@
 
 import { sanitizeCssValue, cssFontStack } from "./css-value";
 import { siteFontFaces } from "./fonts";
+import { normalizePalette, paletteSlotOf, paletteToken, isAccentRef, refFallback } from "./palette";
+import { textStylesCss } from "./text-styles";
 
 export interface SiteThemeInput {
   accent?: string | null;
@@ -21,6 +23,10 @@ export interface SiteThemeInput {
   headingFont?: string | null;
   /** The site's own font files, as stored: see `normalizeCustomFonts`. */
   fonts?: string | null;
+  /** The site's colours beside the accent, as stored: see `normalizePalette`. */
+  palette?: string | null;
+  /** Heading and body sizes, as stored: see `normalizeTextStyles`. */
+  textStyles?: string | null;
   borderRadius?: string | null;
   contentWidth?: string | null;
 }
@@ -80,6 +86,27 @@ export function readableTextOn(color: string): string {
 }
 
 /**
+ * Readable text on a stored colour, or null when it cannot be known.
+ *
+ * `readableTextOn` reads a hex, and a colour taken from the palette is a
+ * reference to a slot the author can change after the block was made — so
+ * the answer for it is the slot's own contrast token, which moves with the
+ * slot, backed by the answer for the colour the reference carries. A button
+ * filled with a palette colour otherwise had no hex to read and fell back to
+ * dark text whatever the colour was.
+ */
+export function readableTextFor(color: string | null | undefined): string | null {
+  if (!color) return null;
+  const v = color.trim();
+  if (parseHex(v)) return readableTextOn(v);
+  const slot = paletteSlotOf(v);
+  const fallback = refFallback(v);
+  if (slot >= 0) return `var(${paletteToken(slot)}-contrast, ${fallback ? readableTextOn(fallback) : "#0f172a"})`;
+  if (isAccentRef(v)) return TOKEN.accentContrast;
+  return null;
+}
+
+/**
  * The stylesheet for one site's branding.
  *
  * `selector` is `:root` on a published page, where the branding owns the whole
@@ -103,6 +130,14 @@ export function siteThemeCss(site: SiteThemeInput, selector = ":root"): string {
   // supplies its own side padding and wants the bare content width, while a
   // block sitting straight on the page carries the gutter with it and needs
   // room for both — otherwise the two start 24px apart on a wide window.
+  // The palette's slots, each with the text that reads on it. An empty slot
+  // is left undeclared, so a block that took it falls back to the colour its
+  // reference carries rather than to nothing.
+  normalizePalette(site.palette).forEach((hex, slot) => {
+    if (!hex) return;
+    declarations.push(`${paletteToken(slot)}: ${hex}`);
+    declarations.push(`${paletteToken(slot)}-contrast: ${readableTextOn(hex)}`);
+  });
   const width = site.contentWidth?.trim();
   if (width) {
     const bare = width === "none" ? "none" : sanitizeCssValue(width);
@@ -118,6 +153,7 @@ export function siteThemeCss(site: SiteThemeInput, selector = ":root"): string {
   // `@font-face` rule cannot be scoped to the canvas, and does not need to be:
   // it names a font without applying it, and only the rules below do that.
   const faces = siteFontFaces(site);
+  const sizes = textStylesCss(site.textStyles, selector);
 
   // On a published page the body font has to be set on `<body>` itself. The
   // layout gives that element the builder's own sans-serif as a class, and
@@ -132,6 +168,7 @@ export function siteThemeCss(site: SiteThemeInput, selector = ":root"): string {
     `${selector} { ${declarations.join("; ")}; font-family: var(--site-font, inherit); }`,
     ...body,
     `${headings} { font-family: var(--site-heading-font, inherit); }`,
+    ...(sizes ? [sizes] : []),
   ].join("\n");
 }
 

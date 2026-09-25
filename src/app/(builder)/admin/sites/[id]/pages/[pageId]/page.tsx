@@ -59,6 +59,8 @@ export default async function PageEditorRoute(
         fontFamily: site.fontFamily,
         headingFont: site.headingFont,
         fonts: site.fonts,
+        palette: site.palette,
+        textStyles: site.textStyles,
         borderRadius: site.borderRadius,
         contentWidth: site.contentWidth,
       }}

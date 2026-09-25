@@ -2,7 +2,7 @@
 import type { CSSProperties } from "react";
 import type { PricingPlan, PricingProps } from "@/types";
 import { Editable } from "./Editable";
-import { TOKEN, parseHex, readableTextOn } from "@/lib/site-theme";
+import { TOKEN, readableTextFor } from "@/lib/site-theme";
 import { cssColor } from "@/lib/css-value";
 import { isSafeHref } from "@/lib/url-safety";
 import { domId } from "@/lib/dom-id";
@@ -81,12 +81,12 @@ export function Pricing({ props, onChange, disabled, blockId }: Props) {
   }
 
   // No colour of its own means the site's accent. The filled button's label
-  // is worked out from a hex the block carries. `readableTextOn` reads only a
-  // hex, and answers near-black for anything else — so for the site accent, a
-  // named colour or an rgb() the label defers to the accent's contrast token.
+  // is worked out from a hex or a palette colour the block carries. For the
+  // site accent, a named colour or an rgb() there is nothing to read, and the
+  // label defers to the accent's contrast token.
   const ownColor = cssColor(props.color);
   const accent = ownColor ?? TOKEN.accent;
-  const onAccent = ownColor && parseHex(ownColor) ? readableTextOn(ownColor) : TOKEN.accentContrast;
+  const onAccent = (ownColor && readableTextFor(ownColor)) || TOKEN.accentContrast;
 
   const lifted = plans.some((plan) => plan.highlighted);
   const badged = plans.some((plan) => !isBlank(plan.badge));

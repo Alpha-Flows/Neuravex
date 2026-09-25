@@ -16,6 +16,10 @@ model Site {
   slug        String   @unique
   description String?
   accent      String   @default("#6366f1")
+  /// Up to six more brand colours, as a JSON list of hex slots (see
+  /// `normalizePalette` in lib/palette). A block given one stores a reference
+  /// to its slot, so changing the slot changes every block that took it.
+  palette     String?
   // Visual theme
   fontFamily  String?  // e.g. "Inter, sans-serif"
   headingFont String?  // e.g. "Georgia, serif"
@@ -23,6 +27,9 @@ model Site {
   /// family name, as a JSON list (see `normalizeCustomFonts` in lib/fonts).
   /// The body and heading fonts above name one of these or a bundled font.
   fonts       String?
+  /// Heading and body text sizes in px, as JSON (see `normalizeTextStyles`
+  /// in lib/text-styles). Empty means the sizes the blocks always had.
+  textStyles  String?
   borderRadius String? @default("0.5rem")
   /// How wide the page's content column is, as a CSS length. Empty means the
   /// standard 72rem. It governs the header, the footer, blocks placed straight

@@ -15,6 +15,7 @@ import { sanitizeInlineHtml, sanitizeHtml } from "./sanitize";
 import { cssColor, cssLength } from "./css-value";
 import { normalizeLayer } from "./block-layer";
 import { normalizeBox } from "./block-box";
+import { normalizeAngle } from "./block-style";
 import { resolveIconName } from "./icon-names";
 import { MAX_SOCIAL_HREF, MAX_SOCIAL_LINKS, normaliseSocialHref } from "./social-links";
 import { MAX_CODE } from "./code-lines";
@@ -117,6 +118,16 @@ const text = (max = MAX_TEXT) =>
  */
 const align = z.enum(["left", "center", "right"]).catch("left");
 const colorProp = z.string().max(200).transform((v) => cssColor(v) ?? "").catch("");
+/**
+ * A section's or a column's gradient: two colours and an angle, or nothing
+ * when either colour is missing. A gradient with one end is not a gradient,
+ * and drawing it as a flat colour would hide the colour the block also has.
+ */
+const gradientProp = z
+  .object({ from: colorProp, to: colorProp, angle: z.coerce.number().catch(180) })
+  .transform((g) => (g.from && g.to ? { from: g.from, to: g.to, angle: normalizeAngle(g.angle) } : undefined))
+  .optional()
+  .catch(undefined);
 const lengthProp = (fallback: number) =>
   z.unknown().optional().transform((v) => (typeof v === "number" && Number.isFinite(v) ? v : fallback)).pipe(z.number().min(-10_000).max(10_000).catch(fallback));
 
@@ -338,6 +349,7 @@ const PROPS: Record<string, z.ZodType> = {
     background: colorProp,
     backgroundImage: z.unknown().optional().transform((v) => safeMediaSrc(v)).optional(),
     backgroundOverlay: colorProp.optional(),
+    backgroundGradient: gradientProp,
     paddingY: lengthProp(64),
     paddingX: lengthProp(24),
     maxWidth: z.enum(["site", "full", "7xl", "6xl", "5xl", "4xl"]).catch("site"),
@@ -353,6 +365,7 @@ const PROPS: Record<string, z.ZodType> = {
           background: colorProp.optional(),
           backgroundImage: z.unknown().optional().transform((v) => safeMediaSrc(v)).optional(),
           backgroundOverlay: colorProp.optional(),
+          backgroundGradient: gradientProp,
           padding: lengthProp(0).optional(),
           radius: lengthProp(0).optional(),
         }).catch({}),

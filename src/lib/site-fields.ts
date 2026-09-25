@@ -3,6 +3,8 @@ import { isSafeHref } from "./url-safety";
 import { MAX_CSS_BYTES } from "./css-safety";
 import { sanitizeHtml } from "./sanitize";
 import { normalizeCustomFonts } from "./fonts";
+import { normalizePalette } from "./palette";
+import { normalizeTextStyles } from "./text-styles";
 
 /**
  * What a site's settings are allowed to be, in one place.
@@ -109,6 +111,17 @@ export function normalizeSiteFields(
   if (has("fonts") || complete) {
     const fonts = normalizeCustomFonts(input.fonts);
     out.fonts = fonts.length > 0 ? JSON.stringify(fonts) : null;
+  }
+
+  // Both are read into the page's stylesheet, so they are stored repaired —
+  // hex slots and whole pixel sizes — and never as they arrived.
+  if (has("palette") || complete) {
+    const palette = normalizePalette(input.palette);
+    out.palette = palette.length > 0 ? JSON.stringify(palette) : null;
+  }
+  if (has("textStyles") || complete) {
+    const sizes = normalizeTextStyles(input.textStyles);
+    out.textStyles = Object.keys(sizes).length > 0 ? JSON.stringify(sizes) : null;
   }
 
   if (has("headerBackground") || complete) out.headerBackground = safeAccent(input.headerBackground, "#ffffff");
