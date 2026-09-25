@@ -7,6 +7,7 @@ import { cssColor, cssLength } from "./css-value";
 import { normalizeLayer } from "./block-layer";
 import { resolveIconName } from "./icon-names";
 import { MAX_SOCIAL_HREF, MAX_SOCIAL_LINKS, normaliseSocialHref } from "./social-links";
+import { MAX_CODE } from "./code-lines";
 
 /**
  * What a block tree is allowed to be, checked at every door.
@@ -541,7 +542,7 @@ const PROPS: Record<string, z.ZodType> = {
     // `\n` here because a text box reports nothing else: a sample stored with
     // `\r\n` read back into the editor differed from it on every line, and
     // the first keystroke rewrote all of them.
-    code: z.unknown().optional().transform((v) => (typeof v === "string" ? v.replace(/\r\n?/g, "\n").slice(0, MAX_TEXT) : "")),
+    code: z.unknown().optional().transform((v) => (typeof v === "string" ? v.replace(/\r\n?/g, "\n").slice(0, MAX_CODE) : "")),
     language: z.unknown().optional().transform((v) => (typeof v === "string" ? v.trim().slice(0, 40) : "")),
     // One line in the header bar, so a newline in it is a space.
     filename: z.unknown().optional().transform((v) => (typeof v === "string" ? v.replace(/[\r\n\t]+/g, " ").slice(0, 200) : "")),

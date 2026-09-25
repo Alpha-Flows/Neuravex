@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/Button";
 import { MediaPicker } from "../MediaPicker";
 import { Field, ListEditor, SegBtns, Select, Toggle, type BlockPanelProps } from "../inspector-fields";
 import { withPicture } from "@/lib/media-item";
-import { MAX_SLIDES, SLIDER_RATIOS, SLIDER_RATIO_NAME } from "@/lib/slider-nav";
+import { MAX_SLIDES, SLIDE_ALT_MAX, SLIDER_RATIOS, SLIDER_RATIO_NAME } from "@/lib/slider-nav";
+import { editedText, hasFormatting, plainText } from "@/lib/inline-text";
+
+const FORMATTING_NOTE = "Formatted on the page. Changing the words here keeps them and drops the formatting.";
 
 /**
  * The slider's panel.
@@ -64,6 +67,10 @@ export function SliderPanel({ block, onChange }: BlockPanelProps) {
                   value={slide.alt ?? ""}
                   placeholder="Describe the picture"
                   aria-label={`Alt text for slide ${i + 1}`}
+                  // The validator keeps this many characters and cuts the
+                  // rest; the box stops at the same place, so nothing typed
+                  // here is lost on the next save without a word.
+                  maxLength={SLIDE_ALT_MAX}
                   // Typed words are the author's own, so choosing another
                   // picture later keeps them rather than swapping in the
                   // library's.
@@ -73,12 +80,18 @@ export function SliderPanel({ block, onChange }: BlockPanelProps) {
               <label className="block">
                 <span className="block mb-1 text-[11px] text-fg-subtle">Caption</span>
                 <Input
-                  value={slide.caption ?? ""}
+                  // The caption is stored as inline HTML, because it can be
+                  // bolded or linked on the picture itself. Shown raw, the box
+                  // read "Day <b>one</b>" and "Fish &amp; chips", and typed
+                  // text was taken for markup. It shows and takes plain words,
+                  // and a caption whose words are unchanged keeps its bold.
+                  value={plainText(slide.caption)}
                   placeholder="Optional"
                   aria-label={`Caption for slide ${i + 1}`}
-                  onChange={(e) => update({ ...slide, caption: e.target.value })}
+                  onChange={(e) => update({ ...slide, caption: editedText(slide.caption ?? "", e.target.value) })}
                 />
               </label>
+              {hasFormatting(slide.caption ?? "") ? <p className="text-[11px] text-fg-subtle">{FORMATTING_NOTE}</p> : null}
             </div>
           )}
         />
@@ -111,13 +124,13 @@ export function SliderPanel({ block, onChange }: BlockPanelProps) {
           label="Arrows"
           checked={p.showArrows !== false}
           onChange={(v) => set("showArrows", v)}
-          hint="Round buttons at either side of each picture."
+          hint="Round buttons at either side of each picture. Each click is also a step in the visitor's Back button — without a script there is no way round that."
         />
         <Toggle
           label="Dots"
           checked={p.showDots !== false}
           onChange={(v) => set("showDots", v)}
-          hint="A row beneath the pictures, one for each slide."
+          hint="A row beneath the pictures, one for each slide. Each click is a step in the Back button too."
         />
         {slides.length < 2 ? (
           <p className="text-[11px] text-fg-subtle">With one picture there is nothing to move to, so neither is shown.</p>

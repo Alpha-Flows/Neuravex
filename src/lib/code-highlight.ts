@@ -1,4 +1,5 @@
 import { languageKey } from "./code-languages";
+import { chunkText, MAX_TEXT_NODE } from "./code-lines";
 
 /**
  * Colour for a code sample, as a list of pieces of text — never as markup.
@@ -13,14 +14,27 @@ import { languageKey } from "./code-languages";
  *
  * So this returns `{ text, kind }` pairs and the component draws each one as a
  * `<span>` with a class for its kind, which React escapes like any other text.
- * Two promises hold whatever the input:
+ * Three promises hold whatever the input:
  *
  *   - the texts, joined, are the input exactly — checked on the way out, and a
  *     grammar that got it wrong is answered with the whole sample as plain
  *     text rather than with a sample that lost a character;
- *   - it is linear in the length of the input. Every pattern is anchored
- *     where the scan stands (the `y` flag) and none can backtrack over
- *     itself, because this runs on every keystroke in the editor.
+ *   - no piece is longer than `MAX_TEXT_NODE`, so none becomes a text node
+ *     the browser splits in two under React's feet (see `chunkText`);
+ *   - the time taken grows in step with the length of the input, because
+ *     this runs on every keystroke in the editor and on every request for a
+ *     published page. Every pattern is anchored where the scan stands (the
+ *     `y` flag) and either consumes what it reads or reads no further than
+ *     the end of the line it starts on.
+ *
+ * The last promise was not kept by the first version, which said it was. A
+ * `/` that might open a regular expression reads ahead to the end of its line
+ * looking for the closing one, and when there is none, that read is thrown
+ * away. It was repeated at every `/` on the line, so `/[` written fifteen
+ * thousand times took 450 ms to colour, ten such samples held a published
+ * page for 6.5 seconds, and a keystroke on the canvas took one. A regular
+ * expression that fails to close is now tried once per line: after it, a `/`
+ * on the same line is only ever a division.
  *
  * It is a scanner, not a parser. It knows a comment, a string, a number, a
  * keyword, a call, a tag and an attribute, which is what a reader's eye uses;
@@ -71,6 +85,12 @@ function at(pattern: RegExp, code: string, index: number): string | null {
   pattern.lastIndex = index;
   const m = pattern.exec(code);
   return m && m[0] ? m[0] : null;
+}
+
+/** Where the line holding `index` ends: its newline, or the end of the sample. */
+function lineEnd(code: string, index: number): number {
+  const newline = code.indexOf("\n", index);
+  return newline === -1 ? code.length : newline;
 }
 
 /** One character, or both halves of a surrogate pair — never half an emoji in one span and half in the next. */
@@ -129,13 +149,97 @@ const JS_NUMBER = /(?:0[xX][\da-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|(?:\d[\d_]*(?:\
 const JS_IDENT = /[A-Za-z_$À-￿][\w$À-￿]*/y;
 const DECORATOR = /@[A-Za-z_$][\w$]*/y;
 const JSX_OPEN = /<[A-Za-z][\w.:-]*/y;
-const JSX_CLOSE = /<\/[A-Za-z][\w.:-]*/y;
+const JSX_FRAGMENT = /<>/y;
+const JSX_CLOSE = /<\/(?:[A-Za-z][\w.:-]*\s*>?|>)/y;
+const JSX_TAG_END = /\/?>/y;
+const JSX_ATTR = /[A-Za-z_$][\w$.:-]*/y;
+const JSX_TEXT = /[^<{]+/y;
+/** What `prev` is set to when a JSX element has just closed: a value, after which another element may follow. */
+const AFTER_ELEMENT = "\u0000element";
+
+/**
+ * Where the scan is inside JSX. Between a tag's name and its `>` it reads
+ * attributes; between an element's tags it reads text, which is prose and not
+ * code — `<p>Don't panic</p>` used to open a string at the apostrophe that ran
+ * to the end of the line and swallowed the closing tag with it; inside `{ }`
+ * it reads script again, until the brace that closes it.
+ */
+type JsxFrame = { mode: "attrs" } | { mode: "children" } | { mode: "expr"; depth: number };
 
 function scanScript(code: string, out: TokenList, keywords: Set<string>, jsx: boolean): void {
   let i = 0;
   let prev = "";
+  // A `/` before this point on the current line has already failed to be a
+  // regular expression, so every later one on the line is a division — see
+  // the note at the top of this file on what trying each of them again cost.
+  let noRegexBefore = -1;
+  const regexAt = (index: number): string | null => {
+    const found = at(JS_REGEX, code, index);
+    if (!found) noRegexBefore = lineEnd(code, index);
+    return found;
+  };
+  const stack: JsxFrame[] = [];
+
   while (i < code.length) {
+    const frame = stack[stack.length - 1];
     let text: string | null;
+
+    if (frame?.mode === "attrs") {
+      if ((text = at(WHITESPACE, code, i))) {
+        out.push(text, "plain");
+      } else if ((text = at(JSX_TAG_END, code, i))) {
+        out.push(text, "tag");
+        stack.pop();
+        if (text === ">") stack.push({ mode: "children" });
+        else prev = AFTER_ELEMENT;
+      } else if ((text = at(JSX_ATTR, code, i))) {
+        out.push(text, "attr");
+      } else if ((text = at(QUOTED, code, i))) {
+        out.push(text, "string");
+      } else if (code[i] === "=" || code[i] === "{") {
+        text = code[i];
+        out.push(text, "plain");
+        if (text === "{") {
+          stack.push({ mode: "expr", depth: 1 });
+          prev = "{";
+        }
+      } else {
+        // Nothing an attribute list holds, so this was never a tag — a
+        // TypeScript `<T,>` in a .tsx file, say. The enclosing mode reads
+        // this character instead.
+        stack.pop();
+        continue;
+      }
+      i += text.length;
+      continue;
+    }
+
+    if (frame?.mode === "children") {
+      if ((text = at(JSX_CLOSE, code, i))) {
+        out.push(text, "tag");
+        stack.pop();
+        prev = AFTER_ELEMENT;
+      } else if ((text = at(JSX_FRAGMENT, code, i))) {
+        out.push(text, "tag");
+        stack.push({ mode: "children" });
+      } else if ((text = at(JSX_OPEN, code, i))) {
+        out.push(text, "tag");
+        stack.push({ mode: "attrs" });
+      } else if (code[i] === "{") {
+        text = "{";
+        out.push(text, "plain");
+        stack.push({ mode: "expr", depth: 1 });
+        prev = "{";
+      } else {
+        text = at(JSX_TEXT, code, i) ?? oneChar(code, i);
+        out.push(text, "plain");
+      }
+      i += text.length;
+      continue;
+    }
+
+    // Script, at the top or inside `{ }` in JSX.
+    const opensElement = jsx && (EXPRESSION_START.has(prev) || prev === AFTER_ELEMENT);
     if ((text = at(WHITESPACE, code, i))) {
       out.push(text, "plain");
     } else if ((text = at(LINE_COMMENT, code, i) ?? at(BLOCK_COMMENT, code, i))) {
@@ -143,11 +247,25 @@ function scanScript(code: string, out: TokenList, keywords: Set<string>, jsx: bo
     } else if ((text = at(QUOTED, code, i) ?? at(TEMPLATE, code, i))) {
       out.push(text, "string");
       prev = text;
-    } else if (EXPRESSION_START.has(prev) && (text = at(JS_REGEX, code, i))) {
+    } else if (code[i] === "/" && i >= noRegexBefore && EXPRESSION_START.has(prev) && (text = regexAt(i))) {
       out.push(text, "string");
       prev = text;
-    } else if (jsx && ((text = at(JSX_CLOSE, code, i)) || (EXPRESSION_START.has(prev) && (text = at(JSX_OPEN, code, i))))) {
+    } else if (jsx && (text = at(JSX_CLOSE, code, i))) {
+      // A closing tag with no element open here: a snippet that starts in
+      // the middle of one.
       out.push(text, "tag");
+      prev = AFTER_ELEMENT;
+    } else if (opensElement && (text = at(JSX_FRAGMENT, code, i))) {
+      out.push(text, "tag");
+      stack.push({ mode: "children" });
+    } else if (opensElement && (text = at(JSX_OPEN, code, i))) {
+      out.push(text, "tag");
+      stack.push({ mode: "attrs" });
+    } else if (frame?.mode === "expr" && (code[i] === "{" || code[i] === "}")) {
+      text = code[i];
+      out.push(text, "plain");
+      frame.depth += text === "{" ? 1 : -1;
+      if (frame.depth === 0) stack.pop();
       prev = text;
     } else if ((text = at(JS_NUMBER, code, i))) {
       out.push(text, "number");
@@ -258,6 +376,9 @@ const SH_VARIABLE = /\$\{[^}\n]*\}?|\$[A-Za-z_]\w*|\$[0-9@#?$!*-]/y;
 const SH_SUBSHELL = /\$\(|`/y;
 const SH_OPERATOR = /&&|\|\||;;|[|;&()]|[{}](?=\s|$)/y;
 const SH_REDIRECT = /\d*[<>]+&?\d*/y;
+// `<<EOF`, `<<-EOF`, `<<'EOF'`: the lines after this one, up to the word on
+// a line of its own, are text handed to the command, not more commands.
+const SH_HEREDOC = /<<(-?)[ \t]*(['"]?)([A-Za-z_][\w-]*)\2/y;
 const SH_OPTION = /--?[A-Za-z0-9][\w-]*/y;
 const SH_ASSIGNMENT = /[A-Za-z_]\w*(?==)/y;
 const SH_WORD = /[^\s|&;()<>"'$`\\]+/y;
@@ -272,15 +393,27 @@ function scanShell(code: string, out: TokenList): void {
   // `#` begins a comment (`a#b` is one word) and a `-` begins an option.
   let wordStart = true;
   let lineStart = true;
+  // Here-documents opened on the current line, read once it ends.
+  const heredocs: { word: string; tabs: boolean }[] = [];
   while (i < code.length) {
     let text: string | null;
     if ((text = at(SH_CONTINUATION, code, i))) {
       out.push(text, "plain");
       wordStart = true;
     } else if (code[i] === "\n") {
-      text = "\n";
-      out.push(text, "plain");
+      out.push("\n", "plain");
       command = wordStart = lineStart = true;
+      i += 1;
+      for (const { word, tabs } of heredocs.splice(0)) {
+        const end = new RegExp(`^${tabs ? "\\t*" : ""}${word}[ \\t]*$`, "mg");
+        end.lastIndex = i;
+        const found = end.exec(code);
+        const bodyEnd = found ? found.index : code.length;
+        out.push(code.slice(i, bodyEnd), "string");
+        if (found) out.push(found[0], "keyword");
+        i = found ? found.index + found[0].length : code.length;
+      }
+      continue;
     } else if ((text = at(SH_BLANK, code, i))) {
       out.push(text, "plain");
       wordStart = true;
@@ -305,6 +438,13 @@ function scanShell(code: string, out: TokenList): void {
     } else if ((text = at(SH_OPERATOR, code, i))) {
       out.push(text, "plain");
       command = text !== ")" && text !== "}";
+      wordStart = true;
+      lineStart = false;
+    } else if ((text = at(SH_HEREDOC, code, i))) {
+      out.push(text, "keyword");
+      SH_HEREDOC.lastIndex = i;
+      const [, dash, , word] = SH_HEREDOC.exec(code) ?? [];
+      heredocs.push({ word, tabs: dash === "-" });
       wordStart = true;
       lineStart = false;
     } else if ((text = at(SH_REDIRECT, code, i))) {
@@ -562,10 +702,20 @@ export function canHighlight(language: string | undefined | null): boolean {
   return Object.prototype.hasOwnProperty.call(SCANNERS, languageKey(language));
 }
 
-/** A sample as coloured pieces. The pieces always join back into `code` exactly. */
+/** Pieces cut down to what one text node can hold. */
+function capped(tokens: CodeToken[]): CodeToken[] {
+  if (tokens.every((t) => t.text.length <= MAX_TEXT_NODE)) return tokens;
+  return tokens.flatMap((t) => chunkText(t.text).map((text) => ({ text, kind: t.kind })));
+}
+
+/**
+ * A sample as coloured pieces. The pieces always join back into `code`
+ * exactly, and none is longer than `MAX_TEXT_NODE`; neighbours of one kind
+ * are only left apart where joining them would break that.
+ */
 export function highlight(code: string, language: string | undefined | null): CodeToken[] {
   if (typeof code !== "string" || code === "") return [];
-  const plain: CodeToken[] = [{ text: code, kind: "plain" }];
+  const plain = capped([{ text: code, kind: "plain" }]);
   if (code.length > MAX_HIGHLIGHT || !canHighlight(language)) return plain;
 
   const out = new TokenList();
@@ -578,5 +728,5 @@ export function highlight(code: string, language: string | undefined | null): Co
   }
   let joined = "";
   for (const token of out.tokens) joined += token.text;
-  return joined === code ? out.tokens : plain;
+  return joined === code ? capped(out.tokens) : plain;
 }

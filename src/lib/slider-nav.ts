@@ -78,3 +78,38 @@ export function slidesToDraw(slides: readonly MediaItem[] | undefined, editing: 
   });
   return out;
 }
+
+export interface SliderControls {
+  /** Round previous and next buttons on every slide. */
+  arrows: boolean;
+  /** One dot per slide beneath the pictures. */
+  dots: boolean;
+  /**
+   * Whether the arrows are reached by Tab and read out.
+   *
+   * Every slide carries its own pair of arrows, so with dots as well a
+   * keyboard met three stops per slide — thirty slides were ninety presses of
+   * Tab — and focusing an arrow on a slide that was not showing scrolled the
+   * strip to it, so the picture changed under every press. A screen reader
+   * listed thirty links all called "Next slide". While the dots are drawn
+   * they and the focusable strip do that job, one stop per slide, and the
+   * arrows are for the pointer only. Without dots the arrows are all a
+   * keyboard has, so they stay.
+   */
+  arrowsFocusable: boolean;
+}
+
+/** Which controls a slider draws. One picture has nowhere to move to, so it gets none. */
+export function sliderControls(count: number, showArrows: boolean | undefined, showDots: boolean | undefined): SliderControls {
+  const moves = count > 1;
+  const arrows = moves && showArrows !== false;
+  const dots = moves && showDots !== false;
+  return { arrows, dots, arrowsFocusable: arrows && !dots };
+}
+
+/**
+ * The longest description a slide keeps. The validator cuts a longer one to
+ * this, and the panel's box stops at it, so the words an author sees are the
+ * words that are stored. `block-slider.test.ts` holds the two together.
+ */
+export const SLIDE_ALT_MAX = 1000;

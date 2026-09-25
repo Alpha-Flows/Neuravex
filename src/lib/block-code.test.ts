@@ -4,9 +4,11 @@ import { join } from "path";
 import { normalizeBlockTree, safeProps } from "@/lib/block-tree";
 import { getBlockDefinition } from "@/lib/blocks";
 import { highlight, canHighlight, MAX_HIGHLIGHT, type CodeToken, type TokenKind } from "@/lib/code-highlight";
-import { CODE_LANGUAGES, languageLabel } from "@/lib/code-languages";
-import { indentCode, lineCount, needsTrailingLine, splitTokenLines } from "@/lib/code-lines";
-import { rewriteAssetPaths } from "@/lib/static-export";
+import { CODE_LANGUAGES, isPlainLanguage, languageLabel } from "@/lib/code-languages";
+import {
+  chunkText, indentCode, lineCount, MAX_CODE, MAX_TEXT_NODE, needsTrailingLine, splitTokenLines,
+} from "@/lib/code-lines";
+import { collectLocalAssets, rewriteAssetPaths } from "@/lib/static-export";
 
 const code = (props: unknown) => ({ id: "c", type: "code", props });
 
@@ -43,8 +45,16 @@ describe("the code prop", () => {
   it("cuts an over-long sample to length instead of emptying it", () => {
     const long = "x".repeat(150_000);
     const kept = stored({ code: long }).code as string;
-    expect(kept.length).toBe(100_000);
+    expect(kept.length).toBe(MAX_CODE);
     expect(long.startsWith(kept)).toBe(true);
+  });
+
+  it("stores a sample exactly at the limit untouched, so the text box and the schema agree", () => {
+    // The text boxes stop at MAX_CODE. If the schema cut shorter, a sample at
+    // the limit would lose its last character on every render.
+    const full = "y".repeat(MAX_CODE);
+    expect(stored({ code: full }).code).toBe(full);
+    expect(MAX_CODE).toBe(100_000);
   });
 
   it("repairs a code prop that is not text", () => {
@@ -100,6 +110,16 @@ describe("the component", () => {
     expect(source).not.toMatch(/dangerouslySetInnerHTML|innerHTML/);
   });
 
+  it("puts no author text into an attribute it does not need", () => {
+    expect(source).not.toMatch(/data-language/);
+  });
+
+  it("holds both text boxes to the stored limit", () => {
+    const panel = readFileSync(join(process.cwd(), "src/components/editor/inspectors/CodePanel.tsx"), "utf8");
+    expect(source).toMatch(/maxLength=\{MAX_CODE\}/);
+    expect(panel).toMatch(/maxLength=\{MAX_CODE\}/);
+  });
+
   it("edits a plain text box, not a contentEditable that would sanitise the code", () => {
     expect(source).toMatch(/<textarea/);
     expect(source).not.toMatch(/contentEditable|<Editable/);
@@ -132,6 +152,28 @@ describe("lines", () => {
   it("gives n newlines n + 1 lines, a trailing one included", () => {
     for (const sample of ["", "a", "a\n", "\n\n", "x\ny\n\n"]) {
       expect(splitTokenLines(highlight(sample, "javascript"))).toHaveLength(lineCount(sample));
+    }
+  });
+
+  it("cuts long text into pieces a text node can hold, at newlines where it can", () => {
+    expect(chunkText("short")).toEqual(["short"]);
+    const lines = "0123456789\n".repeat(10_000);
+    const pieces = chunkText(lines);
+    expect(pieces.join("")).toBe(lines);
+    for (const piece of pieces) {
+      expect(piece.length).toBeLessThanOrEqual(MAX_TEXT_NODE);
+      expect(piece.endsWith("\n")).toBe(true);
+    }
+  });
+
+  it("cuts a single enormous line where it must, never between surrogate halves", () => {
+    // The emoji's first half lands exactly on the boundary.
+    const line = "a".repeat(MAX_TEXT_NODE - 1) + "😀" + "b".repeat(MAX_TEXT_NODE * 2);
+    const pieces = chunkText(line);
+    expect(pieces.join("")).toBe(line);
+    for (const piece of pieces) {
+      expect(piece.length).toBeLessThanOrEqual(MAX_TEXT_NODE);
+      expect(piece).not.toMatch(/^[\uDC00-\uDFFF]|[\uD800-\uDBFF]$/);
     }
   });
 
@@ -212,7 +254,29 @@ describe("the highlighter", () => {
 
   it("draws a sample past the limit in one colour", () => {
     const big = "let a = 1;\n".repeat(Math.ceil(MAX_HIGHLIGHT / 10));
-    expect(highlight(big, "javascript")).toEqual([{ text: big, kind: "plain" }]);
+    const tokens = highlight(big, "javascript");
+    expect(tokens.every((t) => t.kind === "plain")).toBe(true);
+    expect(joined(tokens)).toBe(big);
+  });
+
+  it("never hands back a piece longer than one text node holds", () => {
+    // Chromium splits a text node past 65,536 characters, and React then
+    // fails to hydrate the page. The largest sample the block stores, in a
+    // language that is coloured, one that is not, and all on one line.
+    const samples: [string, string][] = [
+      ["let a = 1;\n".repeat(Math.floor(MAX_CODE / 11)), "javascript"],
+      ["x = 1\n".repeat(Math.floor(MAX_CODE / 6)), "php"],
+      ["z".repeat(MAX_CODE), ""],
+      ["// " + "c".repeat(MAX_HIGHLIGHT - 10), "javascript"],
+    ];
+    for (const [sample, language] of samples) {
+      const tokens = highlight(sample, language);
+      expect(joined(tokens)).toBe(sample);
+      for (const t of tokens) expect(t.text.length).toBeLessThanOrEqual(MAX_TEXT_NODE);
+      for (const line of splitTokenLines(tokens)) {
+        for (const t of line) expect(t.text.length).toBeLessThanOrEqual(MAX_TEXT_NODE);
+      }
+    }
   });
 
   it("keeps <script> as text: pieces of the sample, never markup", () => {
@@ -254,22 +318,37 @@ describe("the highlighter", () => {
     }
   });
 
-  it("stays fast on input built to make a pattern backtrack", () => {
-    const hostile = [
-      "/[".repeat(20_000 / 2),
-      "a = /" + "\\".repeat(9_999),
-      '"'.padEnd(29_000, "\\a"),
-      "<a " + "b=".repeat(9_000),
-      "a { " + "b:".repeat(9_000),
-      "#".repeat(29_000),
-      "'''" + "'".repeat(20_000),
-      "1".repeat(29_000) + "x",
+  it("takes time in step with the length of the input, even input built to defeat it", () => {
+    // Each unit is repeated to MAX_HIGHLIGHT characters. `/[` is the one that
+    // was quadratic: every `/` read to the end of its line looking for a
+    // regular expression's closing slash — 450 ms for fifteen thousand.
+    const units = [
+      "/[", "(/[", "=/[", "{/[", "a = /\\", '"\\a', "'", "'''", "<a b=", "a { b:", "#", "1",
+      "x<<EOF ", "<p>it's ", "<A {", "<style>a{b:/*", "<script>/[", "$'", "`",
     ];
-    for (const language of LANGUAGES) {
-      for (const sample of hostile) {
+    const build = (unit: string, length: number) => unit.repeat(Math.ceil(length / unit.length)).slice(0, length);
+    // The quickest of a few runs, so a busy machine measures this code and
+    // not its neighbours.
+    const time = (sample: string, language: string) => {
+      let best = Infinity;
+      for (let run = 0; run < 3; run++) {
         const started = performance.now();
-        expect(joined(highlight(sample, language))).toBe(sample);
-        expect(performance.now() - started, `${language}`).toBeLessThan(1500);
+        const tokens = highlight(sample, language);
+        best = Math.min(best, performance.now() - started);
+        expect(joined(tokens)).toBe(sample);
+      }
+      return best;
+    };
+    for (const language of LANGUAGES) {
+      for (const unit of units) {
+        const half = time(build(unit, MAX_HIGHLIGHT / 2), language);
+        const full = time(build(unit, MAX_HIGHLIGHT), language);
+        const label = `${language} ${JSON.stringify(unit)}: ${half.toFixed(1)} ms, then ${full.toFixed(1)} ms`;
+        // Twice the input may take a little over twice the time; four times
+        // is what quadratic looks like. The slack covers timer noise on runs
+        // of a millisecond or two.
+        expect(full, label).toBeLessThan(3 * half + 5);
+        expect(full, label).toBeLessThan(50);
       }
     }
   });
@@ -309,8 +388,36 @@ describe("the highlighter", () => {
   it("colours JSX tags, and the end of one is not a regular expression", () => {
     const tokens = highlight("return <Button onClick={go} />;\n<p>a</p>", "jsx");
     expect(kindOf(tokens, "<Button")).toBe("tag");
-    expect(kindOf(tokens, "</p")).toBe("tag");
+    expect(kindOf(tokens, "onClick")).toBe("attr");
+    expect(kindOf(tokens, "</p>")).toBe("tag");
     expect(tokens.some((t) => t.kind === "string")).toBe(false);
+  });
+
+  it("reads the text between JSX tags as prose, so an apostrophe opens no string", () => {
+    const sample = "<p>Don't panic, you're {name}'s guest</p>\n<a href=\"/x\">Go</a>";
+    const tokens = highlight(sample, "tsx");
+    expect(tokens.some((t) => t.kind === "string" && t.text.includes("'"))).toBe(false);
+    expect(kindOf(tokens, "</p>")).toBe("tag");
+    expect(kindOf(tokens, '"/x"')).toBe("string");
+    expect(kindOf(tokens, "href")).toBe("attr");
+  });
+
+  it("goes back to script inside braces, and back to prose after them", () => {
+    const sample = "const list = (\n  <ul>\n    {items.map((i) => <li key={i}>{i}'s</li>)}\n  </ul>\n);\nconst after = 'x';";
+    const tokens = highlight(sample, "jsx");
+    expect(kindOf(tokens, "map")).toBe("function");
+    expect(kindOf(tokens, "key")).toBe("attr");
+    expect(kindOf(tokens, "</ul>")).toBe("tag");
+    // Out of the element, the script is coloured as script again.
+    expect(kindOf(tokens, "'x'")).toBe("string");
+    expect(tokens.filter((t) => t.text === "const").every((t) => t.kind === "keyword")).toBe(true);
+  });
+
+  it("gives up on a tag that turns out not to be one", () => {
+    // `<T,>` is a generic in a .tsx file. What follows is script, not prose.
+    const tokens = highlight("const id = <T,>(value: T): T => value;\nconst n = 'x';", "tsx");
+    expect(kindOf(tokens, "'x'")).toBe("string");
+    expect(tokens.filter((t) => t.text === "const").every((t) => t.kind === "keyword")).toBe(true);
   });
 
   it("colours Python", () => {
@@ -345,6 +452,18 @@ describe("the highlighter", () => {
       ["sudo", "function"],
       ["apt", "function"],
     ]);
+  });
+
+  it("reads a here-document as text handed to the command", () => {
+    const tokens = highlight("cat <<'EOF' > notes.txt\nif this; then that # not code\nEOF\necho done", "bash");
+    expect(kindOf(tokens, "<<'EOF'")).toBe("keyword");
+    expect(kindOf(tokens, "if this; then that # not code\n")).toBe("string");
+    expect(kindOf(tokens, "EOF")).toBe("keyword");
+    expect(kindOf(tokens, "echo")).toBe("function");
+    // `<<-` lets the closing word be indented with tabs.
+    const dashed = highlight("cat <<-END\n\tbody\n\tEND\nls", "bash");
+    expect(kindOf(dashed, "\tEND")).toBe("keyword");
+    expect(kindOf(dashed, "ls")).toBe("function");
   });
 
   it("only takes # for a comment at the start of a word", () => {
@@ -414,6 +533,11 @@ describe("language labels", () => {
     for (const plain of ["", "text", "plaintext", "none", undefined, null]) expect(languageLabel(plain)).toBe("");
   });
 
+  it("knows the ways of saying no language in particular", () => {
+    for (const plain of ["", "text", " Plaintext ", "none", "txt"]) expect(isPlainLanguage(plain)).toBe(true);
+    for (const other of ["bash", "Elixir"]) expect(isPlainLanguage(other)).toBe(false);
+  });
+
   it("shows a language it does not know as it was written", () => {
     expect(languageLabel("Elixir")).toBe("Elixir");
   });
@@ -425,11 +549,21 @@ describe("language labels", () => {
 });
 
 describe("the download", () => {
-  it("leaves a quoted path in a sample alone, because React writes its quotes as entities", () => {
-    // What the published page actually contains for `src="/uploads/a.png"`
-    // inside a code block. The export's asset rewrite looks for a real quote
-    // before `/uploads`, and there is none.
-    const html = '<code class="nvx-code__code">src=&quot;/uploads/a.png&quot; or &#x27;/stock/b.jpg&#x27;</code>';
+  // What the published page contains for samples that mention this site's
+  // own files. The export rewrites and bundles paths only inside tags and
+  // `<style>` bodies, so the text between tags — which is where a sample
+  // always is — goes out exactly as the page showed it, and names no file
+  // as missing that only a sample mentioned.
+  const html =
+    '<code class="nvx-code__code">src=<span class="nvx-tok-string">&quot;/uploads/a.png&quot;</span> ' +
+    "or &#x27;/stock/b.jpg&#x27;\n" +
+    '<span class="nvx-tok-function">url</span>(/uploads/y.png) and ![](/stock/c.jpg)</code>';
+
+  it("leaves paths in a sample alone, quoted or not", () => {
     expect(rewriteAssetPaths(html)).toBe(html);
+  });
+
+  it("does not go looking for a file a sample only mentions", () => {
+    expect(collectLocalAssets(html)).toEqual([]);
   });
 });

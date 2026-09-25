@@ -2,10 +2,15 @@ import { describe, it, expect } from "vitest";
 import { normalizeBlockTree } from "@/lib/block-tree";
 import { getBlockDefinition } from "@/lib/blocks";
 import { domId } from "@/lib/dom-id";
+import { readFileSync } from "fs";
+import { join } from "path";
+import { editedText, plainText } from "@/lib/inline-text";
 import {
   MAX_SLIDES,
+  SLIDE_ALT_MAX,
   SLIDER_RATIOS,
   neighbourSlide,
+  sliderControls,
   slidePositionLabel,
   slidesToDraw,
 } from "@/lib/slider-nav";
@@ -92,6 +97,29 @@ describe("a slider's props on the way in", () => {
     expect(slide.altFromLibrary).toBeUndefined();
   });
 
+  it("cuts an over-long description to the length the panel's box stops at", () => {
+    // The validator used to empty a string past its limit, so a long alt
+    // text vanished on save; now it keeps the first thousand characters, and
+    // the panel's box takes no more than that.
+    const [slide] = slider({ slides: [{ src: "/uploads/a.jpg", alt: "a".repeat(1200) }] }).slides;
+    expect(slide.alt).toHaveLength(1000);
+    expect(SLIDE_ALT_MAX).toBe(1000);
+    const [exact] = slider({ slides: [{ src: "/uploads/a.jpg", alt: "b".repeat(SLIDE_ALT_MAX) }] }).slides;
+    expect(exact.alt).toBe("b".repeat(SLIDE_ALT_MAX));
+  });
+
+  it("keeps a caption typed in the panel as the same words after a save", () => {
+    // The panel shows plain words and stores them as inline HTML. What it
+    // stores has to come back through the validator reading the same.
+    const typed = "Fish & chips <by the sea>";
+    const stored = slider({ slides: [{ src: "/uploads/a.jpg", alt: "", caption: editedText("", typed) }] }).slides[0].caption!;
+    expect(plainText(stored)).toBe(typed);
+    // Words left alone keep their formatting; retyped words lose it.
+    const bold = "Day <b>one</b>";
+    expect(editedText(bold, "Day one")).toBe(bold);
+    expect(editedText(bold, "Day two")).toBe("Day two");
+  });
+
   it("keeps a picture's own size, so the page can hold its shape", () => {
     const [slide] = slider({ slides: [{ src: "/uploads/a.jpg", alt: "", naturalWidth: "2560", naturalHeight: 1706 }] }).slides;
     expect(slide.naturalWidth).toBe(2560);
@@ -133,6 +161,29 @@ describe("moving between slides", () => {
     expect(neighbourSlide(0, 2, 1)).toBe(1);
     expect(neighbourSlide(0, 2, -1)).toBe(1);
     expect(neighbourSlide(0, 0, 1)).toBe(0);
+  });
+
+  it("draws no controls for one picture, and only the ones asked for otherwise", () => {
+    expect(sliderControls(1, true, true)).toEqual({ arrows: false, dots: false, arrowsFocusable: false });
+    expect(sliderControls(0, true, true)).toEqual({ arrows: false, dots: false, arrowsFocusable: false });
+    expect(sliderControls(3, false, true)).toEqual({ arrows: false, dots: true, arrowsFocusable: false });
+    expect(sliderControls(3, false, false)).toEqual({ arrows: false, dots: false, arrowsFocusable: false });
+  });
+
+  it("keeps the arrows out of the Tab order while the dots are there to do their job", () => {
+    // Three Tab stops a slide — two arrows and a dot — was ninety for a full
+    // slider, and each focused arrow changed the picture. With dots the
+    // arrows are for the pointer; without them they are all a keyboard has.
+    expect(sliderControls(5, true, true)).toEqual({ arrows: true, dots: true, arrowsFocusable: false });
+    expect(sliderControls(5, true, false)).toEqual({ arrows: true, dots: false, arrowsFocusable: true });
+    expect(sliderControls(5, undefined, undefined)).toEqual({ arrows: true, dots: true, arrowsFocusable: false });
+  });
+
+  it("puts every arrow it draws, link or button, through that rule", () => {
+    const source = readFileSync(join(process.cwd(), "src/components/blocks/Slider.tsx"), "utf8");
+    const arrows = source.match(/className="nvx-slider-arrow [^"]*"[^>]*>/g) ?? [];
+    expect(arrows).toHaveLength(4);
+    for (const tag of arrows) expect(tag).toContain("{...arrowAccess}");
   });
 
   it("names each slide by where it stands", () => {

@@ -2,8 +2,9 @@
 import type { CodeProps } from "@/types";
 import { Input, Textarea } from "@/components/ui/Input";
 import { handleCodeKeys } from "@/components/blocks/CodeBlock";
-import { CODE_LANGUAGES, languageKey } from "@/lib/code-languages";
+import { CODE_LANGUAGES, isPlainLanguage, languageKey } from "@/lib/code-languages";
 import { canHighlight } from "@/lib/code-highlight";
+import { MAX_CODE } from "@/lib/code-lines";
 import { domId } from "@/lib/dom-id";
 import { Field, SegBtns, Select, Toggle, type BlockPanelProps } from "../inspector-fields";
 
@@ -15,15 +16,19 @@ import { Field, SegBtns, Select, Toggle, type BlockPanelProps } from "../inspect
  * the same Tab behaviour as the canvas. The language is a list rather than a
  * text field, but a language this list does not name — stored by an agent or
  * an import — is shown as one more choice instead of being quietly replaced
- * by the first.
+ * by the first. One stored as "text" or "none" is the list's Plain text, not
+ * a language called "text".
  */
 export function CodePanel({ block, onChange }: BlockPanelProps) {
   const p = block.props as CodeProps;
   const set = (patch: Partial<CodeProps>) => onChange({ ...block, props: { ...p, ...patch } });
   const hintId = domId(block.id, "code-panel-keys");
 
+  const code = typeof p.code === "string" ? p.code : "";
   const language = typeof p.language === "string" ? p.language : "";
-  const known = CODE_LANGUAGES.some((l) => l.value === languageKey(language));
+  const plain = isPlainLanguage(language);
+  const known = plain || CODE_LANGUAGES.some((l) => l.value === languageKey(language));
+  const selected = plain ? "" : known ? languageKey(language) : language;
   const options = [
     ...CODE_LANGUAGES,
     ...(known ? [] : [{ value: language, label: language }]),
@@ -34,7 +39,7 @@ export function CodePanel({ block, onChange }: BlockPanelProps) {
       <Field label="Code">
         <Textarea
           rows={12}
-          value={typeof p.code === "string" ? p.code : ""}
+          value={code}
           onChange={(e) => set({ code: e.target.value })}
           onKeyDown={(e) => handleCodeKeys(e, (code) => set({ code }))}
           wrap="off"
@@ -42,6 +47,7 @@ export function CodePanel({ block, onChange }: BlockPanelProps) {
           autoCapitalize="off"
           autoComplete="off"
           autoCorrect="off"
+          maxLength={MAX_CODE}
           aria-label="Code"
           aria-describedby={hintId}
           placeholder="Type or paste code"
@@ -51,14 +57,19 @@ export function CodePanel({ block, onChange }: BlockPanelProps) {
         <p id={hintId} className="text-[11px] text-fg-subtle mt-1">
           Shown exactly as written. Tab indents by two spaces and Shift+Tab takes them away; press Escape to leave the box.
         </p>
+        {code.length >= MAX_CODE ? (
+          <p className="text-[11px] text-amber-400 mt-1" role="status">
+            That is as long as one sample can be — {MAX_CODE.toLocaleString("en-GB")} characters. Split the rest into a second code block.
+          </p>
+        ) : null}
       </Field>
       <Field label="Language">
         <Select
-          value={known ? languageKey(language) : language}
+          value={selected}
           onChange={(v) => set({ language: v })}
           options={options}
         />
-        {language && !canHighlight(language) ? (
+        {language && !plain && !canHighlight(language) ? (
           <p className="text-[11px] text-fg-subtle mt-1">Named in the corner of the sample, and shown in one colour.</p>
         ) : null}
       </Field>

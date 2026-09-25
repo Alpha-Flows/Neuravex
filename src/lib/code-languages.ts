@@ -56,6 +56,11 @@ export function languageKey(language: string | undefined | null): string {
   return typeof language === "string" ? language.trim().toLowerCase() : "";
 }
 
+/** Whether a stored language means "no language in particular". */
+export function isPlainLanguage(language: string | undefined | null): boolean {
+  return PLAIN.has(languageKey(language));
+}
+
 /** What the reader sees in the header bar, or "" for none. */
 export function languageLabel(language: string | undefined | null): string {
   const key = languageKey(language);

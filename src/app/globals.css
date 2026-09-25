@@ -839,7 +839,7 @@ html:has(.nvx-gallery-lightbox:target:not(.editor-mode *)) body {
 }
 
 /*
- * What the arrows and dots point at, drawn above the slide it belongs to.
+ * What the arrows and dots point at, placed to decide where the page stops.
  *
  * Following a link to a fragment scrolls every scroller around the target, and
  * the page is one of them: Chromium lines the target's top edge up with the
@@ -848,29 +848,43 @@ html:has(.nvx-gallery-lightbox:target:not(.editor-mode *)) body {
  * `scroll-margin-top` on the slide is the textbook softener and did nothing at
  * all — measured in Chromium 141, it is spent on the strip, which cannot
  * scroll vertically, and never reaches the page. Where the target sits is
- * honoured, though. So the target is a line placed half a window above the
- * middle of the slider: the page comes to rest with the slider centred, where
- * a visitor looking at it probably had it anyway, and every later click finds
- * it already there and does not move the page at all. The centre is taken 2rem
- * lower than the window's, half the height of the sticky header every new
- * site starts with, so the slider is centred in what that header leaves.
+ * honoured, though, so the target is a line whose height decides where the
+ * page comes to rest, and it is worked out by three rules:
  *
- * A slider taller than the window is centred too, rather than pinned by its
- * top edge: its arrows are half-way down it, and centring brings the arrow
- * that was just clicked back to the middle of the screen. The top edge would
- * have gone under the header anyway.
+ *   - Half a window above the slider's middle, 2rem lower than true centre —
+ *     half the sticky header every new site starts with. A slider that fits
+ *     comes to rest centred in what that header leaves, where a visitor
+ *     looking at it probably had it anyway.
+ *   - Unless that would leave the dots below the window. Then the line is
+ *     where the bottom of the dots meets the bottom of the window. Centring
+ *     alone did exactly that to the default 16/9 slider in a 1366×657 laptop
+ *     window: the top went under the header, the dots went below the fold,
+ *     and every click on a dot moved the page 53px and hid the dots again.
+ *   - But never lower than 6rem above the slide's middle, so on a slider far
+ *     taller than the window — a square one on a laptop — the arrows still
+ *     come to rest in view below the header, even if the dots cannot.
  *
- * On a short slider the line is above the strip's top edge, which no scroller
- * can scroll to; on a tall one it is inside the strip, which is already
- * showing it. Either way it adds nothing to scroll and nothing to see.
+ * The place depends only on the slider and the window, so a second click
+ * finds the page already there and does not move it; only a visitor who has
+ * scrolled in between sees it move back.
+ *
+ * On a slider that fits, the line is above the strip's top edge, which no
+ * scroller can scroll to; on a taller one it is inside the strip, which is
+ * already showing it. Either way it adds nothing to scroll and nothing to see.
  */
 .nvx-slider-anchor {
   position: absolute;
   left: 0;
   width: 100%;
   height: 0;
-  top: calc(50% + var(--nvx-slider-below) / 2 - 50vh - 2rem);
-  top: calc(50% + var(--nvx-slider-below) / 2 - 50svh - 2rem);
+  top: min(
+    calc(50% - 6rem),
+    max(calc(100% + var(--nvx-slider-below) - 100vh), calc(50% + var(--nvx-slider-below) / 2 - 50vh - 2rem))
+  );
+  top: min(
+    calc(50% - 6rem),
+    max(calc(100% + var(--nvx-slider-below) - 100svh), calc(50% + var(--nvx-slider-below) / 2 - 50svh - 2rem))
+  );
   pointer-events: none;
 }
 
@@ -900,17 +914,49 @@ html:has(.nvx-gallery-lightbox:target:not(.editor-mode *)) body {
 
 /* A caption lies over the foot of its picture on a dark scrim, so white text
  * stays legible over a pale sky as well as a dark forest. */
+/*
+ * A long caption is cut to three lines, and never reaches the arrows. It used
+ * to grow upwards as far as it had words: 190 characters on a 21/9 slider at
+ * phone width covered 138px of a 147px picture and ran under both arrows.
+ * The height limit is on the text rather than the box — `content-box` — so
+ * the scrim's soft upper edge does not count against it; were it counted, a
+ * short slide would have no room left for a single line. The text may rise
+ * to 0.375rem below the arrows' lower edge: half the slide, less the arrows'
+ * half-height, the gap and the space beneath the text, and it is rounded
+ * down to whole lines so no sliver of a cut line shows.
+ *
+ * The space beneath the text is a transparent border rather than padding.
+ * `overflow: hidden` clips at the padding edge, so with padding there the
+ * lines cut off by the clamp went on being drawn in it: a third line peeped
+ * out under a two-line caption. A border is outside that edge, and the scrim
+ * still paints under it. The whole caption stays in the page for a screen
+ * reader; only what is drawn is cut.
+ */
 .nvx-slider-caption {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 2.75rem 1.25rem 1rem;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.38) 55%, rgba(0, 0, 0, 0));
+  box-sizing: content-box;
+  max-height: calc(50% - 2.75rem);
+  max-height: round(down, calc(50% - 2.75rem), 1lh);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  padding: 2.75rem 1.25rem 0;
+  border-bottom: 1rem solid transparent;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.38) 55%, rgba(0, 0, 0, 0)) border-box;
   color: #ffffff;
   font-size: 0.9375rem;
   line-height: 1.45;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+/* While a caption is being written on the canvas, all of it shows. */
+.nvx-slider-caption:focus-within {
+  display: block;
+  max-height: none;
 }
 .nvx-slider .nvx-slider-caption a {
   color: inherit;
@@ -1036,8 +1082,16 @@ html:has(.nvx-gallery-lightbox:target:not(.editor-mode *)) body {
     right: 0.5rem;
   }
   .nvx-slider-caption {
-    padding: 2rem 0.875rem 0.75rem;
+    max-height: calc(50% - 2.25rem);
+    max-height: round(down, calc(50% - 2.25rem), 1lh);
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    padding: 2rem 0.875rem 0;
+    border-bottom-width: 0.75rem;
     font-size: 0.8125rem;
+    /* Two lines of this fit under the arrows of a 21/9 slider at phone width;
+     * at 1.45 they missed by half a pixel and the rounding kept only one. */
+    line-height: 1.4;
   }
 }
 
@@ -1057,6 +1111,11 @@ html:has(.nvx-gallery-lightbox:target:not(.editor-mode *)) body {
 @media (forced-colors: active) {
   .nvx-slider .nvx-slider-arrow {
     border: 2px solid ButtonText;
+  }
+  /* A transparent border is drawn in a system colour here; this one is
+   * spacing, so it takes the colour behind the text. */
+  .nvx-slider-caption {
+    border-bottom-color: Canvas;
   }
   .nvx-slider-dot::before {
     forced-color-adjust: none;
@@ -2002,6 +2061,7 @@ button.nvx-audio-empty:focus-visible {
    * the settings panel off the side of the window. The line scrolls inside
    * the box instead, which is what it was going to do anyway. */
   contain: inline-size;
+  position: relative;
   margin: 0;
   overflow: hidden;
   border: 1px solid var(--nvx-code-border);
@@ -2101,6 +2161,10 @@ button.nvx-audio-empty:focus-visible {
   -moz-tab-size: 2;
   overflow-x: auto;
   overflow-y: hidden;
+  /* When the caret or a search brings something into view, it stops clear of
+   * the edges rather than flush against them. */
+  scroll-padding-left: var(--nvx-code-pad-x);
+  scroll-padding-right: var(--nvx-code-pad-x);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--nvx-code-fg) 30%, transparent) transparent;
 }
@@ -2147,6 +2211,13 @@ button.nvx-audio-empty:focus-visible {
 .nvx-code--numbered .nvx-code__code {
   counter-reset: nvx-code-line;
   padding-left: 0;
+}
+/* The numbers stand over the first few characters of a line scrolled to the
+ * right. Without this, Home on a long line brought the caret back only as
+ * far as the edge of the frame — under the numbers, with the first five
+ * characters of the line still hidden behind them. */
+.nvx-code--numbered .nvx-code__pre {
+  scroll-padding-left: var(--nvx-code-gutter);
 }
 .nvx-code__line {
   display: block;
@@ -2229,6 +2300,21 @@ button.nvx-audio-empty:focus-visible {
   color: var(--nvx-code-muted);
   -webkit-text-fill-color: var(--nvx-code-muted);
   opacity: 1;
+}
+/* Only on the canvas, and only when the sample has reached its limit. */
+.nvx-code__full {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 2;
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  background: #fef3c7;
+  color: #78350f;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.4;
 }
 .nvx-code:has(.nvx-code__input:focus-visible) {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--site-accent, #6366f1) 60%, transparent);

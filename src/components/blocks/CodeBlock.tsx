@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 import { TOKEN } from "@/lib/site-theme";
 import { domId } from "@/lib/dom-id";
 import { highlight, type CodeToken } from "@/lib/code-highlight";
-import { languageKey, languageLabel } from "@/lib/code-languages";
-import { indentCode, needsTrailingLine, splitTokenLines } from "@/lib/code-lines";
+import { languageLabel } from "@/lib/code-languages";
+import { indentCode, MAX_CODE, needsTrailingLine, splitTokenLines } from "@/lib/code-lines";
 
 interface Props {
   props: CodeProps;
@@ -32,6 +32,10 @@ interface Props {
  * is exactly where the caret needs to stay. React sees the value it is handed
  * already in the field and leaves it, and the caret, alone.
  *
+ * An edit that would take the code past the box's `maxLength` is not made:
+ * the browser holds typing and pasting to that length, but not a value set
+ * from here.
+ *
  * Shared with the panel, whose text box edits the same code.
  */
 export function handleCodeKeys(e: KeyboardEvent<HTMLTextAreaElement>, commit: (value: string) => void): void {
@@ -47,6 +51,7 @@ export function handleCodeKeys(e: KeyboardEvent<HTMLTextAreaElement>, commit: (v
   e.preventDefault();
   const field = e.currentTarget;
   const next = indentCode(field.value, field.selectionStart, field.selectionEnd, e.shiftKey);
+  if (field.maxLength > 0 && next.value.length > field.maxLength) return;
   if (next.value !== field.value) {
     field.value = next.value;
     commit(next.value);
@@ -117,7 +122,6 @@ export function CodeBlock({ props, onChange, disabled, blockId }: Props) {
         lines && "nvx-code--numbered",
       )}
       style={style}
-      data-language={languageKey(props.language) || undefined}
     >
       {filename || label ? (
         <figcaption className="nvx-code__bar">
@@ -164,6 +168,7 @@ export function CodeBlock({ props, onChange, disabled, blockId }: Props) {
                 autoCapitalize="off"
                 autoComplete="off"
                 autoCorrect="off"
+                maxLength={MAX_CODE}
                 placeholder="Type or paste code"
                 aria-label={filename ? `Code in ${filename}` : "Code"}
                 aria-describedby={hintId}
@@ -175,6 +180,11 @@ export function CodeBlock({ props, onChange, disabled, blockId }: Props) {
           ) : null}
         </code>
       </pre>
+      {editing && code.length >= MAX_CODE ? (
+        <p className="nvx-block-chrome nvx-code__full" role="status">
+          This sample is as long as one block holds — {MAX_CODE.toLocaleString("en-GB")} characters.
+        </p>
+      ) : null}
     </figure>
   );
 }

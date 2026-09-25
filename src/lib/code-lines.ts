@@ -13,6 +13,51 @@ import type { CodeToken } from "./code-highlight";
 export const INDENT = "  ";
 
 /**
+ * The longest sample one block holds.
+ *
+ * The same number is the stored cap and the text boxes' `maxLength`. With
+ * only the cap, a sample at the limit took the next keystroke, was cut back
+ * to length on the way through the schema, and handed the text box a value
+ * one character short of what it held — so the last character vanished and
+ * the caret jumped to the end, on every key.
+ */
+export const MAX_CODE = 100_000;
+
+/**
+ * The most text one DOM text node is given.
+ *
+ * Chromium's HTML parser splits a text node longer than 65,536 characters in
+ * two. React writes a sample as one text node on the server and expects one
+ * back when it hydrates, so a 70,000-character sample failed to hydrate and
+ * the whole page was thrown away and drawn again in the browser. Half that
+ * limit leaves room for the line a cut is moved back to.
+ */
+export const MAX_TEXT_NODE = 32_768;
+
+/**
+ * Long text as pieces no longer than `max`, each ending at a newline where
+ * one falls inside it, and never between the two halves of a surrogate pair.
+ * The pieces joined are the text.
+ */
+export function chunkText(text: string, max = MAX_TEXT_NODE): string[] {
+  if (text.length <= max) return [text];
+  const pieces: string[] = [];
+  let start = 0;
+  while (text.length - start > max) {
+    let end = text.lastIndexOf("\n", start + max - 1) + 1;
+    if (end <= start) {
+      end = start + max;
+      const unit = text.charCodeAt(end - 1);
+      if (unit >= 0xd800 && unit <= 0xdbff) end -= 1;
+    }
+    pieces.push(text.slice(start, end));
+    start = end;
+  }
+  pieces.push(text.slice(start));
+  return pieces;
+}
+
+/**
  * Tokens regrouped into lines, for the numbered view.
  *
  * A token is split wherever it holds a newline — a block comment or a

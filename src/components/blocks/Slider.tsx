@@ -4,7 +4,14 @@ import type { MediaItem, SliderProps } from "@/types";
 import { cn } from "@/lib/utils";
 import { domId } from "@/lib/dom-id";
 import { withPicture } from "@/lib/media-item";
-import { MAX_SLIDES, neighbourSlide, slidePositionLabel, slidesToDraw } from "@/lib/slider-nav";
+import {
+  MAX_SLIDES,
+  SLIDER_RATIOS,
+  neighbourSlide,
+  sliderControls,
+  slidePositionLabel,
+  slidesToDraw,
+} from "@/lib/slider-nav";
 import { MediaPicker } from "@/components/editor/MediaPicker";
 import { Editable } from "./Editable";
 
@@ -17,7 +24,7 @@ interface Props {
 }
 
 const roundedClass = { none: "rounded-none", md: "rounded-md", xl: "rounded-xl" } as const;
-const RATIOS = new Set<string>(["16/9", "4/3", "1/1", "21/9"]);
+const RATIOS = new Set<string>(SLIDER_RATIOS);
 
 function Chevron({ direction }: { direction: "previous" | "next" }) {
   return (
@@ -162,10 +169,10 @@ export function Slider({ props, onChange, disabled, blockId }: Props) {
     );
   }
 
-  // One picture has nowhere to move to, so it gets neither arrows nor dots.
-  const moves = count > 1;
-  const arrows = moves && props.showArrows !== false;
-  const dots = moves && props.showDots !== false;
+  const { arrows, dots, arrowsFocusable } = sliderControls(count, props.showArrows, props.showDots);
+  // With dots drawn, the arrows are for the pointer: out of the Tab order and
+  // out of what a screen reader lists. See `sliderControls` for why.
+  const arrowAccess = arrowsFocusable ? {} : ({ tabIndex: -1, "aria-hidden": true } as const);
   const anchorOf = (position: number) => domId(blockId, "slide", position);
 
   return (
@@ -239,19 +246,19 @@ export function Slider({ props, onChange, disabled, blockId }: Props) {
               {arrows ? (
                 editing ? (
                   <>
-                    <button type="button" className="nvx-slider-arrow nvx-slider-previous" aria-label="Previous slide" onClick={() => goTo(previous)}>
+                    <button type="button" className="nvx-slider-arrow nvx-slider-previous" aria-label="Previous slide" {...arrowAccess} onClick={() => goTo(previous)}>
                       <Chevron direction="previous" />
                     </button>
-                    <button type="button" className="nvx-slider-arrow nvx-slider-next" aria-label="Next slide" onClick={() => goTo(next)}>
+                    <button type="button" className="nvx-slider-arrow nvx-slider-next" aria-label="Next slide" {...arrowAccess} onClick={() => goTo(next)}>
                       <Chevron direction="next" />
                     </button>
                   </>
                 ) : (
                   <>
-                    <a className="nvx-slider-arrow nvx-slider-previous" href={`#${anchorOf(previous)}`} aria-label="Previous slide" onClick={moveTo(previous)}>
+                    <a className="nvx-slider-arrow nvx-slider-previous" href={`#${anchorOf(previous)}`} aria-label="Previous slide" {...arrowAccess} onClick={moveTo(previous)}>
                       <Chevron direction="previous" />
                     </a>
-                    <a className="nvx-slider-arrow nvx-slider-next" href={`#${anchorOf(next)}`} aria-label="Next slide" onClick={moveTo(next)}>
+                    <a className="nvx-slider-arrow nvx-slider-next" href={`#${anchorOf(next)}`} aria-label="Next slide" {...arrowAccess} onClick={moveTo(next)}>
                       <Chevron direction="next" />
                     </a>
                   </>
