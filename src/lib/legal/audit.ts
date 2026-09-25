@@ -25,6 +25,7 @@ import { BaseBlock } from "@/types";
 import { sanitizeHtml, sanitizeInlineHtml } from "@/lib/sanitize";
 import { VIDEO_PROVIDER_NAME, videoEmbed, videoSiteOf } from "@/lib/video-embed";
 import { osmEmbedUrl, osmTileHosts } from "@/lib/map-location";
+import { richTextValues } from "@/lib/rich-text-props";
 
 export type FindingKind =
   /** A form that can take personal data from a visitor. */
@@ -230,70 +231,24 @@ const MAX_AUDIT_DEPTH = 32;
  * `style` attribute — so a tracker `<img>` inside a Text block loaded on every
  * page view and never reached the audit. On an otherwise self-contained site
  * the generated notice then stated that nothing is loaded from third parties
- * and that no § 25 TDDDG consent is needed.
+ * and that no § 25 TDDDG consent is needed. Where the rich text lives is
+ * described once, in `rich-text-props.ts`, which the page-rename sweep reads
+ * as well.
  *
  * The rendered form is what gets scanned, not the stored source: what matters
  * is what the browser is handed.
  */
-const TEXT_PROPS = ["text", "label", "caption", "author", "role", "submitLabel", "successMessage", "title", "description", "address"];
+function richTextIn(props: Record<string, unknown>, type = ""): string[] {
+  return richTextValues(type, props)
+    .filter((value) => value.includes("<"))
+    .map((value) => sanitizeInlineHtml(value));
+}
 
 /** The records in a list prop, skipping anything that is not one. */
 function recordsIn(value: unknown): Record<string, unknown>[] {
   return Array.isArray(value)
     ? value.filter((v): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v))
     : [];
-}
-
-/**
- * Rich text a block keeps inside a list rather than in a prop of its own — an
- * accordion's answers, a table's cells, a plan's features, a slide's caption.
- * `TEXT_PROPS` only looks at the top level, and every one of these renders
- * through the same sanitiser a Text block does.
- */
-function nestedRichText(type: string, props: Record<string, unknown>): unknown[] {
-  switch (type) {
-    case "accordion":
-      return recordsIn(props.items).flatMap((item) => [item.title, item.body]);
-    case "table":
-      return Array.isArray(props.rows) ? props.rows.flatMap((row) => (Array.isArray(row) ? row : [])) : [];
-    case "pricing":
-      return recordsIn(props.plans).flatMap((plan) => [
-        plan.name, plan.price, plan.period, plan.description, plan.badge, plan.buttonLabel,
-        ...(Array.isArray(plan.features) ? plan.features : []),
-      ]);
-    case "gallery":
-      return recordsIn(props.images).map((image) => image.caption);
-    case "slider":
-      return recordsIn(props.slides).map((slide) => slide.caption);
-    default:
-      return [];
-  }
-}
-
-function richTextIn(props: Record<string, unknown>, type = ""): string[] {
-  const out: string[] = [];
-  // A code sample is shown as text, escaped, never as markup: `<img src=…>`
-  // written in one is a line of code on the page, not a request.
-  if (type === "code") return out;
-  for (const key of TEXT_PROPS) {
-    const value = props[key];
-    if (typeof value === "string" && value.includes("<")) out.push(sanitizeInlineHtml(value));
-  }
-  for (const value of nestedRichText(type, props)) {
-    if (typeof value === "string" && value.includes("<")) out.push(sanitizeInlineHtml(value));
-  }
-  if (Array.isArray(props.items)) {
-    for (const item of props.items) {
-      if (typeof item === "string" && item.includes("<")) out.push(sanitizeInlineHtml(item));
-    }
-  }
-  if (Array.isArray(props.fields)) {
-    for (const field of props.fields) {
-      const label = (field as Record<string, unknown>)?.label;
-      if (typeof label === "string" && label.includes("<")) out.push(sanitizeInlineHtml(label));
-    }
-  }
-  return out;
 }
 
 function walk(blocks: BaseBlock[], where: string, out: Finding[], depth = 0): void {

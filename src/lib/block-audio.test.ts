@@ -285,8 +285,8 @@ describe("clearing an audio block's title on the canvas", () => {
     expect(block).toContain("shownFields(props, focused)");
     // Capture, because focus and blur do not bubble; and an emptied field is
     // let go only when the one leaving is the one that had the caret.
-    expect(block).toContain("onFocusCapture: () => setFocused(field)");
-    expect(block).toContain("onBlurCapture: () => setFocused((current) => (current === field ? null : current))");
+    expect(block).toMatch(/onFocusCapture:[^\n]*setFocused\(/);
+    expect(block).toMatch(/onBlurCapture:[^\n]*setFocused\([^\n]*===/);
     expect(block).toMatch(/\{\.\.\.track\("title"\)\}/);
     expect(block).toMatch(/\{\.\.\.track\("description"\)\}/);
   });
@@ -299,7 +299,11 @@ describe("clearing an audio block's title on the canvas", () => {
 
   it("makes the empty-state pill a button that opens the picker", () => {
     const block = source("components", "blocks", "AudioBlock.tsx");
-    expect(block).toContain('<button type="button" onClick={openPicker} className="nvx-audio-empty">');
+    // The pill's whole opening tag, whatever order its attributes are in.
+    const at = block.indexOf('className="nvx-audio-empty"');
+    const pill = block.slice(block.lastIndexOf("<", at), at + block.slice(at).search(/[^=]>/) + 2);
+    expect(pill).toMatch(/^<button\b/);
+    expect(pill).toContain("onClick={openPicker}");
   });
 });
 
@@ -368,6 +372,11 @@ describe("what the library offers and what it only lists", () => {
   it("is drawn with a delete button for each of the others", () => {
     const picker = source("components", "editor", "MediaPicker.tsx");
     expect(picker).toContain("libraryFor(files, kind)");
-    expect(picker).toMatch(/otherFiles\.map\(\(f\) => \([\s\S]{0,900}aria-label=\{`Delete \$\{f\.name\}`\}[\s\S]{0,120}handleDelete\(f\.url\)/);
+    // Somewhere in the list of other files, however much else each row grows.
+    const from = picker.indexOf("otherFiles.map(");
+    const rows = picker.slice(from, picker.indexOf("</ul>", from));
+    expect(from).toBeGreaterThan(-1);
+    expect(rows).toContain("aria-label={`Delete ${f.name}`}");
+    expect(rows).toContain("handleDelete(f.url)");
   });
 });

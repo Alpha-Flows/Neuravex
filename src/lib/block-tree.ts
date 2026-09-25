@@ -119,25 +119,42 @@ const lengthProp = (fallback: number) =>
  * ampersands came back from the published page at half its length, ending in
  * `x&` where an entity had been cut in two — and the editor, which reads
  * through the same door, saved the shortened copy the next time. The cut now
- * falls on what is stored, clear of a tag or an entity, so a second pass over
- * the result leaves it exactly as it is.
+ * falls on what is stored, clear of a tag or an entity, so what comes back
+ * from one save comes back the same from the next.
+ *
+ * Found by searching, not by walking back. The first version shortened the
+ * cut until the sanitised text fitted, and a cut inside nested elements is
+ * closed again by the sanitiser, which put the length straight back: with
+ * `<b>` nested a few thousand deep each pass moved one closing tag, every pass
+ * sanitised the whole field again, and one crafted field held the server for
+ * minutes on every save and every page view. A binary search over where to
+ * cut sanitises the field some seventeen times at most, whatever is in it.
  */
 function clampInlineHtml(value: string, max: number): string {
-  let out = sanitizeInlineHtml(value.slice(0, max));
-  let room = max;
-  while (out.length > max && room > 0) {
-    let cut = out.slice(0, room);
+  const out = sanitizeInlineHtml(value.slice(0, max));
+  if (out.length <= max) return out;
+  const cutAt = (length: number) => {
+    let cut = out.slice(0, length);
     const tag = cut.lastIndexOf("<");
     if (tag > cut.lastIndexOf(">")) cut = cut.slice(0, tag);
     const entity = cut.lastIndexOf("&");
     if (entity > cut.lastIndexOf(";")) cut = cut.slice(0, entity);
-    out = sanitizeInlineHtml(cut);
-    // Cutting inside an element leaves it open and the sanitiser closes it
-    // again, which adds a few characters back; the next try leaves room for
-    // them. `room` shrinks every time round, so this ends.
-    room = cut.length - Math.max(1, out.length - max);
+    return sanitizeInlineHtml(cut);
+  };
+  let best = "";
+  let low = 0;
+  let high = max;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const candidate = cutAt(middle);
+    if (candidate.length <= max) {
+      best = candidate;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
   }
-  return out.length > max ? "" : out;
+  return best;
 }
 
 const inlineText = (max = MAX_TEXT) =>
@@ -164,7 +181,7 @@ const flag = (fallback: boolean) => z.boolean().catch(fallback);
  * A list of records, each one repaired on its own and the list cut to length.
  *
  * `z.array(...).max(n).catch([])` is the obvious way to write this, and it is
- * what the list and form schemas above do — but there one entry too many
+ * what the list and form schemas below do — but there one entry too many
  * empties the whole list, and one entry that is not an object turns into a
  * blank row that was never written. A gallery of forty pictures with one bad
  * entry should come back as thirty-nine pictures, and a gallery of five
@@ -178,7 +195,7 @@ const flag = (fallback: boolean) => z.boolean().catch(fallback);
  * find sixty pictures is work somebody else gets to ask for.
  */
 function listOf<T extends z.ZodType>(item: T, max: number) {
-  return z.unknown().optional().transform((value) => {
+  const list = z.unknown().optional().transform((value) => {
     const out: z.output<T>[] = [];
     if (!Array.isArray(value)) return out;
     const scan = Math.min(value.length, max * 4 + 16);
@@ -188,7 +205,16 @@ function listOf<T extends z.ZodType>(item: T, max: number) {
     }
     return out;
   });
+  LIST_ITEMS.set(list, item);
+  return list;
 }
+
+/**
+ * What each `listOf` list holds, for `allowedValues`. The entry's schema is
+ * otherwise out of sight inside the transform, and a social link's network —
+ * one of the two sets an agent most needs — went missing from the reference.
+ */
+const LIST_ITEMS = new WeakMap<z.ZodType, z.ZodType>();
 
 /** One picture in a gallery or a slider, checked the way an image block's is. */
 const mediaItem = z.object({
@@ -536,12 +562,11 @@ const PROPS: Record<string, z.ZodType> = {
     // as HTML rather than becoming part of the page — which is why this is
     // not sanitised: sanitising it would change the sample.
     //
-    // Cut to length rather than emptied. `text()` answers a string one
-    // character over its limit with "", which for a sample pasted in from a
-    // long file lost all of it instead of its tail. Line endings are made
-    // `\n` here because a text box reports nothing else: a sample stored with
-    // `\r\n` read back into the editor differed from it on every line, and
-    // the first keystroke rewrote all of them.
+    // Its own transform rather than `text()`, for the line endings: they are
+    // made `\n` here because a text box reports nothing else, and a sample
+    // stored with `\r\n` read back into the editor differed from it on every
+    // line, so the first keystroke rewrote all of them. It is cut to length
+    // the way `text()` cuts, keeping the head of a long file.
     code: z.unknown().optional().transform((v) => (typeof v === "string" ? v.replace(/\r\n?/g, "\n").slice(0, MAX_CODE) : "")),
     language: z.unknown().optional().transform((v) => (typeof v === "string" ? v.trim().slice(0, 40) : "")),
     // One line in the header bar, so a newline in it is a space.
@@ -553,6 +578,57 @@ const PROPS: Record<string, z.ZodType> = {
 };
 
 export const BLOCK_TYPES = Object.keys(PROPS);
+
+/** The parts of a zod 4 schema's definition that `allowedValues` reads. */
+interface SchemaDef {
+  type: string;
+  entries?: Record<string, string | number>;
+  innerType?: unknown;
+  in?: unknown;
+  element?: unknown;
+  shape?: Record<string, unknown>;
+}
+
+/**
+ * Every prop of a block that must be one of a fixed set, by its path —
+ * `ratio`, `links[].network` — with the set.
+ *
+ * A value outside the set is repaired to a default without a word, so an
+ * agent building a page through the MCP server needs the whole list, not the
+ * one value an example shows. The reference used to carry two lists written
+ * out by hand, the icon names and the social networks, while the icon block's
+ * `size: "xl"` given to a social block was quietly saved as `"md"`. Read from
+ * the schemas above, the lists cannot fall behind them.
+ */
+export function allowedValues(type: string): Record<string, (string | number)[]> {
+  const out: Record<string, (string | number)[]> = {};
+  const visit = (schema: unknown, path: string) => {
+    const item = LIST_ITEMS.get(schema as z.ZodType);
+    if (item) return visit(item, `${path}[]`);
+    const def = (schema as { def?: SchemaDef } | undefined)?.def;
+    if (!def) return;
+    switch (def.type) {
+      case "enum":
+        if (def.entries && path) out[path] = Object.values(def.entries);
+        return;
+      case "catch":
+      case "optional":
+      case "nullable":
+      case "default":
+      case "readonly":
+        return visit(def.innerType, path);
+      case "pipe":
+        return visit(def.in, path);
+      case "array":
+        return visit(def.element, `${path}[]`);
+      case "object":
+        for (const [key, value] of Object.entries(def.shape ?? {})) visit(value, path ? `${path}.${key}` : key);
+        return;
+    }
+  };
+  visit(PROPS[type], "");
+  return out;
+}
 
 // ---------------------------------------------------------------------------
 // The walk
@@ -600,7 +676,11 @@ function normalizeNode(node: unknown, depth: number, budget: Budget): BaseBlock 
     // its blocks "pricing" twice all could — and two blocks sharing one are
     // selected together in the editor and draw the same anchors and labels
     // on the page, so a lightbox or a plan's button speaks for the wrong one.
-    id: typeof raw.id === "string" && raw.id.length <= 128 && !budget.ids.has(raw.id) ? raw.id : cryptoId(),
+    // An empty id is no id, and gets one too.
+    id:
+      typeof raw.id === "string" && raw.id.length > 0 && raw.id.length <= 128 && !budget.ids.has(raw.id)
+        ? raw.id
+        : cryptoId(),
     type: type as BaseBlock["type"],
     props: parsed.data,
   };

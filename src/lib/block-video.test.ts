@@ -5,6 +5,9 @@ import { sanitizeHtml } from "@/lib/sanitize";
 import { isAllowedEmbed } from "@/lib/embed-hosts";
 import { auditSite, remoteHost } from "@/lib/legal/audit";
 import { getBlockDefinition } from "@/lib/blocks";
+import { ACCEPT, VIDEO_EXTENSIONS, extensionList, libraryFor } from "@/lib/media-kind";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { buildDatenschutz } from "@/lib/legal/datenschutz";
 import { emptyProfile } from "@/lib/legal/profile";
 import { DEFAULT_LOOK } from "@/lib/page-starters";
@@ -179,6 +182,36 @@ describe("what is not a YouTube or Vimeo video", () => {
     for (const file of ["https://cdn.example/clip.mp4", "/uploads/clip.mp4", "clip.webm", "", undefined, null, 42]) {
       expect(videoEmbed(file)).toBeNull();
     }
+  });
+
+  describe("a Vimeo direct file, which an existing block may already be playing", () => {
+    const files = [
+      "https://player.vimeo.com/external/76979871.hd.mp4?s=0123456789abcdef&profile_id=175",
+      "https://player.vimeo.com/progressive_redirect/playback/76979871/rendition/1080p/file.mp4?loc=external&signature=abc",
+    ];
+
+    it.each(files.map((f) => [f]))("stays a video file: %s", (file) => {
+      expect(videoEmbed(file)).toBeNull();
+      expect(videoSiteOf(file)).toBeNull();
+      expect(looksLikeVideoFile(file)).toBe(true);
+      expect(videoFileHost(file)).toBe("player.vimeo.com");
+    });
+
+    it("counts only /video/… as a page on the player's host, whatever the ending", () => {
+      expect(videoSiteOf("https://player.vimeo.com/progressive_redirect/playback/76979871/rendition/1080p?loc=external")).toBeNull();
+      expect(videoSiteOf("https://player.vimeo.com/external/76979871.m3u8?s=abc")).toBeNull();
+      expect(videoSiteOf("https://player.vimeo.com/video/not-an-id")).toBe("vimeo");
+    });
+
+    it("is reported to the privacy audit as the file it is", () => {
+      const audit = auditSite({
+        pages: files.map((src) => ({ title: "Home", content: JSON.stringify([{ id: "v", type: "video", props: { src } }]) })),
+      });
+      expect(audit.findings.map((f) => [f.kind, f.host])).toEqual([
+        ["remote-video", "player.vimeo.com"],
+        ["remote-video", "player.vimeo.com"],
+      ]);
+    });
   });
 
   it("still knows a YouTube or Vimeo address it could find no video in, so the panel can say so", () => {
@@ -373,5 +406,27 @@ describe("the privacy audit and a video block", () => {
     const stored = normalised({ src: "/uploads/clip.mp4", title: '<img src="https://x.example/p.gif">' });
     const audit = auditSite({ pages: [{ title: "Home", content: JSON.stringify([videoBlock(stored)]) }] });
     expect(audit.selfContained).toBe(true);
+  });
+});
+
+describe("the video library", () => {
+  const files = [{ url: "/uploads/a.png" }, { url: "/uploads/b.mp4" }, { url: "/uploads/c.mp3" }, { url: "/uploads/d.webm" }, { url: "/uploads/e.pdf" }];
+
+  it("offers video files and nothing else", () => {
+    const { choosable, other } = libraryFor(files, "video");
+    expect(choosable.map((f) => f.url)).toEqual(["/uploads/b.mp4", "/uploads/d.webm"]);
+    expect(other).toEqual([]);
+  });
+
+  it("asks the file dialog for exactly what the upload route takes", () => {
+    for (const ext of VIDEO_EXTENSIONS) expect(ACCEPT.video.split(",")).toContain(`.${ext}`);
+    expect(ACCEPT.video).not.toContain("video/*");
+    expect(extensionList("video")).toBe("MP4 or WEBM");
+  });
+
+  it("opens from the video panel, and puts the chosen file in the block", () => {
+    const panel = readFileSync(join(process.cwd(), "src", "components", "editor", "inspectors", "VideoPanel.tsx"), "utf8");
+    expect(panel).toContain('kind="video"');
+    expect(panel).toMatch(/onSelect=\{\(url\) => \{\s*set\("src", url\)/);
   });
 });

@@ -30,6 +30,15 @@ in brackets is the finding it closes.
   anything that fetches. [NVX-006]
 - Colours and lengths written into inline styles are validated, including the
   site accent on the builder's own dashboard. [NVX-007, NVX-008, NVX-066]
+- A `class` in text or custom HTML could lift content out of the page the way
+  a `style` attribute no longer can — `fixed inset-0 z-50` drew a sheet over
+  the published page, the download and the editor. Positioning, stacking,
+  negative margins and the app's own component classes are filtered out of
+  content now, and a negative margin in a `style` attribute too; an author's
+  own class names, such as `top-bar`, are kept. [NVX-006]
+- Cutting an over-long rich-text field to its limit could take minutes when
+  it held elements nested thousands deep, on every save and every page view.
+  It takes a bounded number of passes now, whatever the field holds.
 - The exported stylesheet is filtered after Tailwind runs, so an arbitrary
   value in a `class` attribute cannot compile a remote `url()` into the
   customer's site. [NVX-009]
@@ -98,17 +107,18 @@ in brackets is the finding it closes.
   others. Each block has a panel of its own under
   `src/components/editor/inspectors/`, built from shared controls in
   `inspector-fields.tsx` — including a list editor whose rows can be
-  reordered — and each is described in the validator, the privacy audit and,
-  where it links anywhere, the page-rename sweep.
+  reordered — and each is described in the validator, the privacy audit and
+  the page-rename sweep, rich text included.
 - The Video block plays a pasted **YouTube or Vimeo** link, from
   `youtube-nocookie.com` or from Vimeo with `dnt=1`, and the privacy notice
   names the provider. Any other address is still played as a file.
 - The picture library lists sounds for the Audio block, and a picture picker
   no longer shows a PDF or a font as a broken thumbnail; those are listed
   under "Other files", where they can still be deleted.
-- The MCP server's block reference lists the values a block accepts where
-  there is a fixed set — the icon names, the social networks — since a value
-  outside it is repaired to a default without a word.
+- The MCP server's block reference lists the values a block accepts for every
+  prop with a fixed set, read from the validator's own schemas, and the icon
+  names — since a value outside the set is repaired to a default without a
+  word.
 
 - A floating block can be moved to another container without being put back in
   the flow first. A float is placed rather than ordered, so its handle already
@@ -208,10 +218,34 @@ in brackets is the finding it closes.
 
 ### Fixed
 
-- A `class` in text or custom HTML could lift content out of the page the way
-  a `style` attribute no longer can — `fixed inset-0 z-50` drew a sheet over
-  the published page, the download and the editor. Positioning, stacking and
-  the app's own component classes are filtered out of content now.
+- Renaming a page moved the links in buttons, plans and custom HTML but not the
+  ones the formatting toolbar writes into text, list items, FAQ answers, table
+  cells, plan features and captions, which were left pointing at a 404. The
+  privacy audit and the rename sweep now read one description of where rich
+  text lives (`src/lib/rich-text-props.ts`).
+- The download rewrote an address written in a picture's description or a
+  code sample's file name, and copied the file it named into the zip. Only
+  attributes that hold an address are rewritten now.
+- A Vimeo frame pasted into custom HTML was not asked not to track, though the
+  privacy notice said every Vimeo player was. Every `player.vimeo.com` frame
+  carries `dnt=1` now.
+- A Vimeo direct-file address (`player.vimeo.com/external/…`,
+  `…/progressive_redirect/…`) was taken for a Vimeo page and dropped from the
+  published page and the download. It plays as a file again.
+- A video file could no longer be uploaded anywhere once the picture library
+  stopped taking files that are not pictures. The Video block's panel opens a
+  video library, and "Other files" in the picture library takes a document
+  and copies its address for a button's link.
+- A link in a revision's preview walked out of the editor, and with it any
+  unsaved work.
+- With the focus on an outline row, Delete, duplicate and the arrow keys did
+  nothing to the block it named; only keys pressed in the inspector or a
+  dialog are left to it now.
+- A block whose id was empty drew the same anchors as a block called `block`,
+  so two galleries opened each other's pictures. An empty id is replaced like
+  a missing one.
+- A link left inside another by the sanitiser was separated only by the next
+  save, so the same text came back different each time until it settled.
 - Sanitising was not idempotent: an in-page link gained another `c-` on every
   save and pointed at nothing, and text was cut to its limit before it was
   escaped, so every read cut a long answer again. A plain-text prop that was

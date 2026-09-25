@@ -94,16 +94,22 @@ export function isTextEntry(el: Element | null): boolean {
 /**
  * Whether a key belongs to whatever has focus rather than to the page.
  *
- * Text entry, as above — and anything in the side rails or a dialog. The
+ * Text entry, as above — and anything in the inspector or a dialog. The
  * delete shortcut asked only the first question, so with the focus on a
  * button in the inspector — "Use the upright 9 / 16 shape", a column count,
  * a list row's "move up" — Backspace deleted the block being edited. The
  * buttons that remove themselves as they are pressed made it worse: focus
  * fell to the page, and the next Backspace a keyboard user pressed went
  * the same way. A key pressed in the panel is about the panel.
+ *
+ * The inspector is marked rather than found as "an aside". The first version
+ * took every aside, and the left rail is one too: a block picked from the
+ * outline, whose row then held the focus, could no longer be deleted,
+ * duplicated or nudged from the keyboard at all. The outline's rows are the
+ * blocks themselves, so a key pressed there is about the block.
  */
 function keysBelongToFocus(el: Element | null): boolean {
-  return isTextEntry(el) || !!el?.closest("aside, [role='dialog']");
+  return isTextEntry(el) || !!el?.closest("[data-inspector], [role='dialog']");
 }
 
 export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTargets, initial, nonce }: Props) {
@@ -992,7 +998,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
               siteSlug={siteSlug}
             />
           ) : (
-            <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full overflow-y-auto p-4">
+            <aside data-inspector="" className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full overflow-y-auto p-4">
               <PageSettingsPanel
                 seo={seo}
                 fallbackTitle={title}

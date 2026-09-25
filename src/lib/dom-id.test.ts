@@ -16,8 +16,13 @@ describe("an id made from a block's id", () => {
   });
 
   it("still makes an id when the block has none", () => {
-    expect(domId("", "photo", 0)).toBe("nvx-block-photo-0");
-    expect(domId(undefined)).toBe("nvx-block");
+    expect(domId("", "photo", 0)).toBe("nvx-_-photo-0");
+    expect(domId(undefined)).toBe("nvx-_");
+  });
+
+  it("makes one for a block with no id that no named block can share", () => {
+    expect(domId("", "photo", 0)).not.toBe(domId("block", "photo", 0));
+    expect(domId("")).not.toBe(domId("_"));
   });
 
   it("gives two blocks two different ids", () => {

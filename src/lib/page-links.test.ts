@@ -76,6 +76,30 @@ describe("renaming a page", () => {
     expect(blocks[0].props.html).toContain('href="/sites/acme/plans"');
   });
 
+  it("reaches a link the formatting toolbar put in rich text", () => {
+    const link = '<a href="/sites/acme/pricing#pro">see the plans</a>';
+    const tree: BaseBlock[] = [
+      { id: "t", type: "text", props: { text: `Or ${link}.` } },
+      { id: "l", type: "list", props: { items: ["one", link] } },
+      { id: "q", type: "accordion", props: { items: [{ title: "How much?", body: link }] } },
+      { id: "g", type: "table", props: { rows: [["Plan", link]] } },
+      { id: "p", type: "pricing", props: { plans: [{ name: "Pro", description: link, features: ["x", link] }] } },
+      { id: "s", type: "slider", props: { slides: [{ src: "/uploads/a.png", caption: link }] } },
+    ];
+    const { blocks, changed } = retargetLinks(tree, map);
+    expect(changed).toBe(7);
+    const moved = JSON.stringify(blocks);
+    expect(moved).not.toContain("/sites/acme/pricing");
+    expect(moved.split("/sites/acme/plans#pro").length - 1).toBe(7);
+  });
+
+  it("leaves a link written in a code sample as the code it is", () => {
+    const code: BaseBlock = { id: "c", type: "code", props: { code: '<a href="/sites/acme/pricing">', title: '<a href="/sites/acme/pricing">' } };
+    const { blocks, changed } = retargetLinks([code], map);
+    expect(changed).toBe(0);
+    expect(blocks[0]).toBe(code);
+  });
+
   it("returns the very same tree when nothing pointed at it", () => {
     const tree = [button("a", "https://example.com")];
     const { blocks, changed } = retargetLinks(tree, map);

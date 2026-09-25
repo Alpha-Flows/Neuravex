@@ -7,6 +7,9 @@ import {
   MAX_DEPTH,
   MAX_NODES,
   MAX_SORT_ORDER,
+  allowedValues,
+  BLOCK_TYPES,
+  SOCIAL_NETWORKS,
 } from "@/lib/block-tree";
 
 const block = (type: string, props: unknown = {}, extra: Record<string, unknown> = {}) => ({
@@ -230,3 +233,56 @@ describe("normalizeBlockTreeJson", () => {
     if (result.ok) expect(JSON.parse(result.json)[0].props.text).toBe("hi");
   });
 });
+
+describe("a block's id", () => {
+  it("is made for a block whose id is empty, as for one with none", () => {
+    // An empty id drew the same anchors as a block called `block`.
+    const result = normalizeBlockTree([
+      { id: "", type: "text", props: { text: "a" } },
+      { id: "block", type: "text", props: { text: "b" } },
+    ]);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.tree[0].id).not.toBe("");
+    expect(result.tree[1].id).toBe("block");
+  });
+
+  it("is made afresh for a second block that repeats one", () => {
+    const result = normalizeBlockTree([
+      { id: "pricing", type: "text", props: { text: "a" } },
+      { id: "pricing", type: "text", props: { text: "b" } },
+    ]);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.tree[0].id).toBe("pricing");
+    expect(result.tree[1].id).not.toBe("pricing");
+  });
+});
+
+describe("the values a prop must come from", () => {
+  it("are read from the schemas, nested lists included", () => {
+    expect(allowedValues("social")["links[].network"]).toEqual([...SOCIAL_NETWORKS]);
+    expect(allowedValues("social").size).toContain("md");
+    expect(allowedValues("code").theme).toEqual(["dark", "light"]);
+    expect(allowedValues("list").style).toEqual(["bullet", "number", "check"]);
+  });
+
+  it("are each one the validator keeps as written", () => {
+    // Every listed value, stored, comes back as itself: a list that named a
+    // value the validator then repaired would teach an agent the wrong one.
+    for (const type of BLOCK_TYPES) {
+      for (const [path, values] of Object.entries(allowedValues(type))) {
+        if (path.includes("[]")) continue;
+        for (const value of values) {
+          const result = normalizeBlockTree([{ id: "b", type, props: { [path]: value } }]);
+          if (!result.ok) throw new Error(result.error);
+          expect(result.tree[0]?.props[path], `${type}.${path} = ${value}`).toBe(value);
+        }
+      }
+    }
+  });
+
+  it("are not listed for a prop that takes anything", () => {
+    expect(allowedValues("text")).not.toHaveProperty("text");
+    expect(allowedValues("nothing-of-the-sort")).toEqual({});
+  });
+});
+

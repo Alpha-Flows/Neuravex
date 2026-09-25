@@ -22,6 +22,11 @@ export function domId(blockId: string | undefined, ...parts: (string | number)[]
   // separator: kept as it was, a gallery called `a` drew `nvx-a-photo-1` for
   // its first picture, and so did the wrapper of a gallery called
   // `a-photo-1`. The parts after it are this code's own words.
-  const base = (blockId ?? "").replace(/[^A-Za-z0-9]/g, (c) => `_${c.charCodeAt(0).toString(16)}_`) || "block";
+  //
+  // A block with no id at all is `_`, which no id can be written as, since a
+  // real `_` always comes out `_5f_`. It used to be `block`, which is also
+  // what a block called `block` comes out as, so two galleries with those
+  // two ids opened each other's pictures.
+  const base = (blockId ?? "").replace(/[^A-Za-z0-9]/g, (c) => `_${c.charCodeAt(0).toString(16)}_`) || "_";
   return ["nvx", base, ...parts.map((p) => clean(String(p)))].filter(Boolean).join("-");
 }

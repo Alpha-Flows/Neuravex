@@ -14,6 +14,7 @@
  */
 
 import { BaseBlock } from "@/types";
+import { mapRichText } from "./rich-text-props";
 
 /** Where a page of this site lives. The home page is the bare site address. */
 export function pagePath(siteSlug: string, pageSlug: string, isHome: boolean): string {
@@ -91,7 +92,10 @@ function remap(href: string, map: LinkMapper): string | null {
  * Every link inside `html` that addresses `from`, moved to `to`.
  *
  * Custom HTML is the other place an author writes a path by hand, and it is
- * the place they are least likely to remember having done so.
+ * the place they are least likely to remember having done so. Rich text is
+ * the third: the formatting toolbar's link button writes `<a href>` into a
+ * paragraph, an FAQ answer or a table cell, which the first version of the
+ * sweep never looked in.
  */
 export function retargetHtmlLinks(html: string, map: LinkMapper): string {
   return html.replace(/(href\s*=\s*)("|')([^"']*)\2/gi, (match, lead: string, quote: string, href: string) => {
@@ -138,6 +142,16 @@ export function retargetLinks(blocks: BaseBlock[], map: LinkMapper): { blocks: B
           props = { ...props, html: next };
           changed += 1;
         }
+      }
+      // A link the formatting toolbar put in a paragraph, an FAQ answer or a
+      // table cell. See `mapRichText` for every place that can be.
+      if (props && typeof props === "object") {
+        props = mapRichText(block.type, props, (html) => {
+          if (!html.includes("href")) return html;
+          const next = retargetHtmlLinks(html, map);
+          if (next !== html) changed += 1;
+          return next;
+        });
       }
       const children = block.children ? walk(block.children) : undefined;
       if (props === block.props && children === block.children) return block;

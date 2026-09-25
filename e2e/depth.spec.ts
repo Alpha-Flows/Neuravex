@@ -1,5 +1,5 @@
 import { test, expect, APIRequestContext, Page } from "@playwright/test";
-import { inflateRawSync } from "zlib";
+import { readFromZip } from "./zip";
 
 /**
  * Depth: blocks that sit over each other instead of pushing each other apart.
@@ -214,27 +214,6 @@ test.describe("Moving a float to another container", () => {
     await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
-
-/** One file out of a zip, read the way an unzip tool reads it. */
-function readFromZip(zip: Buffer, wanted: string): string | null {
-  const end = zip.length - 22;
-  const count = zip.readUInt16LE(end + 10);
-  let pointer = zip.readUInt32LE(end + 16);
-  for (let i = 0; i < count; i++) {
-    const method = zip.readUInt16LE(pointer + 10);
-    const compressedSize = zip.readUInt32LE(pointer + 20);
-    const nameLength = zip.readUInt16LE(pointer + 28);
-    const localOffset = zip.readUInt32LE(pointer + 42);
-    const path = zip.subarray(pointer + 46, pointer + 46 + nameLength).toString("utf8");
-    if (path === wanted) {
-      const start = localOffset + 30 + zip.readUInt16LE(localOffset + 26) + zip.readUInt16LE(localOffset + 28);
-      const body = zip.subarray(start, start + compressedSize);
-      return (method === 8 ? inflateRawSync(body) : Buffer.from(body)).toString("utf8");
-    }
-    pointer += 46 + nameLength;
-  }
-  return null;
-}
 
 test.describe("A downloaded site", () => {
   test("keeps the blocks laid over each other", async ({ request }) => {

@@ -1,4 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { readFromZip } from "./zip";
 
 /**
  * The ten blocks that work without a script.
@@ -155,12 +156,25 @@ test.describe("The new blocks in the downloaded site", () => {
     const { site } = await siteWith(request, everyBlock());
     const res = await request.get(`/api/sites/${site.id}/download`);
     expect(res.ok()).toBe(true);
-    const zip = (await res.body()).toString("latin1");
+    const archive = Buffer.from(await res.body());
 
-    // Stored, not compressed, is not something to rely on — but file names
-    // always sit in the zip's directory in the clear.
-    expect(zip).toContain("stock/nature/sam-ferrara-1527pjeb6jg-unsplash.jpg");
-    expect(zip).toContain("stock/nature/cristian-palmer-3leBubkp5hk-unsplash.jpg");
+    const html = readFromZip(archive, "index.html") ?? "";
+    // The whole design rests on this: every one of them works from markup.
+    expect(html).not.toMatch(/<script\b/i);
+    expect(html).toMatch(/class="[^"]*nvx-gallery-lightbox/);
+    expect(html).toMatch(/href="#nvx-gal-photo-1"/);
+    expect(html).toMatch(/class="nvx-slider-anchor"/);
+    expect(html).toMatch(/href="#nvx-sld-slide-1"/);
+    expect(html).toMatch(/<details[^>]*name="[^"]+"/);
+
+    // What opens a picture is a rule in the stylesheet beside the page.
+    const css = readFromZip(archive, "assets/site.css") ?? "";
+    expect(css).toMatch(/\.nvx-gallery-lightbox:target/);
+
+    // And the pictures are in the archive, where the page now looks for them.
+    expect(readFromZip(archive, "stock/nature/sam-ferrara-1527pjeb6jg-unsplash.jpg")).not.toBeNull();
+    expect(readFromZip(archive, "stock/nature/cristian-palmer-3leBubkp5hk-unsplash.jpg")).not.toBeNull();
+    expect(html).toContain('src="stock/nature/sam-ferrara-1527pjeb6jg-unsplash.jpg"');
 
     await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
