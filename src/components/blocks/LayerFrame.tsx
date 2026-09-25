@@ -1,7 +1,8 @@
 "use client";
 import type { ReactNode } from "react";
-import type { BaseBlock } from "@/types";
+import type { BaseBlock, BlockBox } from "@/types";
 import { layerBoxes } from "@/lib/block-layer";
+import { boxStyle } from "@/lib/block-box";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -27,15 +28,16 @@ export function LayerFrame({ block, inPageColumn, children }: Props) {
   const { outer, inner } = layerBoxes(block);
   const column = !outer && inPageColumn;
   const styled = Object.keys(inner).length > 0;
+  const framed = <BlockFrame box={block.box}>{children}</BlockFrame>;
 
   // An ordinary block in the flow that is not held in the page's column needs
   // nothing said about it — no wrapper, and the markup is what it was before
   // depth existed.
-  if (!outer && !column && !styled) return <>{children}</>;
+  if (!outer && !column && !styled) return framed;
 
   const body = (
     <div className={cn(column && "nvx-site-column")} style={styled ? inner : undefined}>
-      {children}
+      {framed}
     </div>
   );
 
@@ -47,3 +49,24 @@ export function LayerFrame({ block, inPageColumn, children }: Props) {
     </div>
   );
 }
+
+/**
+ * A block's frame — spacing, border, shadow, fill — on an element of its own,
+ * right around the block, on the canvas and the published page alike.
+ *
+ * Its own element because the ones outside it are already spoken for. The
+ * page's column carries the side gutter as padding, so a frame there took the
+ * gutter's place and drew its border at the edge of a phone's screen; a
+ * floating block's wrapper is positioned by its margin, which a frame's
+ * margin would move. Nothing is added for a block without one.
+ */
+export function BlockFrame({ box, children }: { box?: BlockBox; children: ReactNode }) {
+  const style = boxStyle(box);
+  if (Object.keys(style).length === 0) return <>{children}</>;
+  return (
+    <div className="nvx-block-frame" style={style}>
+      {children}
+    </div>
+  );
+}
+

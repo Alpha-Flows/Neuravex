@@ -14,6 +14,7 @@ import { sanitizeStyleAttribute } from "./css-safety";
 import { sanitizeInlineHtml, sanitizeHtml } from "./sanitize";
 import { cssColor, cssLength } from "./css-value";
 import { normalizeLayer } from "./block-layer";
+import { normalizeBox } from "./block-box";
 import { resolveIconName } from "./icon-names";
 import { MAX_SOCIAL_HREF, MAX_SOCIAL_LINKS, normaliseSocialHref } from "./social-links";
 import { MAX_CODE } from "./code-lines";
@@ -738,6 +739,8 @@ function normalizeNode(node: unknown, depth: number, budget: Budget): BaseBlock 
   // `NaN%`. A layer that says nothing is left off entirely.
   const layer = normalizeLayer(raw.layer);
   if (layer) out.layer = layer;
+  const box = normalizeBox(raw.box);
+  if (box) out.box = box;
 
   budget.bytes += JSON.stringify(out.props).length + out.type.length + out.id.length;
   return out;

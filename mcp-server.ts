@@ -623,7 +623,7 @@ server.tool(
       content: [{
         type: "text",
         text: JSON.stringify({
-          intro: "Each block has `id` (unique string), `type` (one of the types below), `props` (type-specific), and optional `children` (for section/columns only). A prop outside what a block accepts is repaired to a default rather than refused, so use the values in `allowedValues` where a block lists them.",
+          intro: "Each block has `id` (unique string), `type` (one of the types below), `props` (type-specific), and optional `children` (for section/columns only). Any block may also carry `box` — `{ paddingY, paddingX, marginTop, marginBottom, borderWidth, radius }` in px, `borderStyle` (solid, dashed, dotted), `borderColor` and `background` as CSS colours, `shadow` (none, sm, md, lg, xl) — for spacing, a border, a shadow and a fill; use it rather than a spacer block. A prop outside what a block accepts is repaired to a default rather than refused, so use the values in `allowedValues` where a block lists them.",
           blocks: ref,
         }, null, 2),
       }],

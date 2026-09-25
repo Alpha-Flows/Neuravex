@@ -5,7 +5,7 @@ import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { BaseBlock, BlockLayer, BlockType } from "@/types";
 import { BlockView } from "./BlockView";
-import { LayerFrame } from "./LayerFrame";
+import { BlockFrame, LayerFrame } from "./LayerFrame";
 import { clampOffset, clampWidth, floatsOnly, layerBoxes, layerOf } from "@/lib/block-layer";
 import { cn } from "@/lib/utils";
 
@@ -195,7 +195,7 @@ function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplic
           <span className="leading-none text-xs">✕</span>
         </button>
       </div>
-      {children}
+      <BlockFrame box={block.box}>{children}</BlockFrame>
       {floating ? (
         // Width, dragged. A float is sized as a share of the area it floats in,
         // and typing 43 into the inspector is a poor way to find out which

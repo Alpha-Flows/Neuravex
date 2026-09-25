@@ -19,6 +19,7 @@ import { PricingPanel } from "./inspectors/PricingPanel";
 import { MapPanel } from "./inspectors/MapPanel";
 import { CodePanel } from "./inspectors/CodePanel";
 import { FormPanel } from "./inspectors/FormPanel";
+import { FramePanel } from "./FramePanel";
 import { VideoPanel } from "./inspectors/VideoPanel";
 import type { ContainerChoice } from "@/lib/containers";
 
@@ -89,6 +90,7 @@ export function BlockInspector({ block, onChange, onClose, placement, levels, co
       <div className="p-4 space-y-4">
         {placement ? <ColumnPlacement placement={placement} /> : null}
         <InspectorBody block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />
+        <FramePanel block={block} onChange={onChange} />
         <DepthPanel block={block} onChange={onChange} levels={levels ?? { min: 0, max: 0 }} containers={containers} />
         {onSaveForReuse ? <SaveForReuse block={block} onSave={onSaveForReuse} /> : null}
       </div>

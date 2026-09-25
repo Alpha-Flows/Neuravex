@@ -44,6 +44,12 @@ export interface BaseBlock {
    * flow — see `BlockLayer`.
    */
   layer?: BlockLayer;
+  /**
+   * Spacing, a border, a shadow and a fill around the block, whatever its
+   * type — see `src/lib/block-box.ts`. Absent means none of them, which is
+   * how every block authored before this was drawn.
+   */
+  box?: BlockBox;
 }
 
 export interface SectionProps {
@@ -417,6 +423,25 @@ export interface CodeProps {
  * Absent — which is every block written before this existed — means a block
  * in the flow at level 0, i.e. exactly what the page did before.
  */
+/** The frame around a block. Every length is in px; see `normalizeBox` for the ranges. */
+export interface BlockBox {
+  /** Inside the frame, top and bottom. */
+  paddingY?: number;
+  /** Inside the frame, left and right. */
+  paddingX?: number;
+  /** Room kept above and below the block. */
+  marginTop?: number;
+  marginBottom?: number;
+  borderWidth?: number;
+  borderStyle?: "solid" | "dashed" | "dotted";
+  /** Empty or absent means the page's text colour, faded. */
+  borderColor?: string;
+  radius?: number;
+  shadow?: "none" | "sm" | "md" | "lg" | "xl";
+  /** A fill behind the block, so a bordered card can stand on a coloured section. */
+  background?: string;
+}
+
 export interface BlockLayer {
   /**
    * "flow" keeps the block in the stack, taking its own room.
