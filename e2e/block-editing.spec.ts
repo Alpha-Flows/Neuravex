@@ -35,7 +35,7 @@ test.describe("Setting a button's link", () => {
 
     await page.getByRole("button", { name: "# ↗" }).click();
     await page.getByRole("textbox", { name: "Link URL" }).fill("https://example.com/pricing");
-    await page.locator(".editor-block").getByRole("button", { name: "Save" }).click();
+    await page.locator(".editor-block").getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("button", { name: "https://example.com/pricing ↗" })).toBeVisible();
 
     await expect(page.locator("header span.text-xs").first()).toContainText("Saved", { timeout: 10000 });
@@ -78,7 +78,7 @@ test.describe("Editing custom HTML", () => {
     await page.getByRole("button", { name: "Edit HTML" }).click();
     const box = page.getByRole("dialog", { name: "Custom HTML" }).locator("textarea");
     await box.fill("<p>one</p>\n<p>two</p>");
-    await page.getByRole("dialog", { name: "Custom HTML" }).getByRole("button", { name: "Save" }).click();
+    await page.getByRole("dialog", { name: "Custom HTML" }).getByRole("button", { name: "Save", exact: true }).click();
 
     await expect(page.locator(".editor-block p")).toHaveCount(2);
     await expect(page.locator("header span.text-xs").first()).toContainText("Saved", { timeout: 10000 });

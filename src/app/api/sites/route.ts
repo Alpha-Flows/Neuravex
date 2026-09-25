@@ -6,6 +6,7 @@ import { getTemplate, resolveSiteAccent } from "@/lib/templates";
 import { normalizeSiteFields } from "@/lib/site-fields";
 import { readJsonObject } from "@/lib/request-body";
 import { normalizeBlockTreeJson } from "@/lib/block-tree";
+import { siteFromTemplate } from "@/lib/user-templates";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,18 @@ export async function POST(req: NextRequest) {
 
   const fields = normalizeSiteFields(body);
   const name = String(fields.name ?? "Untitled site");
+
+  // A template somebody saved is a whole site already — settings, pages,
+  // menu — so it is made the way an import is, under the name given here.
+  if (typeof body.userTemplateId === "string") {
+    const made = await siteFromTemplate(body.userTemplateId, name);
+    if (!made) return NextResponse.json({ error: "That template is gone." }, { status: 404 });
+    if (typeof fields.description === "string" && fields.description) {
+      await prisma.site.update({ where: { id: made.id }, data: { description: fields.description } });
+    }
+    return NextResponse.json(made, { status: 201 });
+  }
+
   let slug = slugify(name) || "site";
   const description = (fields.description as string | null) ?? null;
   const templateId: string | null = typeof body.templateId === "string" ? body.templateId : null;

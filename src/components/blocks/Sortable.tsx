@@ -157,6 +157,13 @@ function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplic
         )}
         onClick={(e) => e.stopPropagation()}
       >
+        {block.synced ? (
+          // Said on the block itself: editing a synced copy changes every page
+          // it is on, which is not something to find out afterwards.
+          <span title="Synced block — the same on every page it is on" className="px-1 text-[10px] text-brand" data-synced-badge="">
+            ⟳ Synced
+          </span>
+        ) : null}
         {floating ? (
           // A float has no place in the order, so the handle moves it instead.
           <button

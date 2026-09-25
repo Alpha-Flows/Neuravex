@@ -20,6 +20,10 @@ import { normalizePalette } from "@/lib/palette";
 import { SiteColorsProvider } from "./site-colors";
 import { PageAnchorsProvider } from "./page-anchors";
 import { sectionAnchors } from "@/lib/anchors";
+import { baseOf, basesOf, replaceCopies, syncCopiesOnPage } from "@/lib/synced-blocks";
+import { cleanTags, postDateFrom, type PostItem } from "@/lib/posts";
+import { SitePostsProvider } from "@/components/blocks/site-posts";
+import { PostHeader } from "@/components/public/PostHeader";
 import { scopeCss } from "@/lib/scope-css";
 import { readClipboard, writeClipboard, pasteable, subscribeClipboard, clipboardLabel as readClipboardLabel, clipboardServerLabel } from "@/lib/clipboard";
 import { containerChoices } from "@/lib/containers";
@@ -33,7 +37,7 @@ import { SavedBlocks } from "./SavedBlocks";
 import { BlockInspector } from "./BlockInspector";
 import type { LinkTarget } from "@/lib/page-links";
 import { RevisionsPanel } from "./RevisionsPanel";
-import { PageSettingsPanel, PageSeo } from "./PageSettingsPanel";
+import { PageSettingsPanel, PageSeo, type PageDetails } from "./PageSettingsPanel";
 import { SortableContainer } from "../blocks/Sortable";
 import { PublicBlocks } from "../public/PublicBlocks";
 import { Button } from "@/components/ui/Button";
@@ -47,7 +51,15 @@ interface Props {
   /** The site's branding, so the canvas shows the colours the page will ship with. */
   theme: SiteThemeInput;
   /** The header, footer and custom CSS a visitor gets around this page. The CSS arrives sanitised. */
-  chrome: { site: SiteChrome; pages: NavPage[]; legal: LegalPage[]; customCss: string | null };
+  chrome: {
+    site: SiteChrome;
+    pages: NavPage[];
+    legal: LegalPage[];
+    customCss: string | null;
+    /** The site's published posts, for the posts blocks, and the language of their dates. */
+    posts: PostItem[];
+    language: string;
+  };
   /** The request nonce, so the canvas stylesheets satisfy `style-src-elem`. */
   nonce?: string;
   /** Every page of this site, drafts included, for the inspector's link picker. */
@@ -57,6 +69,8 @@ interface Props {
     slug: string;
     isHome: boolean;
     published: boolean;
+    /** Whether this is the site's "not found" page, and its post details if it is a post. */
+    details: PageDetails;
     metaTitle: string;
     metaDescription: string;
     ogImage: string;
@@ -121,6 +135,11 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
   const [title, setTitle] = useState(initial.title);
   const [slug, setSlug] = useState(initial.slug);
   const [isHome, setIsHome] = useState(initial.isHome);
+  const [details, setDetails] = useState<PageDetails>(initial.details);
+  // The version of each synced block this editor started from, sent with every
+  // save so a copy nobody touched here is caught up rather than taken as an
+  // edit; see `settleSyncedBlocks`.
+  const syncedBaseRef = useRef<Record<string, string>>(basesOf(initial.blocks));
   const [published, setPublished] = useState(initial.published);
   const [seo, setSeo] = useState<PageSeo>({
     metaTitle: initial.metaTitle,
@@ -164,7 +183,10 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     setCanRedo(h.idx < h.stack.length - 1);
   }, []);
 
-  const pushHistory = useCallback((next: BaseBlock[], coalesceKey?: string) => {
+  const pushHistory = useCallback((edited: BaseBlock[], coalesceKey?: string) => {
+    // A synced block placed twice on this page is edited as one: the copy that
+    // changed is written into the others before anything else sees the tree.
+    const next = syncCopiesOnPage(historyRef.current.stack[historyRef.current.idx] ?? [], edited);
     const now = Date.now();
     const last = coalesceRef.current;
     const merge =
@@ -193,7 +215,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     autosaveRef.current = setTimeout(() => save("autosave"), AUTOSAVE_MS);
     return () => { if (autosaveRef.current) clearTimeout(autosaveRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dirty, title, slug, isHome, published, blocks, seo]);
+  }, [dirty, title, slug, isHome, published, blocks, seo, details]);
 
   const slugInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -207,12 +229,16 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
       const res = await fetch(`/api/pages/${pageId}/save`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, slug, isHome, published: willPublish, content: blocks, ...seo, reason }),
+        body: JSON.stringify({
+          title, slug, isHome, published: willPublish, content: blocks, ...seo, ...details, reason,
+          syncedBase: syncedBaseRef.current,
+        }),
       });
       setSaveFailed(!res.ok);
       if (!res.ok) return false;
       setDirty(false);
       setSavedAt(new Date());
+      syncedBaseRef.current = basesOf(blocks);
       // The server has the last word on the slug: it lower-cases it and adds
       // a suffix when another page already owns that address. Take what it
       // settled on, so the URL shown here is the URL that exists — but never
@@ -220,6 +246,17 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
       const saved = await res.json().catch(() => null);
       if (saved?.slug && saved.slug !== slug && document.activeElement !== slugInputRef.current) {
         setSlug(saved.slug);
+      }
+      // Synced blocks another page changed since this one was opened: shown
+      // as they now are, and not as an edit to undo.
+      const refreshed = saved?.syncedRefreshed as Record<string, BaseBlock> | undefined;
+      if (refreshed && typeof refreshed === "object") {
+        setBlocks((current) => {
+          let tree = current;
+          for (const [id, content] of Object.entries(refreshed)) tree = replaceCopies(tree, id, content).tree;
+          syncedBaseRef.current = basesOf(tree);
+          return tree;
+        });
       }
       return true;
     } catch {
@@ -230,7 +267,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     } finally {
       setSaving(false);
     }
-  }, [pageId, title, slug, isHome, published, blocks, seo]);
+  }, [pageId, title, slug, isHome, published, blocks, seo, details]);
 
   // Memo-ize save so the key event listener closure always has the latest
   const saveRef = useRef(saveFn);
@@ -349,13 +386,20 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     setSelectedId(block.id);
   }
 
-  async function saveForReuse(name: string) {
+  async function saveForReuse(name: string, synced: boolean) {
     if (!selectedBlock) return;
-    await fetch("/api/saved-blocks", {
+    const res = await fetch("/api/saved-blocks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, block: selectedBlock }),
+      body: JSON.stringify({ name, block: selectedBlock, synced }),
     });
+    const saved = await res.json().catch(() => null);
+    // Kept in sync, the block it was made from is the first copy.
+    if (res.ok && synced && typeof saved?.id === "string") {
+      const marked = { ...selectedBlock, synced: saved.id as string };
+      pushHistory(mapBlocks(blocks, (b) => (b.id === marked.id ? marked : b)));
+      syncedBaseRef.current = { ...syncedBaseRef.current, [saved.id]: baseOf(marked) };
+    }
     setSavedKey((k) => k + 1);
   }
 
@@ -721,7 +765,24 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     // published page puts it.
     <div className="public-canvas relative">
       <SiteHeader site={chrome.site} pages={chrome.pages} activeSlug={slug} contained />
-      <main>{inner}</main>
+      <main>
+        <SitePostsProvider posts={chrome.posts} language={chrome.language}>
+          {/* A post's header, drawn from its details as they are typed. */}
+          {details.isPost ? (
+            <PostHeader
+              post={{
+                title,
+                date: postDateFrom(details.postDate)?.toISOString() ?? "",
+                author: details.author.trim(),
+                coverImage: details.coverImage,
+                tags: cleanTags(details.tags),
+              }}
+              language={chrome.language}
+            />
+          ) : null}
+          {inner}
+        </SitePostsProvider>
+      </main>
       <SiteFooter site={chrome.site} legal={chrome.legal} />
     </div>
   );
@@ -1016,6 +1077,10 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
                 seo={seo}
                 fallbackTitle={title}
                 onChange={(next) => { setSeo(next); setDirty(true); }}
+                details={details}
+                isHome={isHome}
+                pageId={pageId}
+                onDetailsChange={(next) => { setDetails(next); setDirty(true); }}
               />
               <RevisionsPanel pageId={pageId} refreshKey={savedAt?.getTime() ?? 0} onRestore={() => window.location.reload()} />
             </aside>

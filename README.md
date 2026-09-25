@@ -16,12 +16,16 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 22 or
 - **Container blocks** (Section, Columns) with their own drag-and-droppable child lists
 - **Responsive columns** — published pages stack columns on phones and halve 3/4-column
   layouts on tablets, and each block stays in the column you put it in
-- **28 starter templates** across landing, portfolio, business, blog, and minimal, filterable by category — 11 of them multi-page, with their pages already linked to each other
+- **28 starter templates**, plus any site or page you keep as your own, across landing, portfolio, business, blog, and minimal, filterable by category — 11 of them multi-page, with their pages already linked to each other
 - **Multi-page sites** with home page routing. A new page starts from a layout you choose, drawn in the colours, section padding and column width read off the pages the site already has — not as a blank sheet
 - **Links between your own pages** — pick a page from a list instead of typing its path, and renaming a page or the whole site moves every link that pointed at it
 - **Per-block inspector** for fine-grained control of every property (colors, sizes, alignment, spacing, etc.)
 - **A frame on any block** — room inside and around it, a border, rounded corners, a shadow and a fill, the same five controls for a heading, a quote or a picture, so a card no longer has to be a section with one block in it and spacing no longer has to be a Spacer block
 - **A palette, text sizes and gradients for the whole site** — up to six brand colours offered in every colour field, heading and body sizes set once, and two-colour gradient fills for sections and columns; change a palette colour or a size in settings and every block that uses it follows
+- **A blog** — posts with a date, author, summary, cover and tags, a Blog posts block that lists them newest first, and an Atom feed that goes into the download too
+- **Synced blocks** — keep a saved block the same on every page: change it once and every page that uses it follows
+- **Your own templates, and copies of whole sites** — keep a site or a page to start the next one from, or duplicate a site with its links pointed at the copy
+- **A 404 page of your own** — designed in the editor, shown at any address that finds nothing, and downloaded as `404.html`
 - **A header and footer without HTML** — a logo, a menu arranged by hand with dropdowns, shorter labels, hidden pages and links elsewhere, and a footer laid out from columns of links, contact details, profiles and a copyright line
 - **Links to a section** — name a section and pick it in any link field; the page scrolls there
 - **Scroll-in motion** — blocks can fade or slide in as a visitor scrolls, in CSS alone, and stand still for anyone who asks for less motion
@@ -195,6 +199,8 @@ about.html          one file per published page
 assets/site.css     only the styles these pages use, a few KB
 uploads/  stock/    the images the pages point at
 fonts/              the bundled fonts the pages use, each with its licence
+feed.xml            the blog's posts, for a feed reader (when the site has posts)
+404.html            the site's own "not found" page (when it has one)
 README.txt          what's inside, and how to host it
 ```
 

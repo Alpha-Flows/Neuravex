@@ -23,6 +23,9 @@ export function NewSiteButton({ large }: { large?: boolean }) {
   const [description, setDescription] = useState("");
   const [accent, setAccent] = useState("#6366f1");
   const [templateId, setTemplateId] = useState<string | null>(null);
+  // A template somebody saved from one of their own sites; see `lib/user-templates`.
+  const [userTemplateId, setUserTemplateId] = useState<string | null>(null);
+  const [kept, setKept] = useState<KeptTemplate[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [templates] = useState<Template[]>(TEMPLATES);
   const [category, setCategory] = useState<string | null>(null);
@@ -40,7 +43,24 @@ export function NewSiteButton({ large }: { large?: boolean }) {
     setDescription("");
     setAccent("#6366f1");
     setTemplateId(null);
+    setUserTemplateId(null);
     setCategory(null);
+  }
+
+  /** The step with the templates, and the ones somebody saved, fetched as it opens. */
+  function chooseTemplate() {
+    setStep("template");
+    fetch("/api/user-templates?kind=site")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: KeptTemplate[]) => setKept(Array.isArray(list) ? list : []))
+      .catch(() => setKept([]));
+  }
+
+  async function forget(id: string) {
+    const res = await fetch(`/api/user-templates/${id}`, { method: "DELETE" });
+    if (!res.ok) return;
+    setKept((list) => list.filter((t) => t.id !== id));
+    if (userTemplateId === id) setUserTemplateId(null);
   }
 
   async function submit() {
@@ -50,7 +70,7 @@ export function NewSiteButton({ large }: { large?: boolean }) {
       const res = await fetch("/api/sites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, accent, templateId }),
+        body: JSON.stringify(userTemplateId ? { name, description, userTemplateId } : { name, description, accent, templateId }),
       });
       const site = await res.json();
       router.push(`/admin/sites/${site.id}`);
@@ -95,7 +115,7 @@ export function NewSiteButton({ large }: { large?: boolean }) {
                 </div>
                 <div className="mt-6 flex items-center justify-end gap-2">
                   <Button variant="ghost" onClick={reset}>Cancel</Button>
-                  <Button variant="outline" onClick={() => setStep("template")} disabled={!name.trim()}>
+                  <Button variant="outline" onClick={chooseTemplate} disabled={!name.trim()}>
                     Choose template →
                   </Button>
                 </div>
@@ -129,9 +149,35 @@ export function NewSiteButton({ large }: { large?: boolean }) {
 
                 {/* Template grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[420px] overflow-y-auto pr-1">
+                  {kept.length > 0 ? (
+                    <div className="col-span-full text-xs uppercase tracking-wide text-fg-subtle font-semibold">Your templates</div>
+                  ) : null}
+                  {kept.map((t) => (
+                    <div key={t.id} className="relative">
+                      <TemplateCard
+                        selected={userTemplateId === t.id}
+                        onClick={() => { setUserTemplateId(t.id); setTemplateId(null); }}
+                        name={t.name}
+                        description={`${t.pageCount} ${t.pageCount === 1 ? "page" : "pages"}, with your settings, menu and footer. Keeps its own colours.`}
+                        blocks={t.preview}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void forget(t.id)}
+                        aria-label={`Delete the template ${t.name}`}
+                        title="Delete this template"
+                        className="absolute top-2 right-2 w-6 h-6 rounded bg-bg-soft/90 text-fg-muted hover:text-red-400 text-xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {kept.length > 0 ? (
+                    <div className="col-span-full text-xs uppercase tracking-wide text-fg-subtle font-semibold mt-2">Neuravex templates</div>
+                  ) : null}
                   <TemplateCard
-                    selected={templateId === null}
-                    onClick={() => setTemplateId(null)}
+                    selected={templateId === null && userTemplateId === null}
+                    onClick={() => { setTemplateId(null); setUserTemplateId(null); }}
                     name="Blank"
                     description="Start with nothing but a clean page."
                     blocks={templates.find((t) => t.id === "blank")?.pages[0].blocks ?? []}
@@ -140,7 +186,7 @@ export function NewSiteButton({ large }: { large?: boolean }) {
                     <TemplateCard
                       key={t.id}
                       selected={templateId === t.id}
-                      onClick={() => setTemplateId(t.id)}
+                      onClick={() => { setTemplateId(t.id); setUserTemplateId(null); }}
                       name={t.name}
                       description={t.description}
                       blocks={t.pages[0].blocks}
@@ -159,6 +205,14 @@ export function NewSiteButton({ large }: { large?: boolean }) {
       )}
     </>
   );
+}
+
+/** A template somebody saved, as the chooser lists it. */
+interface KeptTemplate {
+  id: string;
+  name: string;
+  pageCount: number;
+  preview: BaseBlock[];
 }
 
 function TemplateCard({

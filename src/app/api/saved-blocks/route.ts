@@ -48,8 +48,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "That block is too big to save." }, { status: 413 });
   }
 
+  // Kept in sync, the saved block is what every copy of it becomes; the copy
+  // it was made from is marked by the editor once it has the id.
+  // Where the copy sat on its page is not part of it.
+  const synced = body.synced === true;
+  const { synced: _marker, layer: _layer, column: _column, ...shared } = block;
   const saved = await prisma.savedBlock.create({
-    data: { name: name.slice(0, 80), type: block.type, content },
+    data: { name: name.slice(0, 80), type: block.type, content: synced ? JSON.stringify(shared) : content, synced },
   });
   return NextResponse.json(saved, { status: 201 });
 }

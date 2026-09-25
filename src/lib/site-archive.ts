@@ -16,6 +16,7 @@ import { normalizeSiteFields } from "./site-fields";
 import { normalizeBlockTreeJson, clampSortOrder } from "./block-tree";
 import { slugify } from "./utils";
 import { menuForArchive } from "./menu";
+import { normalizePostFields } from "./posts";
 
 export const ARCHIVE_VERSION = 3;
 
@@ -57,6 +58,13 @@ export const PAGE_FIELDS = [
   "content",
   "published",
   "isHome",
+  "isNotFound",
+  "isPost",
+  "postDate",
+  "author",
+  "excerpt",
+  "coverImage",
+  "tags",
   "sortOrder",
   "metaTitle",
   "metaDescription",
@@ -184,6 +192,15 @@ export interface PageCreateData {
   content: string;
   published: boolean;
   isHome: boolean;
+  /** The site's "not found" page; one per site, like the home page. */
+  isNotFound: boolean;
+  /** A blog post, and its details; see `lib/posts.ts`. */
+  isPost: boolean;
+  postDate: Date | null;
+  author: string | null;
+  excerpt: string | null;
+  coverImage: string | null;
+  tags: string | null;
   sortOrder: number;
   metaTitle: string | null;
   metaDescription: string | null;
@@ -218,6 +235,16 @@ export function pageCreateData(page: Row): PageCreateData {
     content: tree.ok ? tree.json : "[]",
     published: !!page.published,
     isHome: !!page.isHome,
+    isNotFound: !!page.isNotFound,
+    // Repaired the way a save repairs them, since an archive can say anything.
+    isPost: !!page.isPost,
+    ...(normalizePostFields({
+      postDate: page.postDate ?? null,
+      author: page.author ?? null,
+      excerpt: page.excerpt ?? null,
+      coverImage: page.coverImage ?? null,
+      tags: page.tags ?? null,
+    }) as Pick<PageCreateData, "postDate" | "author" | "excerpt" | "coverImage" | "tags">),
     sortOrder: clampSortOrder(Number(page.sortOrder ?? 0)) ?? 0,
     metaTitle: optional(page.metaTitle, 1000),
     metaDescription: optional(page.metaDescription, 1000),
@@ -244,6 +271,7 @@ export function normalizeArchivePages(pages: Row[]): PageCreateData[] {
   const taken = new Set<string>();
   const legalTaken = new Set<string>();
   let homeTaken = false;
+  let notFoundTaken = false;
 
   return pages.slice(0, MAX_ARCHIVE_PAGES).map((page) => {
     const data = pageCreateData(page);
@@ -259,6 +287,9 @@ export function normalizeArchivePages(pages: Row[]): PageCreateData[] {
 
     if (data.isHome && homeTaken) data.isHome = false;
     else if (data.isHome) homeTaken = true;
+
+    if (data.isNotFound && notFoundTaken) data.isNotFound = false;
+    else if (data.isNotFound) notFoundTaken = true;
 
     if (data.legalKind) {
       if (legalTaken.has(data.legalKind)) data.legalKind = null;

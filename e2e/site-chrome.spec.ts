@@ -31,8 +31,8 @@ async function openSettings(page: Page, siteId: string, tab: string) {
 }
 
 async function save(page: Page) {
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
 }
 
 const desktopNav = (page: Page) => page.locator('nav[data-nav="desktop"]');

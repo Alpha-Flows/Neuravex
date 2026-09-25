@@ -1,0 +1,160 @@
+import { prisma } from "@/lib/prisma";
+import { BaseBlock } from "@/types";
+import { PublicBlocks } from "@/components/public/PublicBlocks";
+import { sanitizeCss } from "@/lib/security";
+import { siteThemeCss, headerOffset } from "@/lib/site-theme";
+import { SiteHeader, SiteFooter } from "@/components/public/SiteChrome";
+import { isLegalKind } from "@/lib/legal/pages";
+import { safeAccent } from "@/lib/site-fields";
+import { normalizeBlockTree } from "@/lib/block-tree";
+import { postItems } from "@/lib/posts";
+import { SitePostsProvider } from "@/components/blocks/site-posts";
+import { PostHeader } from "@/components/public/PostHeader";
+
+/**
+ * A published page, drawn: the site's branding, its header, the page's
+ * blocks and its footer.
+ *
+ * It lived inside the page route. The site's own "not found" page is drawn
+ * the same way from the 404 boundary, which is a different file with no
+ * route params, so the drawing and the query it needs are here for both.
+ */
+
+/**
+ * Only the columns the page draws with.
+ *
+ * This used to load the whole row with every page included, and hand it to
+ * `SiteChrome`, which is a client component. React Flight serialises the
+ * runtime object rather than the TypeScript prop type, and React 18 does not
+ * dedupe plain objects — so every published page carried, inside
+ * `self.__next_f.push(...)`, the raw `legal` profile (a data protection
+ * officer's private address, representatives, notes typed at any wizard
+ * step, for a site that never generated a legal page), the unsanitised
+ * source of `customCss`, `headerHtml` and `footerHtml`, and every page's
+ * full content. Twice. Visitors were served all of it.
+ */
+export async function loadPublishedSite(slug: string) {
+  return prisma.site.findUnique({
+    where: { slug },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      accent: true,
+      fontFamily: true,
+      headingFont: true,
+      fonts: true,
+      palette: true,
+      textStyles: true,
+      borderRadius: true,
+      contentWidth: true,
+      customCss: true,
+      headerHtml: true,
+      footerHtml: true,
+      headerBackground: true,
+      headerOpacity: true,
+      headerShape: true,
+      headerPosition: true,
+      logo: true,
+      menu: true,
+      footer: true,
+      language: true,
+      pages: {
+        where: { published: true },
+        orderBy: [{ sortOrder: "asc" }, { isHome: "desc" }],
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          isHome: true,
+          legalKind: true,
+          isNotFound: true,
+          content: true,
+          isPost: true,
+          postDate: true,
+          author: true,
+          excerpt: true,
+          coverImage: true,
+          tags: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+}
+
+export type PublishedSite = NonNullable<Awaited<ReturnType<typeof loadPublishedSite>>>;
+export type PublishedPageRow = PublishedSite["pages"][number];
+
+export function PublishedPageView({
+  site,
+  page,
+  nonce,
+}: {
+  site: PublishedSite;
+  page: PublishedPageRow;
+  nonce?: string;
+}) {
+  // The Impressum and the Datenschutzerklärung belong in the footer of every
+  // page, not in the nav beside About and Contact — placed rather than
+  // offered, because § 5 DDG asks for "ständig verfügbar" and a visitor
+  // should not have to hunt for either. The "not found" page is in neither:
+  // it is what a visitor meets when an address goes nowhere, not a page to
+  // go to.
+  // Small objects, built by hand, so the flight payload carries the title and
+  // the slug of each page and not its content.
+  const legal = site.pages
+    .filter((p) => isLegalKind(p.legalKind))
+    .map((p) => ({ slug: p.slug, title: p.title }));
+  // Posts are in neither either: they are listed by the posts block and the
+  // feed, and a menu with every post in it is not a menu.
+  const navPages = site.pages
+    .filter((p) => !isLegalKind(p.legalKind) && !p.isNotFound && !p.isPost)
+    .map((p) => ({ id: p.id, slug: p.slug, title: p.title, isHome: p.isHome }));
+  // Small objects again, and only the published posts, for the posts blocks.
+  const posts = postItems(site.pages, site.slug);
+  const post = page.isPost ? posts.find((p) => p.id === page.id) : undefined;
+
+  const chrome = {
+    name: site.name,
+    slug: site.slug,
+    accent: safeAccent(site.accent),
+    headerHtml: site.headerHtml,
+    footerHtml: site.footerHtml,
+    headerBackground: site.headerBackground,
+    headerOpacity: site.headerOpacity,
+    headerShape: site.headerShape,
+    headerPosition: site.headerPosition,
+    logo: site.logo,
+    menu: site.menu,
+  };
+
+  // The tree is validated on the way in now; this is the layer under that, for
+  // a row written before it existed.
+  const checked = normalizeBlockTree(page.content || "[]");
+  const blocks: BaseBlock[] = checked.ok ? checked.tree : [];
+
+  return (
+    <>
+      {/* The site's branding, which every block without a colour of its own
+          reads. Always emitted: a block's fallback is the accent, not a hex.
+          These two are the app's own stylesheets, so they carry the request
+          nonce and `style-src-elem` can stay as tight as `script-src`. */}
+      <style nonce={nonce} dangerouslySetInnerHTML={{ __html: siteThemeCss(site) }} />
+      {site.customCss ? <style nonce={nonce} dangerouslySetInnerHTML={{ __html: sanitizeCss(site.customCss) }} /> : null}
+      {/* A fixed header leaves the flow, so without this the first block on
+          every page starts underneath it and its top is unreadable. The pill
+          shape floats on a 1rem margin, so it needs that much more. */}
+      <div className="public-canvas" style={site.headerPosition === "fixed" ? { paddingTop: headerOffset(site) } : undefined}>
+        <SiteHeader site={chrome} pages={navPages} activeSlug={page.slug} />
+        <main>
+          <SitePostsProvider posts={posts} language={site.language}>
+            {post ? <PostHeader post={post} language={site.language} /> : null}
+            <PublicBlocks blocks={blocks} pageId={page.id} />
+          </SitePostsProvider>
+        </main>
+        <SiteFooter site={{ name: chrome.name, slug: chrome.slug, footerHtml: chrome.footerHtml, footer: site.footer }} legal={legal} />
+      </div>
+    </>
+  );
+}

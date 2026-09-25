@@ -1,13 +1,13 @@
 "use client";
-import { useState } from "react";
-import { BaseBlock, BlockLayer, HeadingProps, TextProps, ImageProps, ButtonProps, DividerProps, SpacerProps, SectionProps, ColumnsProps, ColumnStyle, QuoteProps, ListProps, HtmlProps } from "@/types";
+import { useEffect, useState } from "react";
+import { BaseBlock, BlockLayer, HeadingProps, TextProps, ImageProps, ButtonProps, DividerProps, SpacerProps, SectionProps, ColumnsProps, ColumnStyle, QuoteProps, ListProps, HtmlProps, PostsProps } from "@/types";
 import { clampColumnCount } from "@/lib/tree-utils";
 import { clampLevel, layerOf, MAX_LEVEL, MIN_LEVEL, withLayer } from "@/lib/block-layer";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { getBlockDefinition } from "@/lib/blocks";
 import type { LinkTarget } from "@/lib/page-links";
-import { BackgroundFill, BackgroundImageField, ColorInput, Field, LinkField, OVERLAY_PRESETS, SegBtns, Select } from "./inspector-fields";
+import { BackgroundFill, BackgroundImageField, ColorInput, Field, LinkField, OVERLAY_PRESETS, SegBtns, Select, Toggle } from "./inspector-fields";
 import { GalleryPanel } from "./inspectors/GalleryPanel";
 import { AccordionPanel } from "./inspectors/AccordionPanel";
 import { SliderPanel } from "./inspectors/SliderPanel";
@@ -62,7 +62,7 @@ interface Props {
   /** Where a floating block sits, and the other containers it could sit in. */
   containers?: ContainerPlacement;
   /** Keeps this block, under a name, for use on any page. */
-  onSaveForReuse?: (name: string) => Promise<void> | void;
+  onSaveForReuse?: (name: string, synced: boolean) => Promise<void> | void;
   /** Every page of this site, so a link can be picked instead of typed. */
   linkTargets?: LinkTarget[];
   siteSlug?: string;
@@ -96,7 +96,8 @@ export function BlockInspector({ block, onChange, onClose, placement, levels, co
         <FramePanel block={block} onChange={onChange} />
         <MotionPanel block={block} onChange={onChange} />
         <DepthPanel block={block} onChange={onChange} levels={levels ?? { min: 0, max: 0 }} containers={containers} />
-        {onSaveForReuse ? <SaveForReuse block={block} onSave={onSaveForReuse} /> : null}
+        {block.synced ? <SyncedNote block={block} onChange={onChange} /> : null}
+        {onSaveForReuse && !block.synced ? <SaveForReuse block={block} onSave={onSaveForReuse} /> : null}
       </div>
     </aside>
   );
@@ -108,9 +109,52 @@ export function BlockInspector({ block, onChange, onClose, placement, levels, co
  * A section built once had to be rebuilt by hand on the next page. Named here,
  * it shows up in the palette on every page of every site.
  */
-function SaveForReuse({ block, onSave }: { block: BaseBlock; onSave: (name: string) => Promise<void> | void }) {
+/**
+ * What a synced copy is, said where it is being edited, with the way out.
+ *
+ * Its name is fetched rather than carried on the block: the block holds only
+ * the saved block's id, which is all a page needs, and the name can change.
+ */
+function SyncedNote({ block, onChange }: { block: BaseBlock; onChange: (next: BaseBlock) => void }) {
+  const [name, setName] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/saved-blocks")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { id: string; name: string }[]) => {
+        if (live) setName(Array.isArray(rows) ? rows.find((r) => r.id === block.synced)?.name ?? null : null);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [block.synced]);
+
+  return (
+    <div className="pt-4 border-t border-bg-border space-y-2" data-synced-note="">
+      <div className="text-[11px] uppercase tracking-wide text-fg-subtle font-semibold">⟳ Synced block</div>
+      <p className="text-xs text-fg-muted">
+        {name ? <>This is &quot;{name}&quot;. </> : null}
+        What you change here is written into every page that uses it when this page is saved.
+      </p>
+      <button
+        type="button"
+        onClick={() => {
+          const { synced: _dropped, ...rest } = block;
+          onChange(rest);
+        }}
+        className="w-full h-8 rounded-md border border-bg-border text-xs text-fg-muted hover:text-fg hover:border-brand/60"
+      >
+        Detach — make this copy its own
+      </button>
+    </div>
+  );
+}
+
+function SaveForReuse({ block, onSave }: { block: BaseBlock; onSave: (name: string, synced: boolean) => Promise<void> | void }) {
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
+  const [synced, setSynced] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -119,7 +163,7 @@ function SaveForReuse({ block, onSave }: { block: BaseBlock; onSave: (name: stri
     if (!trimmed) return;
     setSaving(true);
     try {
-      await onSave(trimmed);
+      await onSave(trimmed, synced);
       setSaved(true);
       setNaming(false);
       setName("");
@@ -156,6 +200,12 @@ function SaveForReuse({ block, onSave }: { block: BaseBlock; onSave: (name: stri
         }}
         placeholder="Pricing section"
         className="h-8 text-xs"
+      />
+      <Toggle
+        label="Keep every copy the same"
+        checked={synced}
+        onChange={setSynced}
+        hint="Change it on any page and every page that uses it changes when that page is saved. Off, each place it is put is a copy of its own."
       />
       <div className="flex items-center justify-end gap-1.5">
         <button onClick={() => setNaming(false)} className="h-7 px-2.5 rounded-md text-xs text-fg-muted hover:text-fg">
@@ -674,6 +724,29 @@ function InspectorBody({
       return <PricingPanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
     case "map":
       return <MapPanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
+    case "posts": {
+      const p = block.props as PostsProps;
+      return (
+        <>
+          <Field label="How many">
+            <Input type="number" min={1} max={24} value={p.count} onChange={(e) => set("count", Math.min(24, Math.max(1, Number(e.target.value) || 1)))} />
+          </Field>
+          <Field label="Layout">
+            <SegBtns value={p.layout} options={["grid", "list"] as const} onChange={(v) => set("layout", v)} labelFor={(v) => (v === "grid" ? "Cards" : "List")} />
+          </Field>
+          <Field label="Only posts tagged">
+            <Input aria-label="Only posts tagged" value={p.tag} placeholder="Every post" onChange={(e) => set("tag", e.target.value)} />
+          </Field>
+          <Toggle label="Cover pictures" checked={p.showCover} onChange={(v) => set("showCover", v)} />
+          <Toggle label="Dates and authors" checked={p.showDate} onChange={(v) => set("showDate", v)} />
+          <Toggle label="Summaries" checked={p.showExcerpt} onChange={(v) => set("showExcerpt", v)} />
+          <p className="text-[11px] text-fg-subtle">
+            Lists the site&apos;s published posts, newest first. A page becomes a post in its page settings, with no
+            block selected; the dashboard&apos;s New post makes one directly.
+          </p>
+        </>
+      );
+    }
     case "code":
       return <CodePanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
     default:

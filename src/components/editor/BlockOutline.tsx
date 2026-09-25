@@ -45,6 +45,11 @@ function describe(block: BaseBlock): string {
     const first = named || (typeof props.code === "string" ? props.code.split("\n").find((l) => l.trim())?.trim() ?? "" : "");
     return first.length > 34 ? `${first.slice(0, 34)}…` : first;
   }
+  if (block.type === "posts") {
+    const n = typeof props.count === "number" ? props.count : 6;
+    const tag = typeof props.tag === "string" && props.tag.trim() ? ` tagged ${props.tag.trim()}` : "";
+    return `Newest ${n}${tag}`;
+  }
   if (block.type === "columns") return `${columnCount(block)} columns`;
   if (block.type === "section") return `${block.children?.length ?? 0} inside`;
   return "";

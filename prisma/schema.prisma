@@ -82,6 +82,20 @@ model Page {
   content         String    @default("[]")
   published       Boolean   @default(false)
   isHome          Boolean   @default(false)
+  /// The page a visitor meets when an address on the site finds nothing,
+  /// served with a 404 status and exported as 404.html. One per site, and in
+  /// neither the menu nor the sitemap.
+  isNotFound      Boolean   @default(false)
+  /// A blog post: listed by the posts block and in the site's feed, headed
+  /// with its date, author, cover and tags, and kept out of the menu.
+  isPost          Boolean   @default(false)
+  postDate        DateTime?
+  author          String?
+  /// A sentence or two for the list of posts and the feed.
+  excerpt         String?
+  coverImage      String?
+  /// Comma-separated.
+  tags            String?
   sortOrder       Int       @default(0)
   /// Set on a page this app generated and still owns: "impressum" or
   /// "datenschutz". It is what lets the footer find them, keeps them out of
@@ -112,9 +126,33 @@ model SavedBlock {
   type      String
   /// The block and everything inside it, as JSON.
   content   String
+  /// Kept the same on every page it is placed on: a copy changed on one page
+  /// is written into every other copy when that page is saved (see
+  /// lib/synced-blocks). A copy carries this row's id as `synced`.
+  synced    Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+/// A site or a page somebody saved to start others from, beside the built-in
+/// templates. Kept whole, so a template made from a site is every page and
+/// setting it had on the day it was saved; later changes to that site do not
+/// reach it.
+model UserTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  /// "site" or "page".
+  kind      String
+  /// A site archive (see lib/site-archive) for a site; `{ title, content }`
+  /// for a page, as JSON.
+  content   String
+  /// The address of the site it was saved from, so the links inside it can be
+  /// moved to the address of whatever is made from it.
+  fromSlug  String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
 }
 
 /// A site or page that was deleted, kept whole so it can be put back.

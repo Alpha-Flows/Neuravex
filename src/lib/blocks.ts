@@ -3,7 +3,7 @@ import {
   DividerProps, SpacerProps, SectionProps, ColumnsProps,
   VideoProps, QuoteProps, ListProps, FormProps, HtmlProps,
   GalleryProps, AccordionProps, SliderProps, AudioProps, IconProps,
-  SocialProps, TableProps, PricingProps, MapProps, CodeProps,
+  SocialProps, TableProps, PricingProps, MapProps, CodeProps, PostsProps,
   BlockType,
 } from "@/types";
 
@@ -419,6 +419,21 @@ export const BLOCKS: BlockDefinition[] = [
       wrap: false,
       lineNumbers: false,
     } satisfies CodeProps,
+  },
+  {
+    type: "posts",
+    label: "Blog posts",
+    category: "content",
+    icon: "✎",
+    description: "The site's blog posts, newest first, with their covers, dates and summaries. New posts appear on their own.",
+    defaultProps: {
+      count: 6,
+      layout: "grid",
+      tag: "",
+      showCover: true,
+      showExcerpt: true,
+      showDate: true,
+    } satisfies PostsProps,
   },
 ];
 

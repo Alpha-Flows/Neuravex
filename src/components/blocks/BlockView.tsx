@@ -25,6 +25,7 @@ import { MapBlock } from "./MapBlock";
 import { CodeBlock } from "./CodeBlock";
 import { BlockBoundary } from "./BlockBoundary";
 import { safeProps } from "@/lib/block-tree";
+import { PostList } from "./PostList";
 
 interface ContainerHandlers {
   onSelect?: (id: string | null) => void;
@@ -118,6 +119,8 @@ function BlockBody({ block: raw, onChange, disabled, onSelect, onChildDelete, on
       return <MapBlock blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     case "code":
       return <CodeBlock blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+    case "posts":
+      return <PostList props={block.props} disabled={disabled} />;
     default:
       return <div className="text-red-500 text-sm">Unknown block: {String(block.type)}</div>;
   }
