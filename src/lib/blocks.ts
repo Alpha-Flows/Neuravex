@@ -136,7 +136,7 @@ export const BLOCKS: BlockDefinition[] = [
     label: "Video",
     category: "media",
     icon: "▶",
-    description: "An embedded video.",
+    description: "A YouTube or Vimeo link, or a video file of your own.",
     defaultProps: {
       // Empty on purpose: the block asks for a video instead of shipping one.
       // It used to default to a demo clip hosted on w3schools.com, which every
@@ -144,6 +144,7 @@ export const BLOCKS: BlockDefinition[] = [
       src: "",
       poster: "",
       ratio: "16/9",
+      title: "",
     } satisfies VideoProps,
   },
   {
@@ -228,10 +229,14 @@ export const BLOCKS: BlockDefinition[] = [
     icon: "⇆",
     description: "Pictures one at a time, with arrows to move between them.",
     defaultProps: {
+      // Bundled photographs with the library's descriptions and sizes, and a
+      // caption on each that adds to the picture rather than repeating its
+      // alt text — a screen reader reads both, and hearing the same sentence
+      // twice is what a caption that only describes the picture costs.
       slides: [
-        { src: "/stock/nature/sam-ferrara-1527pjeb6jg-unsplash.jpg", alt: "Mountain peaks above the clouds at sunset", caption: "", naturalWidth: 2560, naturalHeight: 1706, altFromLibrary: true },
-        { src: "/stock/nature/cristian-palmer-3leBubkp5hk-unsplash.jpg", alt: "Sunlight through turquoise water", caption: "", naturalWidth: 2560, naturalHeight: 1920, altFromLibrary: true },
-        { src: "/stock/nature/sebastian-unrau-sp-p7uuT0tw-unsplash.jpg", alt: "A misty forest path", caption: "", naturalWidth: 2560, naturalHeight: 1706, altFromLibrary: true },
+        { src: "/stock/nature/sam-ferrara-1527pjeb6jg-unsplash.jpg", alt: "Mountain peaks above the clouds at sunset", caption: "Day one — above the clouds", naturalWidth: 2560, naturalHeight: 1706, altFromLibrary: true },
+        { src: "/stock/nature/cristian-palmer-3leBubkp5hk-unsplash.jpg", alt: "Sunlight through turquoise water", caption: "Day two — down to the lagoon", naturalWidth: 2560, naturalHeight: 1920, altFromLibrary: true },
+        { src: "/stock/nature/sebastian-unrau-sp-p7uuT0tw-unsplash.jpg", alt: "A misty forest path", caption: "Day three — home through the forest", naturalWidth: 2560, naturalHeight: 1706, altFromLibrary: true },
       ],
       ratio: "16/9",
       rounded: "xl",
@@ -250,7 +255,7 @@ export const BLOCKS: BlockDefinition[] = [
       // rather than shipping one somebody else hosts.
       src: "",
       title: "Episode 1 — Getting started",
-      description: "",
+      description: "Why we started the show, who we are, and what the next ten episodes will cover.",
     } satisfies AudioProps,
   },
   {
@@ -268,6 +273,9 @@ export const BLOCKS: BlockDefinition[] = [
       // every page view, which is the owner's decision to make, not ours.
       mode: "card",
       height: 360,
+      linkLabel: "Open in OpenStreetMap",
+      googleLink: true,
+      googleLabel: "Open in Google Maps",
     } satisfies MapProps,
   },
   {
@@ -308,16 +316,21 @@ export const BLOCKS: BlockDefinition[] = [
     label: "Social links",
     category: "content",
     icon: "@",
-    description: "Icons linking to your profiles elsewhere.",
+    description:
+      "A row of icons linking to your profiles elsewhere, in a page's footer say. Each link is a network and its address — https://www.instagram.com/yourname, mailto:you@yourdomain.com or a page of this site — and one with no address is not shown.",
     defaultProps: {
-      // "#" until somebody names their own profile, the way a new button
-      // starts. A network's home page would be a guess at an address, and a
-      // default that names somewhere off the machine is what the block
-      // defaults test exists to catch.
+      // Empty until somebody names their own profile. A network's home page
+      // would be a guess at an address, and a default that names somewhere
+      // off the machine is what the block defaults test exists to catch. The
+      // email link used to start as `mailto:hello@example.com`, and a block
+      // dropped in and published as it came sent every visitor's email to a
+      // domain set aside for examples. An empty link is faded on the canvas
+      // and left off the page, so a new block publishes nothing it was not
+      // given.
       links: [
-        { network: "instagram", href: "#" },
-        { network: "linkedin", href: "#" },
-        { network: "email", href: "mailto:hello@example.com" },
+        { network: "instagram", href: "" },
+        { network: "linkedin", href: "" },
+        { network: "email", href: "" },
       ],
       size: "md",
       shape: "circle",
@@ -333,15 +346,15 @@ export const BLOCKS: BlockDefinition[] = [
     description: "Rows and columns — opening hours, a price list, a comparison.",
     defaultProps: {
       rows: [
-        ["Day", "Opening hours"],
+        ["Day", "Hours"],
         ["Monday – Friday", "9:00 – 18:00"],
         ["Saturday", "10:00 – 14:00"],
         ["Sunday", "Closed"],
       ],
       headerRow: true,
-      headerColumn: false,
+      headerColumn: true,
       striped: true,
-      caption: "",
+      caption: "Opening hours",
     } satisfies TableProps,
   },
   {
@@ -396,7 +409,9 @@ export const BLOCKS: BlockDefinition[] = [
     icon: "{}",
     description: "A code sample, shown exactly as written in a monospaced font.",
     defaultProps: {
-      code: 'npm install\nnpm run dev',
+      // Short enough to replace at a glance, and a comment, a command and an
+      // option each, so the sample shows its colours before it is edited.
+      code: "# Install what the project needs, then start it\nnpm install\nnpm run dev -- --port 3000",
       language: "bash",
       filename: "",
       theme: "dark",

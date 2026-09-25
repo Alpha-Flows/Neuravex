@@ -5,7 +5,8 @@ import { sanitizeStyleAttribute } from "./css-safety";
 import { sanitizeInlineHtml, sanitizeHtml } from "./sanitize";
 import { cssColor, cssLength } from "./css-value";
 import { normalizeLayer } from "./block-layer";
-import { DEFAULT_ICON, isIconName } from "./icon-names";
+import { resolveIconName } from "./icon-names";
+import { MAX_SOCIAL_HREF, MAX_SOCIAL_LINKS, normaliseSocialHref } from "./social-links";
 
 /**
  * What a block tree is allowed to be, checked at every door.
@@ -80,8 +81,17 @@ function safeMediaSrc(value: unknown): string | undefined {
   return /^(?:mailto|tel):/i.test(href) ? undefined : href;
 }
 
-/** A string prop, trimmed to a length a database row can hold. */
-const text = (max = MAX_TEXT) => z.string().max(max).catch("");
+/**
+ * A string prop, cut to a length a database row can hold.
+ *
+ * Cut, not emptied. This was `z.string().max(max).catch("")`, so one
+ * character over the limit threw the whole value away: a slide's
+ * description pasted at 1,200 characters came back as `alt=""`, and the
+ * picture was announced to a screen reader as decoration. Nothing told the
+ * author either way.
+ */
+const text = (max = MAX_TEXT) =>
+  z.unknown().optional().transform((v) => (typeof v === "string" ? v.slice(0, max) : ""));
 
 // ---------------------------------------------------------------------------
 // Per-type prop schemas
@@ -99,8 +109,53 @@ const colorProp = z.string().max(200).transform((v) => cssColor(v) ?? "").catch(
 const lengthProp = (fallback: number) =>
   z.unknown().optional().transform((v) => (typeof v === "number" && Number.isFinite(v) ? v : fallback)).pipe(z.number().min(-10_000).max(10_000).catch(fallback));
 
+/**
+ * Inline HTML, sanitised and no longer than `max` — measured after sanitising.
+ *
+ * It was measured before, and sanitising makes text longer: `&` is written
+ * back as `&amp;` and `<br>` as `<br />`. So a save stored more than the limit,
+ * both read paths cut it again, and a 20,000-character FAQ answer written with
+ * ampersands came back from the published page at half its length, ending in
+ * `x&` where an entity had been cut in two — and the editor, which reads
+ * through the same door, saved the shortened copy the next time. The cut now
+ * falls on what is stored, clear of a tag or an entity, so a second pass over
+ * the result leaves it exactly as it is.
+ */
+function clampInlineHtml(value: string, max: number): string {
+  let out = sanitizeInlineHtml(value.slice(0, max));
+  let room = max;
+  while (out.length > max && room > 0) {
+    let cut = out.slice(0, room);
+    const tag = cut.lastIndexOf("<");
+    if (tag > cut.lastIndexOf(">")) cut = cut.slice(0, tag);
+    const entity = cut.lastIndexOf("&");
+    if (entity > cut.lastIndexOf(";")) cut = cut.slice(0, entity);
+    out = sanitizeInlineHtml(cut);
+    // Cutting inside an element leaves it open and the sanitiser closes it
+    // again, which adds a few characters back; the next try leaves room for
+    // them. `room` shrinks every time round, so this ends.
+    room = cut.length - Math.max(1, out.length - max);
+  }
+  return out.length > max ? "" : out;
+}
+
 const inlineText = (max = MAX_TEXT) =>
-  z.unknown().optional().transform((v) => (typeof v === "string" ? sanitizeInlineHtml(v.slice(0, max)) : ""));
+  z.unknown().optional().transform((v) => (typeof v === "string" ? clampInlineHtml(v, max) : ""));
+
+/**
+ * Inline HTML for words a block draws inside a link of its own — a button's
+ * label, a map's "Open in OpenStreetMap".
+ *
+ * The formatting toolbar can link any words it is given, and a link inside a
+ * link is not HTML: the parser closes the outer one before the inner one
+ * begins. On the published page React saw a different tree from the one it
+ * had drawn and rebuilt the whole page in the browser; in the downloaded
+ * copy, which has no script to rebuild anything, a pricing plan's button came
+ * out as an empty coloured bar with its label underneath as a bare link. The
+ * words stay; only the link around them goes. It runs on the sanitiser's own
+ * output, whose tags are regular enough for a pattern to find.
+ */
+const linkLabel = (max: number) => inlineText(max).transform((v) => v.replace(/<\/?a\b[^>]*>/gi, ""));
 
 const flag = (fallback: boolean) => z.boolean().catch(fallback);
 
@@ -113,13 +168,21 @@ const flag = (fallback: boolean) => z.boolean().catch(fallback);
  * blank row that was never written. A gallery of forty pictures with one bad
  * entry should come back as thirty-nine pictures, and a gallery of five
  * hundred as the first sixty, not as nothing.
+ *
+ * The cap counts entries kept, not entries read. It first counted entries
+ * read, so a pricing block holding four broken plans and then a good one came
+ * back with no plans at all: the good one was the fifth, and only four were
+ * ever looked at. How far past the cap it will look is still bounded, though —
+ * a four-megabyte page can hold two million `0`s, and parsing every one to
+ * find sixty pictures is work somebody else gets to ask for.
  */
 function listOf<T extends z.ZodType>(item: T, max: number) {
   return z.unknown().optional().transform((value) => {
     const out: z.output<T>[] = [];
     if (!Array.isArray(value)) return out;
-    for (const entry of value.slice(0, max)) {
-      const parsed = item.safeParse(entry);
+    const scan = Math.min(value.length, max * 4 + 16);
+    for (let i = 0; i < scan && out.length < max; i++) {
+      const parsed = item.safeParse(value[i]);
       if (parsed.success) out.push(parsed.data);
     }
     return out;
@@ -139,13 +202,17 @@ const mediaItem = z.object({
 const MAX_GALLERY_IMAGES = 60;
 const MAX_SLIDES = 30;
 const MAX_ACCORDION_ITEMS = 100;
-const MAX_TABLE_ROWS = 200;
-const MAX_TABLE_COLUMNS = 12;
-const MAX_PRICING_PLANS = 4;
-const MAX_PLAN_FEATURES = 30;
-const MAX_SOCIAL_LINKS = 20;
-
-const SOCIAL_NETWORKS = [
+export const MAX_TABLE_ROWS = 200;
+export const MAX_TABLE_COLUMNS = 12;
+export const MAX_PRICING_PLANS = 4;
+export const MAX_PLAN_FEATURES = 30;
+/**
+ * The networks a social link can name. Kept as a list here, beside the schema
+ * that checks it, rather than read from the table of drawings, so this file
+ * stays the one place that says what a stored tree may hold; a test holds the
+ * two lists to each other, so a network cannot be allowed without a drawing.
+ */
+export const SOCIAL_NETWORKS = [
   "instagram", "facebook", "x", "linkedin", "youtube", "tiktok", "github", "mastodon",
   "bluesky", "pinterest", "threads", "whatsapp", "email", "website",
 ] as const;
@@ -179,7 +246,8 @@ const PROPS: Record<string, z.ZodType> = {
   }),
 
   button: z.object({
-    label: inlineText(1000),
+    // Drawn inside the button's own link; see `linkLabel`.
+    label: linkLabel(1000),
     // The whole of NVX-001: nothing checked this, so a `javascript:` href
     // from an import, a paste or the MCP server was stored, published and
     // copied into the customer's download, where there is no CSP to stop it.
@@ -229,10 +297,24 @@ const PROPS: Record<string, z.ZodType> = {
 
   video: z.object({
     // A <video> element, so any http(s) file is a legitimate source; what is
-    // not legitimate is a scheme that runs something.
+    // not legitimate is a scheme that runs something. A YouTube or Vimeo link
+    // is stored as the author pasted it and turned into a player address at
+    // render by `videoEmbed`, which builds that address from scratch — so
+    // nothing of the stored link but a checked id, a start time and Vimeo's
+    // hash ever reaches the frame.
     src: z.unknown().optional().transform((v) => safeMediaSrc(v) ?? ""),
     poster: z.unknown().optional().transform((v) => safeMediaSrc(v) ?? ""),
     ratio: z.enum(["16/9", "4/3", "1/1", "9/16"]).catch("16/9"),
+    // Plain text for a `title` or `aria-label` attribute, never markup, and
+    // cut to length rather than emptied. Angle brackets are dropped because
+    // the privacy audit reads every prop called `title` as rich text: a
+    // title of `<img src=https://x.example/>` was never going to be drawn as
+    // an image, but the audit would have named x.example in the privacy
+    // notice all the same.
+    title: z
+      .unknown()
+      .optional()
+      .transform((v) => (typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f<>]/g, "").slice(0, 300) : "")),
   }),
 
   quote: z.object({
@@ -273,8 +355,13 @@ const PROPS: Record<string, z.ZodType> = {
 
   gallery: z.object({
     images: listOf(mediaItem, MAX_GALLERY_IMAGES),
-    columns: z.coerce.number().int().min(2).max(4).catch(3),
-    gap: lengthProp(12),
+    // Brought into range rather than sent back to the default: somebody who
+    // asked for six columns wants as many as there are, not three. The gap
+    // was a `lengthProp`, which keeps anything within ±10,000px — a negative
+    // gap is one CSS throws away, and a gap of several hundred pixels leaves
+    // a gallery with more gap in it than picture.
+    columns: z.coerce.number().transform((n) => Math.min(Math.max(Math.round(n), 2), 4)).catch(3),
+    gap: z.coerce.number().transform((n) => Math.min(Math.max(Math.round(n), 0), 64)).catch(12),
     aspect: z.enum(["square", "landscape", "portrait", "natural"]).catch("square"),
     rounded: z.enum(["none", "md", "xl"]).catch("md"),
     lightbox: flag(true),
@@ -298,13 +385,24 @@ const PROPS: Record<string, z.ZodType> = {
   audio: z.object({
     // An <audio> element, so the rule is the video block's: any http(s) file
     // or one of this site's own, and never a scheme that runs something.
-    src: z.unknown().optional().transform((v) => safeMediaSrc(v) ?? ""),
+    // Stricter than a picture's in one way: `safeMediaSrc` lets a `data:`
+    // image through because the clipboard pastes pictures that way, and no
+    // path in the builder produces a sound like that. A `data:` source here
+    // could only be a whole file stuffed into the page's row, copied into
+    // every revision and past the upload route's size cap and content check.
+    src: z.unknown().optional().transform((v) => {
+      const src = safeMediaSrc(v);
+      return src && !/^data:/i.test(src) ? src : "";
+    }),
     title: inlineText(300),
     description: inlineText(2000),
   }),
 
   icon: z.object({
-    icon: z.unknown().optional().transform((v) => (isIconName(v) ? v : DEFAULT_ICON)),
+    // A name from the bundled set, one lucide used to spell differently, or
+    // the star — never nothing, because an empty box is a gap nobody can see
+    // to go and fix. See `icon-names.ts`.
+    icon: z.unknown().optional().transform(resolveIconName),
     size: z.enum(["sm", "md", "lg", "xl"]).catch("md"),
     color: colorProp,
     shape: z.enum(["none", "circle", "square"]).catch("circle"),
@@ -315,13 +413,29 @@ const PROPS: Record<string, z.ZodType> = {
 
   social: z.object({
     links: listOf(
-      z.object({
-        network: z.enum(SOCIAL_NETWORKS).catch("website"),
+      z
+        .object({
+          network: z.enum(SOCIAL_NETWORKS).catch("website"),
+          href: z.unknown().optional(),
+        })
         // Every one of these is a link on the customer's published page, so
         // it gets the button's rule: http(s), mailto:, tel:, a path, nothing
-        // that runs.
-        href: z.unknown().optional().transform((v) => isSafeHref(v) ?? ""),
-      }),
+        // that runs. It is finished first the way the inspector would have
+        // finished it — `hello@example.com` under Email becomes a `mailto:`,
+        // `@you` under Instagram an Instagram address — because the MCP
+        // server and an import write here without the inspector, and stored
+        // as typed either one is a relative link to a 404 on the author's
+        // own site. That only ever adds a scheme, so it runs before the
+        // scheme is judged and never around it. An address longer than any
+        // profile's is not kept at all: stored, it would be read again on
+        // every save and every visit (see `MAX_SOCIAL_HREF`).
+        .transform(({ network, href }) => ({
+          network,
+          href:
+            typeof href === "string" && href.length <= MAX_SOCIAL_HREF
+              ? (isSafeHref(normaliseSocialHref(network, href)) ?? "")
+              : "",
+        })),
       MAX_SOCIAL_LINKS,
     ),
     size: z.enum(["sm", "md", "lg"]).catch("md"),
@@ -331,7 +445,30 @@ const PROPS: Record<string, z.ZodType> = {
   }),
 
   table: z.object({
-    rows: listOf(listOf(inlineText(5000), MAX_TABLE_COLUMNS), MAX_TABLE_ROWS),
+    // A row and a cell are repaired differently, because losing one costs
+    // different things. A row that is not a list was never a row, so it is
+    // dropped and the rows around it close up — except a bare string, which is
+    // what an import or an agent writes when it means a row of one cell. A
+    // cell is never dropped: taking one out of the middle of a row would slide
+    // every cell after it into the wrong column, and a price list would put
+    // its prices under the heading for sizes. A cell that is not text becomes
+    // an empty one instead, and a number — a price, a quantity — is written
+    // out rather than lost. Rows are left the lengths they arrived; the table
+    // pads them to its widest row when it draws, so nothing here invents a
+    // cell.
+    rows: listOf(
+      z
+        .unknown()
+        .refine((row) => Array.isArray(row) || typeof row === "string")
+        .transform((row): unknown => (typeof row === "string" ? [row] : row))
+        .pipe(
+          listOf(
+            z.preprocess((cell) => (typeof cell === "number" && Number.isFinite(cell) ? String(cell) : cell), inlineText(5000)),
+            MAX_TABLE_COLUMNS,
+          ),
+        ),
+      MAX_TABLE_ROWS,
+    ),
     headerRow: flag(true),
     headerColumn: flag(false),
     striped: flag(true),
@@ -345,8 +482,12 @@ const PROPS: Record<string, z.ZodType> = {
         price: inlineText(100),
         period: inlineText(100),
         description: inlineText(1000),
-        features: listOf(inlineText(1000), MAX_PLAN_FEATURES),
-        buttonLabel: inlineText(200),
+        // A feature that is not a string is dropped rather than repaired.
+        // `inlineText` turns anything else into "", and on a plan card that
+        // would be a tick beside nothing — a line the author never wrote.
+        features: listOf(z.string().transform((v) => clampInlineHtml(v, 1000)), MAX_PLAN_FEATURES),
+        // Drawn inside the plan's own button link; see `linkLabel`.
+        buttonLabel: linkLabel(200),
         buttonHref: z.unknown().optional().transform((v) => isSafeHref(v) ?? "#"),
         highlighted: flag(false),
         badge: inlineText(100),
@@ -358,20 +499,52 @@ const PROPS: Record<string, z.ZodType> = {
 
   map: z.object({
     address: inlineText(500),
-    lat: z.coerce.number().min(-90).max(90).catch(52.5163),
-    lng: z.coerce.number().min(-180).max(180).catch(13.3777),
-    zoom: z.coerce.number().int().min(1).max(19).catch(15),
+    // A number, or a string that is one. `z.coerce.number()` read an empty
+    // field as 0, which is a real latitude — a pin off the coast of Ghana in
+    // place of the one the author had — so "" falls back instead. Six
+    // decimals is ten centimetres, finer than any front door.
+    lat: z.union([z.number(), z.string().trim().min(1).transform(Number)])
+      .pipe(z.number().min(-90).max(90))
+      .transform((v) => Math.round(v * 1e6) / 1e6)
+      .catch(52.5163),
+    lng: z.union([z.number(), z.string().trim().min(1).transform(Number)])
+      .pipe(z.number().min(-180).max(180))
+      .transform((v) => Math.round(v * 1e6) / 1e6)
+      .catch(13.3777),
+    // Clamped rather than refused: 21 from a Google link means "as close as
+    // it goes", and OpenStreetMap's closest is 19.
+    zoom: z.union([z.number(), z.string().trim().min(1).transform(Number)])
+      .pipe(z.number())
+      .transform((v) => Math.min(19, Math.max(1, Math.round(v))))
+      .catch(16),
     mode: z.enum(["card", "embed"]).catch("card"),
-    height: z.coerce.number().min(160).max(900).catch(360),
+    height: z.union([z.number(), z.string().trim().min(1).transform(Number)])
+      .pipe(z.number())
+      .transform((v) => Math.min(900, Math.max(160, Math.round(v))))
+      .catch(360),
+    // Empty is allowed and means the mode's own wording, so a block stored
+    // before these existed draws the links it always did. Both are drawn
+    // inside a link of their own; see `linkLabel`.
+    linkLabel: linkLabel(200),
+    googleLink: flag(true),
+    googleLabel: linkLabel(200),
   }),
 
   code: z.object({
     // Plain text. React writes it out escaped, so a sample of HTML is shown
     // as HTML rather than becoming part of the page — which is why this is
     // not sanitised: sanitising it would change the sample.
-    code: text(),
-    language: text(40),
-    filename: text(200),
+    //
+    // Cut to length rather than emptied. `text()` answers a string one
+    // character over its limit with "", which for a sample pasted in from a
+    // long file lost all of it instead of its tail. Line endings are made
+    // `\n` here because a text box reports nothing else: a sample stored with
+    // `\r\n` read back into the editor differed from it on every line, and
+    // the first keystroke rewrote all of them.
+    code: z.unknown().optional().transform((v) => (typeof v === "string" ? v.replace(/\r\n?/g, "\n").slice(0, MAX_TEXT) : "")),
+    language: z.unknown().optional().transform((v) => (typeof v === "string" ? v.trim().slice(0, 40) : "")),
+    // One line in the header bar, so a newline in it is a space.
+    filename: z.unknown().optional().transform((v) => (typeof v === "string" ? v.replace(/[\r\n\t]+/g, " ").slice(0, 200) : "")),
     theme: z.enum(["dark", "light"]).catch("dark"),
     wrap: flag(false),
     lineNumbers: flag(false),
@@ -396,6 +569,8 @@ export type TreeResult =
 interface Budget {
   nodes: number;
   bytes: number;
+  /** Every id handed out so far in this tree. */
+  ids: Set<string>;
 }
 
 function normalizeNode(node: unknown, depth: number, budget: Budget): BaseBlock | null {
@@ -419,10 +594,16 @@ function normalizeNode(node: unknown, depth: number, budget: Budget): BaseBlock 
   if (!parsed.success) return null;
 
   const out: BaseBlock = {
-    id: typeof raw.id === "string" && raw.id.length <= 128 ? raw.id : cryptoId(),
+    // A second block with an id already in this tree gets a new one. Nothing
+    // made ids unique — an import, a paste into the JSON, or an agent naming
+    // its blocks "pricing" twice all could — and two blocks sharing one are
+    // selected together in the editor and draw the same anchors and labels
+    // on the page, so a lightbox or a plan's button speaks for the wrong one.
+    id: typeof raw.id === "string" && raw.id.length <= 128 && !budget.ids.has(raw.id) ? raw.id : cryptoId(),
     type: type as BaseBlock["type"],
     props: parsed.data,
   };
+  budget.ids.add(out.id);
 
   if (Array.isArray(raw.children)) {
     const children = raw.children
@@ -475,7 +656,7 @@ export function normalizeBlockTree(input: unknown): TreeResult {
   if (!Array.isArray(value)) return { ok: false, error: "A page's content has to be a list of blocks." };
   if (value.length > MAX_NODES) return { ok: false, error: "That page has more blocks than Neuravex will store." };
 
-  const budget: Budget = { nodes: 0, bytes: 0 };
+  const budget: Budget = { nodes: 0, bytes: 0, ids: new Set() };
   const tree = value
     .map((node) => normalizeNode(node, 1, budget))
     .filter((node): node is BaseBlock => node !== null);

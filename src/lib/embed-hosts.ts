@@ -28,10 +28,29 @@ export const EMBED_HOSTS = [
   "vimeo.com",
   "codepen.io",
   "codesandbox.io",
+  // The map block's embedded mode, and the <iframe> OpenStreetMap's own share
+  // dialog hands out for a Custom HTML block. Only the www host: that is the
+  // one `export/embed.html` is served from, and the tile servers the frame
+  // then draws from are the frame's business, not this page's `frame-src`.
+  "www.openstreetmap.org",
 ] as const;
 
 /** The same list as CSP source expressions, for `frame-src`. */
 export const EMBED_ORIGINS = EMBED_HOSTS.map((host) => `https://${host}`);
+
+/**
+ * Hosts that serve a great deal besides the thing meant to be framed, held to
+ * the one page that is.
+ *
+ * A video host's pages are all players, more or less. openstreetmap.org is a
+ * whole application: with the host alone on the list, the sanitiser let a
+ * Custom HTML block frame its sign-in page, a user's account settings or its
+ * OAuth consent screen on the customer's site, which is a clickjacking setup
+ * with somebody else's real login in it. Only the map is embeddable.
+ */
+const EMBED_PATHS: Partial<Record<(typeof EMBED_HOSTS)[number], string>> = {
+  "www.openstreetmap.org": "/export/embed.html",
+};
 
 /**
  * The `allow` tokens an embedded player has any use for.
@@ -77,7 +96,10 @@ export function normalizeEmbed(src: string | undefined | null): string | undefin
 
   if (url.protocol !== "https:") return undefined;
   if (url.username || url.password) return undefined;
-  if (!(EMBED_HOSTS as readonly string[]).includes(url.hostname.toLowerCase())) return undefined;
+  const host = url.hostname.toLowerCase();
+  if (!(EMBED_HOSTS as readonly string[]).includes(host)) return undefined;
+  const path = EMBED_PATHS[host as (typeof EMBED_HOSTS)[number]];
+  if (path !== undefined && url.pathname !== path) return undefined;
 
   return url.toString();
 }

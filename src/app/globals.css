@@ -76,10 +76,17 @@ html, body {
   padding-right: 1.5rem;
 }
 
-/* Public site defaults — light, readable */
+/* Public site defaults — light, readable.
+ *
+ * `color-scheme` too, because `:root` above says dark for the builder and a
+ * published page inherited it: the browser's own controls — an audio
+ * player, a form field, a scrollbar — were drawn dark on the page the
+ * builder served and light in the downloaded copy, whose stylesheet says
+ * light, and `color: initial` resolved to white on a white page. */
 .public-canvas {
   background: #ffffff;
   color: #0f172a;
+  color-scheme: light;
   min-height: 100vh;
 }
 .public-canvas a { color: inherit; }
@@ -280,31 +287,1961 @@ html, body {
  * --------------------------------------------------------------------- */
 
 /* == block: gallery == */
+/* The gallery's own id is a place to link to, and closing a picture links
+ * back to its tile. A sticky header is 4rem tall and a pill one floats 1rem
+ * below that, so either target would otherwise come to rest underneath it. */
+.nvx-gallery,
+.nvx-gallery-tile {
+  scroll-margin-top: 6rem;
+}
+
+/* The grid answers to the width it is given. A four-across gallery in one
+ * half of a Columns block was 130px tiles on a full desktop when this asked
+ * the window instead. It drops a column at a time — to three, then two, then
+ * one — and never adds one the author did not ask for. */
+.nvx-gallery-frame {
+  container-type: inline-size;
+}
+.nvx-gallery-grid {
+  --nvx-gallery-n: 3;
+  display: grid;
+  grid-template-columns: repeat(var(--nvx-gallery-n), minmax(0, 1fr));
+  gap: var(--nvx-gallery-gap, 12px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.nvx-gallery-grid[data-cols="2"] { --nvx-gallery-n: 2; }
+.nvx-gallery-grid[data-cols="4"] { --nvx-gallery-n: 4; }
+@container (max-width: 640px) {
+  .nvx-gallery-grid[data-cols="4"] { --nvx-gallery-n: 3; }
+}
+@container (max-width: 480px) {
+  .nvx-gallery-grid[data-cols="3"],
+  .nvx-gallery-grid[data-cols="4"] { --nvx-gallery-n: 2; }
+}
+@container (max-width: 300px) {
+  .nvx-gallery-grid[data-cols] { --nvx-gallery-n: 1; }
+}
+
+/* "Natural" keeps every picture its own shape. In a grid that left each row
+ * as tall as its tallest picture and a hole under every landscape one beside
+ * a portrait, so it is laid out in columns instead, each picture straight
+ * under the last. The price is the order: it runs down the first column and
+ * then the next, so the top row of nine pictures in three columns reads
+ * something like 1, 5 and 8, and the panel says so where the shape is
+ * chosen. Dealing the pictures into rows in the markup was considered and
+ * turned down: the column count changes with the container, and the markup
+ * can only be dealt for one count — at every other width, and to a screen
+ * reader or a keyboard at all widths, the order would have been scrambled
+ * instead. */
+.nvx-gallery-grid[data-aspect="natural"] {
+  display: block;
+  columns: var(--nvx-gallery-n);
+  column-gap: var(--nvx-gallery-gap, 12px);
+}
+.nvx-gallery-grid[data-aspect="natural"] > .nvx-gallery-item {
+  break-inside: avoid;
+  margin-bottom: var(--nvx-gallery-gap, 12px);
+}
+.nvx-gallery-grid[data-aspect="natural"] > .nvx-gallery-item:last-child {
+  margin-bottom: 0;
+}
+
+.nvx-gallery-figure {
+  position: relative;
+  margin: 0;
+}
+.nvx-gallery-tile {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  /* What shows while a picture is on its way — a faint box in the text's own
+   * colour, so it reads on a white page and on a dark section alike. */
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+.nvx-gallery-grid[data-aspect="square"] .nvx-gallery-tile { aspect-ratio: 1 / 1; }
+.nvx-gallery-grid[data-aspect="landscape"] .nvx-gallery-tile { aspect-ratio: 4 / 3; }
+.nvx-gallery-grid[data-aspect="portrait"] .nvx-gallery-tile { aspect-ratio: 3 / 4; }
+.nvx-gallery-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.nvx-gallery-grid[data-aspect="natural"] .nvx-gallery-img {
+  height: auto;
+}
+/* A picture whose size was never recorded — one typed in as an address, or
+ * written by an agent — has no height until its bytes arrive. Sixty of them
+ * were sixty 0px pictures, every one of them "in view", so a lazy gallery
+ * fetched all 41 MB of itself at once and then reshuffled its columns as
+ * each landed. 4:3 holds a place for it until the file says otherwise. Only
+ * where no size is given: a rule on every picture would outrank the ratio
+ * the browser takes from `width` and `height`, and a picture whose shape is
+ * known would open at 4:3 and jump. */
+.nvx-gallery-grid[data-aspect="natural"] .nvx-gallery-img:not([width][height]) {
+  aspect-ratio: auto 4 / 3;
+}
+a.nvx-gallery-tile .nvx-gallery-img {
+  transition: transform 0.35s ease;
+}
+a.nvx-gallery-tile:hover .nvx-gallery-img {
+  transform: scale(1.03);
+}
+a.nvx-gallery-tile:focus-visible {
+  outline: 2px solid var(--site-accent, #6366f1);
+  outline-offset: 3px;
+}
+
+/* A tile the editor has no picture for — one whose address was refused on the
+ * way in. The published page leaves it out; the canvas keeps the hole, so the
+ * author can see it and fill it. */
+.nvx-gallery-missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 6rem;
+  padding: 0.75rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: color-mix(in srgb, currentColor 65%, transparent);
+}
+
+.nvx-gallery-caption {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, currentColor 72%, transparent);
+}
+
+/* The editor's empty caption. It is the same element a caption is typed into,
+ * so it keeps its focus as the first letter arrives and it drops into the
+ * flow; until then it hangs over the foot of the tile, and only while that
+ * tile is hovered. Shown for every tile whenever the block was, it covered the
+ * bottom of every picture in the grid. The selectors are long enough to win
+ * over `.inline-editable`'s own hover and focus tints, which are meant for
+ * text on the page and were unreadable laid over a photograph. */
+.nvx-gallery .nvx-gallery-figure > .nvx-gallery-caption-add {
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  background: rgb(255 255 255 / 0.94);
+  color: #1e293b;
+  font-size: 0.75rem;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+/* Keyed on the class the component sets while the caption is blank, not on
+ * what the element holds. `:has(> br:only-child)` was the first attempt at
+ * "a cleared caption", and `:only-child` counts elements only — so
+ * "Ribs<br>slow-cooked" matched too, and the placeholder was drawn over the
+ * caption's own words. The editor alone sets `data-placeholder`. */
+.nvx-gallery .nvx-gallery-figure > .nvx-gallery-caption-add[data-placeholder]::before {
+  content: attr(data-placeholder);
+  color: #64748b;
+}
+.nvx-gallery .nvx-gallery-item:hover .nvx-gallery-figure > .nvx-gallery-caption-add,
+.nvx-gallery .nvx-gallery-figure > .nvx-gallery-caption-add:focus {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The lightbox: one overlay per picture, each hidden until the address names
+ * it. Nothing here runs a script, so it opens, steps and closes the same way
+ * in the downloaded site as on the builder's own copy of the page. */
+.nvx-gallery-lightbox {
+  display: none;
+}
+/* Never inside the builder. Preview cancels every link, so an overlay could
+ * only get there through an address typed with its fragment on — and then it
+ * covered the whole builder with a close link the canvas refused to follow,
+ * leaving the browser's Back button as the only way out. The rules below that
+ * reach outside the gallery say `:not(.editor-mode *)` for the same reason:
+ * hiding the page behind an open picture must not hide the builder. */
+.editor-mode .nvx-gallery-lightbox:target {
+  display: none;
+}
+.nvx-gallery-lightbox:target {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6vh 4vw;
+  background: rgb(6 8 18 / 0.94);
+  color: #ffffff;
+  /* It takes focus when it opens, so a keyboard continues from inside it. A
+   * ring round the whole window says nothing about where that focus is. */
+  outline: none;
+}
+.nvx-gallery-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+}
+.nvx-gallery-lightbox-figure {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 92vw;
+  margin: 0;
+  /* Clicks between the picture and the edge of this box belong to the
+   * backdrop behind it, which closes the picture. */
+  pointer-events: none;
+}
+.nvx-gallery-lightbox-figure > * {
+  pointer-events: auto;
+}
+.nvx-gallery-lightbox-img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 92vw;
+  max-height: 88vh;
+  object-fit: contain;
+}
+.nvx-gallery-lightbox-figure[data-captioned] > .nvx-gallery-lightbox-img {
+  max-height: calc(88vh - 4.5rem);
+}
+.nvx-gallery-lightbox-caption {
+  max-width: 60ch;
+  margin-top: 0.75rem;
+  text-align: center;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: rgb(255 255 255 / 0.86);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.nvx-gallery-lightbox-count {
+  position: absolute;
+  top: 1.25rem;
+  left: 1.25rem;
+  margin: 0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  color: rgb(255 255 255 / 0.75);
+}
+.nvx-gallery-lightbox-button {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  /* Dark glass rather than light: on a narrow window the picture runs under
+   * the arrows, and a white arrow on a pale tint over a pale photograph was
+   * barely there. A dark disc with a hairline edge reads over either. */
+  background: rgb(0 0 0 / 0.5);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.22);
+  color: #ffffff;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+.nvx-gallery-lightbox-button:hover {
+  background: rgb(0 0 0 / 0.72);
+}
+.nvx-gallery-lightbox-button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+.nvx-gallery-lightbox-close {
+  top: 0.75rem;
+  right: 0.75rem;
+}
+.nvx-gallery-lightbox-previous,
+.nvx-gallery-lightbox-next {
+  top: 50%;
+  margin-top: -1.375rem;
+}
+.nvx-gallery-lightbox-previous { left: 0.75rem; }
+.nvx-gallery-lightbox-next { right: 0.75rem; }
+
+/* The picture fades in; the dark behind it does not. Stepping from one
+ * overlay to the next swaps one backdrop for an identical one, and a backdrop
+ * that faded in each time let the page flash through between pictures. */
+@keyframes nvx-gallery-show {
+  from { opacity: 0; }
+}
+.nvx-gallery-lightbox:target .nvx-gallery-lightbox-figure {
+  animation: nvx-gallery-show 0.2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nvx-gallery-lightbox:target .nvx-gallery-lightbox-figure,
+  a.nvx-gallery-tile .nvx-gallery-img {
+    animation: none;
+    transition: none;
+  }
+  a.nvx-gallery-tile:hover .nvx-gallery-img {
+    transform: none;
+  }
+}
+
+/* Every stack of blocks is `isolation: isolate` (see "Depth" above), which
+ * makes it a stacking context: nothing inside it can be painted above
+ * something outside it, whatever its z-index. The site header is outside the
+ * page's stack at z-index 20, so an open picture came out with the header
+ * drawn across the top of it, and one in a section had the next section's
+ * text drawn over it. While a picture is open, each stack that holds it —
+ * and a layered block's own wrapper, whose z-index is an inline style — is
+ * lifted above its neighbours, which carries the overlay above the header.
+ * It lasts exactly as long as the picture is open. */
+.nvx-block-stack:has(.nvx-gallery-lightbox:target:not(.editor-mode *)),
+.nvx-block-stack > :has(.nvx-gallery-lightbox:target:not(.editor-mode *)) {
+  z-index: 2147483000 !important;
+}
+
+/* The page behind an open picture stays where it is. Without this a wheel or
+ * a swipe over the overlay scrolled the page underneath it, out of sight. */
+html:has(.nvx-gallery-lightbox:target:not(.editor-mode *)) {
+  overflow: hidden;
+}
+
+/* And it is taken away from everything but the eye, which the backdrop
+ * already covers. Painting over the page was not enough: Tab went Close,
+ * Previous, Next and then on to the site header's links behind the dark,
+ * Shift+Tab reached the tiles under it, and a screen reader could wander the
+ * whole page from inside something announced as a dialog. A script would
+ * trap focus; there is no script, but a hidden element can be neither
+ * focused nor read, and `visibility` is the one kind of hiding a descendant
+ * can undo for itself. So the body is hidden and the open overlay alone is
+ * made visible again — Tab then cycles its own links, the backdrop still
+ * takes the click that closes it, and `aria-modal` on it says the same to
+ * assistive technology. Only the overlay that is open is visible; a second
+ * gallery on the page, overlays and all, is hidden with the rest. */
+html:has(.nvx-gallery-lightbox:target:not(.editor-mode *)) body {
+  visibility: hidden;
+}
+.nvx-gallery-lightbox:target:not(.editor-mode *) {
+  visibility: visible;
+}
 /* == end block: gallery == */
 
 /* == block: accordion == */
+/*
+ * Questions that open without a script. The page draws each one as a
+ * <details>, and the canvas draws the same boxes out of plain elements (see
+ * accordion-editing.ts for why), so every rule here describes both: `[open]`
+ * is an open item on the page, `[data-open="true"]` one on the canvas.
+ *
+ * Every line and fill is mixed from currentColor rather than named. The same
+ * block sits on a white page in one place and inside a #0b0f1e section in
+ * another, and a section sets the text colour of what it holds — a grey
+ * picked for white would have been invisible on the dark one. Each mix
+ * follows a plain grey for a browser that does not know color-mix().
+ */
+.nvx-accordion {
+  display: flex;
+  flex-direction: column;
+}
+
+.nvx-accordion--bordered {
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-color: color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: var(--nvx-accordion-radius, 0.75rem);
+}
+/* With every question deleted, the box would still draw its top and bottom
+ * edges on the page: a stray two-pixel line with nothing to explain it. */
+.nvx-accordion--bordered:empty {
+  border: 0;
+}
+.nvx-accordion--bordered > .nvx-accordion-item + .nvx-accordion-item {
+  border-top: 1px solid rgba(127, 127, 127, 0.35);
+  border-top-color: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.nvx-accordion--separated {
+  gap: 0.75rem;
+}
+.nvx-accordion--separated > .nvx-accordion-item {
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  border-color: color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: var(--nvx-accordion-radius, 0.75rem);
+  background: rgba(127, 127, 127, 0.06);
+  background: color-mix(in srgb, currentColor 4%, transparent);
+}
+
+.nvx-accordion--minimal > .nvx-accordion-item {
+  border-bottom: 1px solid rgba(127, 127, 127, 0.35);
+  border-bottom-color: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+/* The question's row. `display: flex` alone takes the browser's triangle away
+ * in Chromium; Firefox wants `list-style`, Safari its own pseudo-element. */
+.nvx-accordion-summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  list-style: none;
+  cursor: pointer;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: var(--nvx-accordion-radius, 0.75rem);
+}
+.nvx-accordion-summary::-webkit-details-marker {
+  display: none;
+}
+/* Drawn inside the row, so it is never cut by the box around it, in the
+ * text's own colour, so it shows on a light page and a dark section alike. */
+.nvx-accordion-summary:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+.nvx-accordion-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.nvx-accordion-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  color: inherit;
+}
+.nvx-accordion-toggle:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* A chevron made of two borders: down while closed, up while open. */
+.nvx-accordion-marker {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  opacity: 0.65;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.nvx-accordion-summary:hover .nvx-accordion-marker {
+  opacity: 1;
+}
+.nvx-accordion-item[open] > .nvx-accordion-summary .nvx-accordion-marker,
+.nvx-accordion-item[data-open="true"] > .nvx-accordion-summary .nvx-accordion-marker {
+  transform: translateY(2px) rotate(-135deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nvx-accordion-marker {
+    transition: none;
+  }
+}
+
+/* The answer keeps the line breaks it was written with. */
+.nvx-accordion-body {
+  padding: 0 1.25rem 1.25rem;
+  font-weight: 400;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, currentColor 82%, transparent);
+}
+/* The page's links inherit their colour, so without a line one inside an
+ * answer would read as ordinary words. */
+.nvx-accordion-body a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+/* A question or an answer emptied on the canvas says what goes there, faded.
+ * The component marks the field blank itself (`isBlank`): Chrome leaves a
+ * lone <br> behind, which `:empty` does not match, and `:has(> br:only-child)`
+ * counts elements only, so it also matches "Mon–Fri<br>Sat" and would draw
+ * over real words. Only the editor sets `data-placeholder`. */
+.nvx-accordion .nvx-accordion-blank[data-placeholder]::before {
+  content: attr(data-placeholder);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Minimal lines its words up with the text above and below it, so the rows
+ * carry no side padding — and the focus ring moves out, clear of the words. */
+.nvx-accordion--minimal .nvx-accordion-summary,
+.nvx-accordion--minimal .nvx-accordion-body {
+  padding-left: 0;
+  padding-right: 0;
+}
+.nvx-accordion--minimal .nvx-accordion-summary:focus-visible {
+  outline-offset: 4px;
+}
 /* == end block: accordion == */
 
 /* == block: slider == */
+/*
+ * A row of pictures that snaps to one at a time, and links that move it.
+ *
+ * The slider has to work in the downloaded site, which runs no script, so the
+ * strip is a horizontal scroller with mandatory snapping — a swipe, a trackpad
+ * or the arrow keys all land on a whole picture — and the arrows and dots are
+ * links to a picture's fragment. `container` is there for two reasons: the
+ * arrows and captions shrink on a narrow slider rather than a narrow window,
+ * and inline-size containment keeps a row of 2560px photographs from telling
+ * a grid column how wide it wants to be.
+ */
+.nvx-slider {
+  container: nvx-slider / inline-size;
+  /* The height of the row of dots beneath the pictures, which the anchor
+   * below needs to centre the whole slider rather than only its pictures. */
+  --nvx-slider-below: 0px;
+}
+.nvx-slider[data-dots] {
+  --nvx-slider-below: 2.25rem;
+}
+
+.nvx-slider-track {
+  display: flex;
+  align-items: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  /* At either end a trackpad swipe stops at the strip. Without this it
+   * carried on into the browser's own gesture and went back a page. */
+  overscroll-behavior-x: contain;
+  /* The strip still scrolls; it only stops drawing a bar under the pictures,
+   * which on a slider with arrows and dots says nothing they do not. */
+  scrollbar-width: none;
+}
+.nvx-slider-track::-webkit-scrollbar {
+  display: none;
+}
+.nvx-slider-track:focus-visible {
+  outline: 3px solid var(--site-accent, #6366f1);
+  outline-offset: 3px;
+}
+
+.nvx-slider-slide {
+  position: relative;
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  /* A hard flick moves one picture, not three. */
+  scroll-snap-stop: always;
+}
+
+/*
+ * What the arrows and dots point at, drawn above the slide it belongs to.
+ *
+ * Following a link to a fragment scrolls every scroller around the target, and
+ * the page is one of them: Chromium lines the target's top edge up with the
+ * top of the window every time, so the first click on "Next" threw the slider
+ * up against the top of the screen, or under a sticky header. A
+ * `scroll-margin-top` on the slide is the textbook softener and did nothing at
+ * all — measured in Chromium 141, it is spent on the strip, which cannot
+ * scroll vertically, and never reaches the page. Where the target sits is
+ * honoured, though. So the target is a line placed half a window above the
+ * middle of the slider: the page comes to rest with the slider centred, where
+ * a visitor looking at it probably had it anyway, and every later click finds
+ * it already there and does not move the page at all. The centre is taken 2rem
+ * lower than the window's, half the height of the sticky header every new
+ * site starts with, so the slider is centred in what that header leaves.
+ *
+ * A slider taller than the window is centred too, rather than pinned by its
+ * top edge: its arrows are half-way down it, and centring brings the arrow
+ * that was just clicked back to the middle of the screen. The top edge would
+ * have gone under the header anyway.
+ *
+ * On a short slider the line is above the strip's top edge, which no scroller
+ * can scroll to; on a tall one it is inside the strip, which is already
+ * showing it. Either way it adds nothing to scroll and nothing to see.
+ */
+.nvx-slider-anchor {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 0;
+  top: calc(50% + var(--nvx-slider-below) / 2 - 50vh - 2rem);
+  top: calc(50% + var(--nvx-slider-below) / 2 - 50svh - 2rem);
+  pointer-events: none;
+}
+
+.nvx-slider-figure {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+}
+.nvx-slider .nvx-slider-picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.nvx-slider-missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+/* A caption lies over the foot of its picture on a dark scrim, so white text
+ * stays legible over a pale sky as well as a dark forest. */
+.nvx-slider-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 2.75rem 1.25rem 1rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.38) 55%, rgba(0, 0, 0, 0));
+  color: #ffffff;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.nvx-slider .nvx-slider-caption a {
+  color: inherit;
+  text-decoration: underline;
+}
+/* The canvas offers a caption on every slide, but one nobody has written
+ * stays out of sight until the slide is hovered, so the canvas shows the
+ * picture the page will show. */
+.nvx-slider-caption-empty {
+  background: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.nvx-slider-slide:hover .nvx-slider-caption-empty,
+.nvx-slider-caption-empty:focus-within {
+  opacity: 1;
+}
+.nvx-slider-caption-empty .inline-editable {
+  display: inline-block;
+  min-width: 8rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.nvx-slider-caption-empty .inline-editable:empty::before {
+  content: attr(data-placeholder);
+  opacity: 0.8;
+}
+
+/* The arrows sit on the photograph rather than the page, so they carry their
+ * own colours instead of the page's; `.nvx-slider` in front outranks the
+ * site's `.public-canvas a { color: inherit }`. */
+.nvx-slider .nvx-slider-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-top: -1.375rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.25), 0 4px 12px rgba(15, 23, 42, 0.18);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.nvx-slider .nvx-slider-arrow:hover {
+  background: #ffffff;
+}
+.nvx-slider .nvx-slider-arrow:focus-visible {
+  outline: 3px solid var(--site-accent, #6366f1);
+  outline-offset: 2px;
+}
+.nvx-slider-previous {
+  left: 0.75rem;
+}
+.nvx-slider-next {
+  right: 0.75rem;
+}
+
+/* Dots under the pictures, in the page's own text colour, so they read on a
+ * white page and in a dark section alike. Each is a 24px target around an
+ * 8px dot, the smallest a finger can be asked to hit. */
+.nvx-slider-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  /* The browser works out which dot's slide is in view and matches it with
+   * `:target-current` — from where the strip actually is, so it is right
+   * after a swipe as well as after a click. Browsers without it ignore the
+   * line and show every dot alike, which is honest; `:target` alone would go
+   * on naming the last slide linked to after a visitor had swiped away. */
+  scroll-target-group: auto;
+}
+.nvx-slider .nvx-slider-dot {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  color: inherit;
+  cursor: pointer;
+}
+.nvx-slider-dot::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.3;
+  transition: opacity 0.15s ease, width 0.15s ease;
+}
+.nvx-slider-dot:hover::before {
+  opacity: 0.65;
+}
+.nvx-slider .nvx-slider-dot:focus-visible {
+  outline: 2px solid var(--site-accent, #6366f1);
+  outline-offset: 1px;
+}
+@supports selector(:target-current) {
+  .nvx-slider-dot:target-current::before {
+    width: 1.125rem;
+    opacity: 1;
+  }
+}
+
+@container nvx-slider (max-width: 30rem) {
+  .nvx-slider .nvx-slider-arrow {
+    width: 2.25rem;
+    height: 2.25rem;
+    margin-top: -1.125rem;
+  }
+  .nvx-slider-previous {
+    left: 0.5rem;
+  }
+  .nvx-slider-next {
+    right: 0.5rem;
+  }
+  .nvx-slider-caption {
+    padding: 2rem 0.875rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nvx-slider-track {
+    scroll-behavior: auto;
+  }
+  .nvx-slider .nvx-slider-arrow,
+  .nvx-slider-dot::before,
+  .nvx-slider-caption-empty {
+    transition: none;
+  }
+}
+
+/* A high-contrast theme drops the arrows' white discs and the dots' fill, which
+ * leaves a chevron floating on the picture and no dots at all. */
+@media (forced-colors: active) {
+  .nvx-slider .nvx-slider-arrow {
+    border: 2px solid ButtonText;
+  }
+  .nvx-slider-dot::before {
+    forced-color-adjust: none;
+    background: LinkText;
+  }
+}
 /* == end block: slider == */
 
 /* == block: audio == */
+/*
+ * A card round the browser's own player. Its edge and fill are mixed from
+ * `currentColor` rather than picked from a palette, because the same block
+ * sits on a white page and inside a section painted #0b0f1e, and a grey that
+ * reads on one is invisible on the other. The player keeps the browser's own
+ * look: restyling `<audio controls>` means drawing new controls, which means
+ * a script, and the downloaded site has none.
+ */
+.nvx-audio {
+  position: relative;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1rem 1.125rem 1.125rem;
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  background: color-mix(in srgb, currentColor 4%, transparent);
+}
+.nvx-audio-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.nvx-audio-mark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+}
+/* Padded so the title's first line sits level with the middle of the mark. */
+.nvx-audio-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  padding-top: 0.375rem;
+}
+.nvx-audio-title {
+  display: block;
+  font-weight: 600;
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.nvx-audio-title > *,
+.nvx-audio-description > * {
+  display: block;
+}
+.nvx-audio-description {
+  display: block;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  opacity: 0.72;
+  overflow-wrap: anywhere;
+}
+/* No `color-scheme` of its own: `.public-canvas` says light for the editor,
+ * the published page and the download alike, and a section that one day
+ * says dark should reach the player rather than be overruled here. */
+.nvx-audio-player {
+  display: block;
+  width: 100%;
+}
+/* The editor's stand-in before a file is chosen, the height of Chrome's
+ * player so that choosing one moves nothing below it. It is a button there,
+ * so every property a button brings of its own is set here. */
+.nvx-audio-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3.375rem;
+  padding: 0 1rem;
+  border: 1px dashed color-mix(in srgb, currentColor 32%, transparent);
+  border-radius: 9999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.875rem;
+  opacity: 0.75;
+  text-align: center;
+}
+button.nvx-audio-empty {
+  cursor: pointer;
+}
+button.nvx-audio-empty:hover {
+  opacity: 1;
+  border-color: color-mix(in srgb, currentColor 55%, transparent);
+}
+button.nvx-audio-empty:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--site-accent, #6366f1);
+  outline-offset: 2px;
+}
+/* The field being typed in keeps its place when it is emptied (see
+ * AudioBlock), and says what it is for while it is empty. Only while it has
+ * the caret, so the canvas at rest is still the page. */
+.nvx-audio .inline-editable:focus:empty::before {
+  content: attr(data-placeholder);
+  opacity: 0.45;
+}
 /* == end block: audio == */
 
 /* == block: icon == */
+/*
+ * The icon block, and the feature card it becomes with a title or text.
+ *
+ * Here rather than in utility classes because the alignment is one rule that
+ * moves two things: the text lines up with `text-align`, but the mark is a
+ * box of its own, and a box ignores `text-align` — it needs its margins set
+ * the matching way, or a centred card has its icon hard against the left.
+ * Written once against `data-align`, the pair cannot drift apart.
+ *
+ * Nothing here sets a colour. The card inherits the text colour of whatever
+ * it sits on, which is what lets the same block read on a white page and in
+ * a navy section; the mark sets its own colour inline, from the block or the
+ * site's accent.
+ */
+.nvx-icon { text-align: left; }
+.nvx-icon[data-align="center"] { text-align: center; }
+.nvx-icon[data-align="right"] { text-align: right; }
+
+.nvx-icon-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  margin-right: auto;
+}
+.nvx-icon[data-align="center"] > .nvx-icon-mark { margin-left: auto; }
+.nvx-icon[data-align="right"] > .nvx-icon-mark { margin-left: auto; margin-right: 0; }
+.nvx-icon-mark > svg { display: block; flex: none; }
+
+.nvx-icon-title {
+  font-family: var(--site-heading-font, inherit);
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: break-word;
+}
+.nvx-icon-text {
+  line-height: 1.6;
+  /* Muted by opacity, not a grey: a grey is readable on one background. */
+  opacity: 0.78;
+  overflow-wrap: break-word;
+  /* A newline in the text is a line break on the card, as it is in the
+   * panel's box. An agent writes them, and so does the canvas: with this set,
+   * Chrome records Enter as a newline rather than a <br>. Collapsed to a
+   * space, "Mon–Fri 9–5" and "Sat 10–2" ran together into one line of
+   * opening hours. */
+  white-space: pre-wrap;
+}
+
+/* An emptied field keeps a line to type into while it has the caret, and says
+ * what goes there. The component marks the field blank itself: Chrome leaves
+ * a lone <br> in it, which `:empty` does not match, and the obvious
+ * `:has(> br:only-child)` counts elements only — it drew the placeholder in
+ * front of "Open daily<br>Closed Sundays", whose one element is the break.
+ * The editor alone sets `data-placeholder`, so this never draws on a
+ * published page. */
+.nvx-icon .nvx-icon-blank[data-placeholder]::before {
+  content: attr(data-placeholder);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* A high-contrast theme throws the tinted background away, which leaves a
+ * circle or square with nothing to show where it is. An outline in the
+ * system's text colour puts the shape back. */
+@media (forced-colors: active) {
+  .nvx-icon-mark[data-shape] { border: 1px solid CanvasText; }
+}
 /* == end block: icon == */
 
 /* == block: social == */
+/*
+ * A row of profile icons. Each size sets three lengths — the mark, the tile
+ * around it and the gap between tiles — and the shapes only decide what the
+ * tile looks like, so a size and a shape never need a rule for the pair.
+ *
+ * The tile is a tint of currentColor, not a named grey, for the reason the
+ * accordion's lines are: the same row sits in a white page's footer and in a
+ * #0b0f1e one, and a section sets the text colour of what it holds. Each mix
+ * follows a plain grey for a browser without color-mix().
+ *
+ * With no shape there is still a tile, only an invisible one. The small mark
+ * is sixteen pixels, and a sixteen-pixel link is a hard thing to hit with a
+ * thumb; the padding makes the target the size of the tile it would have had.
+ */
+.nvx-social {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--nvx-social-gap);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.nvx-social-sm { --nvx-social-mark: 1rem; --nvx-social-tile: 2rem; --nvx-social-gap: 0.375rem; }
+.nvx-social-md { --nvx-social-mark: 1.25rem; --nvx-social-tile: 2.5rem; --nvx-social-gap: 0.5rem; }
+.nvx-social-lg { --nvx-social-mark: 1.75rem; --nvx-social-tile: 3.25rem; --nvx-social-gap: 0.75rem; }
+.nvx-social-none { --nvx-social-tile: calc(var(--nvx-social-mark) + 0.75rem); --nvx-social-gap: 0.125rem; }
+
+.nvx-social-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--nvx-social-tile);
+  height: var(--nvx-social-tile);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 150ms ease, opacity 150ms ease;
+}
+.nvx-social-link svg {
+  display: block;
+  width: var(--nvx-social-mark);
+  height: var(--nvx-social-mark);
+  flex: none;
+}
+.nvx-social-circle .nvx-social-link { border-radius: 9999px; }
+.nvx-social-circle .nvx-social-link,
+.nvx-social-square .nvx-social-link {
+  background: rgba(127, 127, 127, 0.14);
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.22);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 16%, transparent);
+}
+.nvx-social-circle a.nvx-social-link[href]:hover,
+.nvx-social-square a.nvx-social-link[href]:hover {
+  background: rgba(127, 127, 127, 0.24);
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+.nvx-social-none a.nvx-social-link[href]:hover { opacity: 0.7; }
+.nvx-social-link:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+/* Only ever on the canvas: a link still waiting for its address. The
+ * published page leaves it out altogether. */
+.nvx-social-link[data-unset] { opacity: 0.35; }
+@media (prefers-reduced-motion: reduce) {
+  .nvx-social-link { transition: none; }
+}
 /* == end block: social == */
 
 /* == block: table == */
+/*
+ * Every line and fill is mixed from the text colour rather than named. A grey
+ * border and a pale-grey stripe look right on a white page and draw bright
+ * bars across a section with a dark background, where the text has already
+ * been turned light; mixed from `currentColor`, they follow it there. Each mix
+ * comes after a plain grey, for a browser that does not know color-mix() —
+ * written out twice rather than kept in a custom property, because a property
+ * holding a colour the browser cannot read takes the whole border with it.
+ */
+
+/* The frame, and the thing that scrolls. `overflow-x: auto` scrolls only when
+ * the table is wider than its column, so an ordinary table never shows a
+ * scrollbar; the frame's rounded corners also clip the header fill and the
+ * stripes, which a rounded `<table>` does not do. */
+.nvx-table-scroll {
+  overflow-x: auto;
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  border-color: color-mix(in srgb, currentColor 16%, transparent);
+}
+.nvx-table-scroll:focus-visible {
+  outline: 2px solid rgba(127, 127, 127, 0.8);
+  outline-color: color-mix(in srgb, currentColor 55%, transparent);
+  outline-offset: 2px;
+}
+
+.nvx-table-grid {
+  width: 100%;
+  border-collapse: collapse;
+  color: inherit;
+  font: inherit;
+}
+.nvx-table-grid caption {
+  caption-side: top;
+  text-align: start;
+  font-weight: 600;
+  padding: 0.75em 0.875em;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.3);
+  border-bottom-color: color-mix(in srgb, currentColor 16%, transparent);
+}
+/* The caption is as wide as the table, so once a wide table had been scrolled
+ * along, its name had scrolled off the left with the first column and the top
+ * of the frame was an empty band. Its words stay at the left edge instead. */
+.nvx-table-grid caption > * {
+  display: inline-block;
+  position: sticky;
+  left: 0.875em;
+}
+
+/* A table wider than its room wraps each column down to its longest word and
+ * then scrolls; it never breaks a word to fit. That is `break-word` on the
+ * cell below rather than `anywhere`, which counts a word as breakable when the
+ * table is sized — eight columns in half a Columns block then fitted without
+ * scrolling by splitting every word: "Mo / del", "£79 / 9". The floor here is
+ * for an empty column, which would otherwise be as narrow as its padding: the
+ * column just added on the canvas was a sliver with nothing in it to click. */
+.nvx-table-grid :is(th, td) {
+  min-width: 4em;
+  padding: 0;
+  text-align: start;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.3);
+  border-bottom-color: color-mix(in srgb, currentColor 16%, transparent);
+}
+.nvx-table-grid th {
+  font-weight: 600;
+}
+.nvx-table-grid thead th {
+  background: rgba(127, 127, 127, 0.12);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+}
+.nvx-table-grid tbody > tr:last-child > *,
+.nvx-table-grid > thead:last-child > tr > * {
+  border-bottom: 0;
+}
+.nvx-table--striped .nvx-table-grid tbody > tr:nth-child(even) > * {
+  background: rgba(127, 127, 127, 0.07);
+  background: color-mix(in srgb, currentColor 4%, transparent);
+}
+
+/* The padding is on the text rather than the cell, so on the canvas the whole
+ * cell is the place to click to type, not a word-sized target in the middle of
+ * it. The minimum height keeps a row that is empty so far as tall as its
+ * neighbours, rather than a sliver there is nothing to click in. */
+.nvx-table-cell {
+  padding: 0.625em 0.875em;
+  min-height: 2.75em;
+  overflow-wrap: break-word;
+}
+
+/* A table that scrolls says so. On a phone, and anywhere else scrollbars stay
+ * hidden until they are used, nothing showed that the frame went on past its
+ * edge: the columns out there were simply missing. So the side the table
+ * continues past fades out, and comes back as it is scrolled to that end —
+ * driven by the frame's own scroll position, with no script. A frame that
+ * does not scroll has no scroll timeline, the animation has nothing to run
+ * on, and nothing fades. A browser without scroll-driven animations shows the
+ * table exactly as before. */
+@property --nvx-table-fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --nvx-table-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes nvx-table-more {
+  0% { --nvx-table-fade-start: 0px; --nvx-table-fade-end: 2.5rem; }
+  10% { --nvx-table-fade-start: 2.5rem; }
+  90% { --nvx-table-fade-end: 2.5rem; }
+  100% { --nvx-table-fade-start: 2.5rem; --nvx-table-fade-end: 0px; }
+}
+@supports (animation-timeline: scroll()) {
+  .nvx-table-scroll {
+    animation: nvx-table-more linear both;
+    animation-timeline: scroll(self inline);
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 var(--nvx-table-fade-start),
+      #000 calc(100% - var(--nvx-table-fade-end)),
+      transparent
+    );
+  }
+  /* The caption stays put while the rows scroll under it, so once the table
+   * had been scrolled along, the fade on the left ate the first letters of its
+   * name. A band as tall as a one-line caption is left out of the fade. */
+  .nvx-table-scroll:has(> .nvx-table-grid > caption) {
+    mask-image:
+      linear-gradient(#000, #000),
+      linear-gradient(
+        to right,
+        transparent,
+        #000 var(--nvx-table-fade-start),
+        #000 calc(100% - var(--nvx-table-fade-end)),
+        transparent
+      );
+    mask-size: 100% calc(3em + 1px), 100% 100%;
+    mask-repeat: no-repeat;
+  }
+  /* On the canvas, a cell being typed in near the edge would be typed in
+   * half-faded. Only the canvas has anything editable, so this is the canvas. */
+  .nvx-table-scroll:has([contenteditable]:focus) {
+    mask-image: none;
+  }
+  /* A mask fades everything the frame draws, its focus ring included — on the
+   * very edge that says there is more to reach. The ring is drawn round the
+   * block instead, which nothing masks. */
+  .nvx-table-scroll:focus-visible {
+    outline: none;
+  }
+  .nvx-table:has(> .nvx-table-scroll:focus-visible) {
+    outline: 2px solid rgba(127, 127, 127, 0.8);
+    outline-color: color-mix(in srgb, currentColor 55%, transparent);
+    outline-offset: 2px;
+    border-radius: var(--site-radius, 0.5rem);
+  }
+}
 /* == end block: table == */
 
 /* == block: pricing == */
+/*
+ * A row of plan cards.
+ *
+ * The row is measured on the block, not on the window, for the reason the
+ * columns rules above give: a pricing block in the editor's phone preview, or
+ * in one column of a Columns block, is narrow on the widest screen. Four plans
+ * fold to two by two and then to one above another. Three go straight to one,
+ * because two cards with a third left alone underneath reads as a plan that
+ * did not fit. Each step comes where the cards would otherwise be narrower
+ * than about 228px, which a feature of a few words sits in comfortably. One
+ * card, or a folded row, is held to a reading width and centred rather than
+ * stretched across the page.
+ *
+ * 228px is not enough for a price at a fixed size, and the first version said
+ * it was: at 2.5rem, "€1,299.00" in a row of four at a 1100px window came out
+ * as "€1,299.0" with the last "0" on a line of its own, and so did
+ * "€12,499.00" in a row of three at 900px. So each card is a container of its
+ * own and the price is sized from the card's width, between 1.5rem and 2.5rem
+ * — cards in one row are one width, so their prices stay one size.
+ *
+ * Borders and surfaces are the inherited text colour mixed with transparency,
+ * so the same rules draw a faint grey panel on a white page and a faint light
+ * one inside a near-black section. The declaration before each is a mid grey
+ * at low strength, for a browser without color-mix(), and reads on either.
+ */
+.nvx-pricing {
+  position: relative;
+  container-type: inline-size;
+}
+
+/* `--nvx-pricing-rise` is set by the block: the room its lifted plan and its
+   badges need above the row, and between rows once it folds. */
+.nvx-pricing-grid {
+  --nvx-pricing-cols: 3;
+  --nvx-pricing-gap: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(var(--nvx-pricing-cols), minmax(0, 1fr));
+  gap: calc(var(--nvx-pricing-gap) + var(--nvx-pricing-rise, 0rem)) var(--nvx-pricing-gap);
+  align-items: stretch;
+  max-width: calc(var(--nvx-pricing-cols) * 24rem + (var(--nvx-pricing-cols) - 1) * var(--nvx-pricing-gap));
+  margin: 0 auto;
+  padding: var(--nvx-pricing-rise, 0rem) 0 0;
+  list-style: none;
+}
+/* A lifted card only stands out beside another. In a single file it was only
+   lifted towards the card above it, 36px from that one and 52px from the one
+   below — so one column draws it level, and keeps the border and the shadow. */
+.nvx-pricing-grid[data-count="1"] { --nvx-pricing-cols: 1; --nvx-pricing-lift: 0rem; }
+.nvx-pricing-grid[data-count="2"] { --nvx-pricing-cols: 2; }
+.nvx-pricing-grid[data-count="3"] { --nvx-pricing-cols: 3; }
+.nvx-pricing-grid[data-count="4"] { --nvx-pricing-cols: 4; }
+
+@container (max-width: 61.99rem) {
+  .nvx-pricing-grid[data-count="4"] { --nvx-pricing-cols: 2; }
+}
+@container (max-width: 45.99rem) {
+  .nvx-pricing-grid[data-count="3"] { --nvx-pricing-cols: 1; --nvx-pricing-lift: 0rem; }
+}
+@container (max-width: 29.99rem) {
+  .nvx-pricing-grid[data-count="2"],
+  .nvx-pricing-grid[data-count="4"] { --nvx-pricing-cols: 1; --nvx-pricing-lift: 0rem; }
+}
+
+/* A flex column inside a grid cell: every card in a row is the row's height,
+   and the button, pushed down by `margin-top: auto`, sits at the foot of each
+   however many features the plans list. */
+.nvx-pricing-plan {
+  position: relative;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1.75rem 1.5rem 1.5rem;
+  border: 1px solid rgba(127, 127, 127, 0.28);
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: var(--nvx-pricing-radius, 0.75rem);
+  background: rgba(127, 127, 127, 0.05);
+  background: color-mix(in srgb, currentColor 3%, transparent);
+  overflow-wrap: anywhere;
+}
+
+/* The plan picked out. One pixel more border and one less padding, so its
+   words stay level with its neighbours'; lifted by the `LIFT` the block
+   makes room for (0.5rem). */
+.nvx-pricing-plan[data-highlighted="true"] {
+  padding: calc(1.75rem - 1px) calc(1.5rem - 1px) calc(1.5rem - 1px);
+  border: 2px solid var(--nvx-pricing-accent);
+  background: color-mix(in srgb, var(--nvx-pricing-accent) 6%, transparent);
+  box-shadow: 0 20px 40px -24px color-mix(in srgb, var(--nvx-pricing-accent) 70%, transparent);
+  transform: translateY(calc(-1 * var(--nvx-pricing-lift, 0.5rem)));
+}
+
+.nvx-pricing-name {
+  margin: 0;
+  font-size: 1.125rem;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+/* Hung half over the card's top edge, which is the `BADGE_OVERHANG` the
+   block makes room for: 1.5rem tall, 0.75rem of it above the card. */
+.nvx-pricing-badge {
+  position: absolute;
+  top: 0;
+  left: 1.25rem;
+  max-width: calc(100% - 2.5rem);
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  transform: translateY(-50%);
+  border-radius: 9999px;
+  background: var(--nvx-pricing-accent);
+  color: var(--nvx-pricing-on-accent);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The period sits beside the price while there is room and drops under it
+   when there is not, rather than squeezing the price onto two lines. */
+.nvx-pricing-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.375rem;
+  margin: 0.75rem 0 0;
+}
+/* 15% of the card's inner width, so ten characters — "€12,499.00" — sit on
+   one line in the narrowest card a row allows; 17% was measured too wide for
+   ten. A price longer than any currency writes still breaks rather than
+   running out of its card. */
+.nvx-pricing-amount {
+  min-width: 0;
+  font-family: var(--site-heading-font, inherit);
+  font-size: 2.5rem;
+  font-size: clamp(1.5rem, 15cqi, 2.5rem);
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.nvx-pricing-period,
+.nvx-pricing-description {
+  opacity: 0.72;
+}
+.nvx-pricing-period {
+  font-size: 0.875rem;
+}
+.nvx-pricing-description {
+  margin: 0.75rem 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.nvx-pricing-features {
+  display: grid;
+  gap: 0.625rem;
+  margin: 1.5rem 0 0;
+  padding: 1.5rem 0 0;
+  border-top: 1px solid rgba(127, 127, 127, 0.22);
+  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  list-style: none;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+.nvx-pricing-feature {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+/* Level with the first line of the feature beside it, however many it wraps to. */
+.nvx-pricing-tick {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.19em;
+  color: var(--nvx-pricing-accent);
+}
+.nvx-pricing-feature-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.nvx-pricing-action {
+  position: relative;
+  margin-top: auto;
+  padding-top: 1.75rem;
+}
+
+/* The button block's medium button, full width: filled for the plan picked
+   out, outlined for the rest. Two classes deep because `.public-canvas a`
+   hands every link its parent's colour, and one class would lose to it. */
+.nvx-pricing .nvx-pricing-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 1.25rem;
+  border: 2px solid var(--nvx-pricing-accent);
+  border-radius: var(--nvx-pricing-button-radius, 0.375rem);
+  background: transparent;
+  color: var(--nvx-pricing-accent);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  text-align: center;
+  text-decoration: none;
+  transition: opacity 0.12s ease;
+}
+.nvx-pricing .nvx-pricing-button[data-filled="true"] {
+  background: var(--nvx-pricing-accent);
+  color: var(--nvx-pricing-on-accent);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+.nvx-pricing a.nvx-pricing-button:hover {
+  opacity: 0.9;
+}
+.nvx-pricing a.nvx-pricing-button:focus-visible {
+  outline: 2px solid var(--nvx-pricing-accent);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nvx-pricing .nvx-pricing-button { transition: none; }
+}
+
+/* The canvas only — a block with no plans, and a field left empty, show
+   what belongs there. Neither exists on a published page. */
+.nvx-pricing-empty {
+  padding: 2rem 1rem;
+  border: 1px dashed rgba(127, 127, 127, 0.5);
+  border-radius: var(--nvx-pricing-radius, 0.75rem);
+  text-align: center;
+  font-size: 0.875rem;
+  opacity: 0.75;
+}
+.nvx-pricing .inline-editable:empty::before {
+  content: attr(data-placeholder);
+  opacity: 0.45;
+}
 /* == end block: pricing == */
 
 /* == block: map == */
+/* The map block: a card that draws its own map, or an OpenStreetMap frame.
+ *
+ * Every line of the drawing, every border and the muted text is currentColor
+ * at some strength, and every highlight is the site's accent, so one set of
+ * rules reads on a white page and inside a section painted #0b0f1e. The card
+ * goes side by side on a container query rather than a media query, because
+ * a map in one of three columns is narrow on the widest window there is. */
+.nvx-map {
+  container-type: inline-size;
+  width: 100%;
+}
+.nvx-map .nvx-map-figure {
+  margin: 0;
+}
+
+/* The drawing. The streets are an SVG that fills its box and is cropped to
+ * it, so the pin, always in the middle, lands on the middle of the drawing
+ * whatever shape the box is. */
+.nvx-map .nvx-map-art {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+.nvx-map .nvx-map-streets {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.nvx-map .nvx-map-park {
+  fill: var(--site-accent, #6366f1);
+  fill-opacity: 0.13;
+}
+.nvx-map .nvx-map-water {
+  fill: none;
+  stroke: var(--site-accent, #6366f1);
+  stroke-opacity: 0.2;
+  stroke-width: 22;
+  stroke-linecap: round;
+}
+.nvx-map .nvx-map-buildings rect {
+  fill: currentColor;
+  fill-opacity: 0.07;
+}
+.nvx-map .nvx-map-road-minor {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.09;
+  stroke-width: 6;
+}
+.nvx-map .nvx-map-road-major {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.15;
+  stroke-width: 12;
+}
+/* The pin's tip, not its middle, sits on the centre: the tip is 90% of the
+ * way down the drawing. */
+.nvx-map .nvx-map-pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2rem;
+  height: 2.75rem;
+  overflow: visible;
+  transform: translate(-50%, -90%);
+}
+.nvx-map .nvx-map-pin-shadow {
+  fill: currentColor;
+  fill-opacity: 0.22;
+}
+.nvx-map .nvx-map-pin-body {
+  fill: var(--site-accent, #6366f1);
+  stroke: var(--site-accent-contrast, #ffffff);
+  stroke-width: 1.5;
+}
+.nvx-map .nvx-map-pin-dot {
+  fill: var(--site-accent-contrast, #ffffff);
+}
+
+/* The card: the drawing above the address, or beside it once there is room. */
+.nvx-map .nvx-map-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  background: color-mix(in srgb, currentColor 2.5%, transparent);
+}
+.nvx-map .nvx-map-card .nvx-map-art {
+  min-height: 11rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+.nvx-map .nvx-map-card .nvx-map-caption {
+  padding: 1.125rem 1.25rem 1.25rem;
+}
+/* Side by side from 40rem, where the text column is wide enough for "Open in
+ * OpenStreetMap ↗" on one line. From 34rem, a card in one of two columns
+ * (564px) went side by side and the label wrapped inside its button. */
+@container (min-width: 40rem) {
+  .nvx-map .nvx-map-card {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  }
+  .nvx-map .nvx-map-card .nvx-map-art {
+    min-height: 14rem;
+    border-bottom: 0;
+    border-right: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+  }
+  .nvx-map .nvx-map-card .nvx-map-caption {
+    align-self: center;
+    padding: 1.75rem;
+  }
+}
+
+.nvx-map .nvx-map-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.nvx-map .nvx-map-address {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.nvx-map .nvx-map-coords {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, currentColor 64%, transparent);
+}
+.nvx-map .nvx-map-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.625rem 0 0;
+}
+
+/* The embedded map. The drawing sits behind the frame, so the box shows a
+ * map while OpenStreetMap is still loading. It is no help when the frame
+ * fails: the browser covers the box with its own opaque error page. */
+.nvx-map .nvx-map-frame {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+}
+.nvx-map .nvx-map-frame .nvx-map-art {
+  position: absolute;
+  inset: 0;
+}
+.nvx-map .nvx-map-iframe {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+/* Editor only: a click in a frame never reaches the page around it, so this
+ * sheet takes the click and the block is selected instead of the map panned. */
+.nvx-map .nvx-map-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  cursor: pointer;
+}
+.nvx-map .nvx-map-hint {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 2;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  background: rgb(15 23 42 / 0.86);
+  color: #ffffff;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+.nvx-map .nvx-map-embed .nvx-map-caption {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding-top: 0.75rem;
+}
+.nvx-map .nvx-map-embed .nvx-map-address {
+  flex: 1 1 14rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+.nvx-map .nvx-map-embed .nvx-map-links {
+  margin: 0;
+}
+
+/* The links. `.public-canvas a` sets `color: inherit` at one class and one
+ * element, so these are written at two classes to win without !important. */
+.nvx-map .nvx-map-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.25rem;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid color-mix(in srgb, currentColor 26%, transparent);
+  border-radius: var(--site-radius, 0.5rem);
+  color: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-decoration: none;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+.nvx-map .nvx-map-link:hover {
+  border-color: color-mix(in srgb, currentColor 45%, transparent);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+}
+.nvx-map .nvx-map-link:focus-visible {
+  outline: 2px solid var(--site-accent, #6366f1);
+  outline-offset: 2px;
+}
+.nvx-map .nvx-map-link-primary,
+.nvx-map .nvx-map-link-primary:hover {
+  border-color: transparent;
+  background: var(--site-accent, #6366f1);
+  color: var(--site-accent-contrast, #ffffff);
+}
+.nvx-map .nvx-map-link-primary:hover {
+  background: color-mix(in srgb, var(--site-accent, #6366f1) 86%, #000000);
+}
+.nvx-map .nvx-map-link-arrow {
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+/* Only the editor sets `data-placeholder`, so this never draws on a page. */
+.nvx-map [data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  opacity: 0.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nvx-map .nvx-map-link {
+    transition: none;
+  }
+}
 /* == end block: map == */
 
 /* == block: code == */
+/*
+ * A code sample keeps its own colours wherever it is put.
+ *
+ * Every other block takes its text colour from the section around it, and
+ * that is what makes a block legible on a dark section. A code sample cannot:
+ * its token colours are chosen against one background, and pale green on the
+ * pale grey of a light theme inside a dark section is unreadable either way
+ * round. So a theme sets the background, the text and every token colour
+ * together, and the section's colour stops at the edge of the box — which
+ * has a border of its own, so a dark sample still has an edge on a dark page.
+ *
+ * On the canvas the same box holds a transparent text box laid exactly over
+ * the drawn text: the colours are the drawing underneath, and the caret and
+ * the selection are the text box's. That only works while the two lay text
+ * out identically, so the font, size, line height, tab size, padding,
+ * wrapping and ligatures are all set here, for both, instead of being left to
+ * what a `<pre>` and a `<textarea>` each happen to default to. Nothing here
+ * makes a glyph wider than another — no bold keywords, no italic comments —
+ * for the same reason: the caret would drift away from the letter it is in.
+ */
+.nvx-code {
+  --nvx-code-pad-y: 0.875rem;
+  --nvx-code-pad-x: 1.125rem;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  /* The box takes the width it is given and never asks for more. Without
+   * this a sample with one long line reported that line as the narrowest the
+   * box could be, and the editor, whose canvas is a flex item, believed it:
+   * a 400-character line widened the canvas from 736px to 1202px and pushed
+   * the settings panel off the side of the window. The line scrolls inside
+   * the box instead, which is what it was going to do anyway. */
+  contain: inline-size;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--nvx-code-border);
+  background: var(--nvx-code-bg);
+  color: var(--nvx-code-fg);
+  text-align: left;
+  direction: ltr;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.875rem;
+  font-weight: 400;
+  font-style: normal;
+  font-variant-ligatures: none;
+  line-height: 1.6;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-transform: none;
+  text-indent: 0;
+}
+.nvx-code--dark {
+  color-scheme: dark;
+  --nvx-code-bg: #0f172a;
+  --nvx-code-fg: #e2e8f0;
+  --nvx-code-muted: #94a3b8;
+  --nvx-code-border: #1e293b;
+  --nvx-code-bar: #131c31;
+  --nvx-code-selection: rgba(148, 163, 184, 0.35);
+  --nvx-tok-comment: #94a3b8;
+  --nvx-tok-keyword: #c4b5fd;
+  --nvx-tok-string: #86efac;
+  --nvx-tok-number: #fdba74;
+  --nvx-tok-function: #93c5fd;
+  --nvx-tok-tag: #f9a8d4;
+  --nvx-tok-attr: #fcd34d;
+  --nvx-tok-property: #7dd3fc;
+  --nvx-tok-variable: #fca5a5;
+}
+/* Every colour here is at least 4.5:1 against the background it sits on. */
+.nvx-code--light {
+  color-scheme: light;
+  --nvx-code-bg: #f8fafc;
+  --nvx-code-fg: #0f172a;
+  --nvx-code-muted: #5b6b80;
+  --nvx-code-border: #e2e8f0;
+  --nvx-code-bar: #f1f5f9;
+  --nvx-code-selection: rgba(99, 102, 241, 0.22);
+  --nvx-tok-comment: #5b6b80;
+  --nvx-tok-keyword: #7c3aed;
+  --nvx-tok-string: #15803d;
+  --nvx-tok-number: #c2410c;
+  --nvx-tok-function: #1d4ed8;
+  --nvx-tok-tag: #be185d;
+  --nvx-tok-attr: #92400e;
+  --nvx-tok-property: #0369a1;
+  --nvx-tok-variable: #b91c1c;
+}
+.nvx-code .nvx-tok-comment { color: var(--nvx-tok-comment); }
+.nvx-code .nvx-tok-keyword { color: var(--nvx-tok-keyword); }
+.nvx-code .nvx-tok-string { color: var(--nvx-tok-string); }
+.nvx-code .nvx-tok-number { color: var(--nvx-tok-number); }
+.nvx-code .nvx-tok-function { color: var(--nvx-tok-function); }
+.nvx-code .nvx-tok-tag { color: var(--nvx-tok-tag); }
+.nvx-code .nvx-tok-attr { color: var(--nvx-tok-attr); }
+.nvx-code .nvx-tok-property { color: var(--nvx-tok-property); }
+.nvx-code .nvx-tok-variable { color: var(--nvx-tok-variable); }
+
+.nvx-code__bar {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.5rem var(--nvx-code-pad-x);
+  border-bottom: 1px solid var(--nvx-code-border);
+  background: var(--nvx-code-bar);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+.nvx-code__file {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nvx-code__lang {
+  flex: none;
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--nvx-code-muted);
+}
+
+.nvx-code__pre {
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  white-space: pre;
+  tab-size: 2;
+  -moz-tab-size: 2;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--nvx-code-fg) 30%, transparent) transparent;
+}
+.nvx-code__pre:focus-visible {
+  outline: 2px solid var(--site-accent, #6366f1);
+  outline-offset: -2px;
+}
+/* As wide as its longest line, so the frame above scrolls it and the text box
+ * on the canvas, which is sized from this, is too. */
+.nvx-code__code {
+  display: block;
+  position: relative;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 100%;
+  padding: var(--nvx-code-pad-y) var(--nvx-code-pad-x);
+  font: inherit;
+  color: inherit;
+  background: none;
+  white-space: inherit;
+}
+.nvx-code__text {
+  display: contents;
+}
+.nvx-code--wrap .nvx-code__pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+}
+.nvx-code--wrap .nvx-code__code {
+  width: auto;
+}
+
+/*
+ * Line numbers are drawn by the stylesheet, not written into the text, so
+ * selecting the sample and copying it takes the code and not the numbers.
+ * They hang in a gutter to the left, so a wrapped line continues under its
+ * own first character rather than under the number. The gutter takes the
+ * place of the left padding, so it can start at the very edge of the frame.
+ */
+.nvx-code--numbered {
+  --nvx-code-gutter: calc(var(--nvx-code-digits, 1) * 1ch + var(--nvx-code-pad-x) + 1rem);
+}
+.nvx-code--numbered .nvx-code__code {
+  counter-reset: nvx-code-line;
+  padding-left: 0;
+}
+.nvx-code__line {
+  display: block;
+  position: relative;
+  /* An empty last line has nothing in it to give it a height. */
+  min-height: 1.6em;
+  padding-left: var(--nvx-code-gutter);
+}
+/* Held against the left edge while a long line is scrolled, on the sample's
+ * own background, so the code passes under the numbers instead of taking
+ * them away with it. */
+.nvx-code__line::before {
+  counter-increment: nvx-code-line;
+  content: counter(nvx-code-line);
+  display: inline-block;
+  position: sticky;
+  left: 0;
+  box-sizing: border-box;
+  width: var(--nvx-code-gutter);
+  margin-left: calc(-1 * var(--nvx-code-gutter));
+  padding-right: 1rem;
+  text-align: right;
+  color: var(--nvx-code-muted);
+  background: var(--nvx-code-bg);
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+}
+/* A wrapped sample never scrolls sideways, and a number standing in the line
+ * would let a long first word break away from it onto a line of its own. */
+.nvx-code--wrap .nvx-code__line::before {
+  position: absolute;
+  top: 0;
+  margin-left: 0;
+}
+
+/* The canvas only: the text box over the drawing. */
+.nvx-code__input {
+  position: absolute;
+  inset: 0;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  /* No padding on the right when lines do not wrap: the box is exactly as
+   * wide as the longest line, and any rounding in the browser's measure of
+   * the two would otherwise scroll the box's text a pixel away from the
+   * drawing when the caret reaches the end of that line. */
+  padding: var(--nvx-code-pad-y) 0 var(--nvx-code-pad-y) var(--nvx-code-pad-x);
+  font: inherit;
+  letter-spacing: inherit;
+  tab-size: 2;
+  -moz-tab-size: 2;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow: hidden;
+  resize: none;
+  outline: none;
+  box-shadow: none;
+  background: transparent;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--nvx-code-fg);
+}
+.nvx-code--wrap .nvx-code__input {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-right: var(--nvx-code-pad-x);
+}
+.nvx-code--numbered .nvx-code__input {
+  padding-left: var(--nvx-code-gutter);
+}
+.nvx-code__input::selection {
+  background: var(--nvx-code-selection);
+}
+.nvx-code__input::placeholder {
+  color: var(--nvx-code-muted);
+  -webkit-text-fill-color: var(--nvx-code-muted);
+  opacity: 1;
+}
+.nvx-code:has(.nvx-code__input:focus-visible) {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--site-accent, #6366f1) 60%, transparent);
+}
+/* With forced colours the transparent text would be painted anyway, over the
+ * drawing and a pixel off it; the text box shows its own text instead. */
+@media (forced-colors: active) {
+  .nvx-code__input {
+    forced-color-adjust: none;
+    background: Canvas;
+    color: CanvasText;
+    -webkit-text-fill-color: CanvasText;
+    caret-color: CanvasText;
+  }
+}
 /* == end block: code == */

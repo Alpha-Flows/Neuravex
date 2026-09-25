@@ -90,6 +90,23 @@ describe("rewriteSiteLinks", () => {
     expect(rewriteSiteLinks(html, "demo", pages)).toBe(html);
   });
 
+  it("keeps a fragment or a query string on the file it points at", () => {
+    expect(rewriteSiteLinks('<a href="/sites/demo/about#team">Team</a>', "demo", pages)).toBe(
+      '<a href="about.html#team">Team</a>',
+    );
+    expect(rewriteSiteLinks('<a href="/sites/demo#top">Top</a>', "demo", pages)).toBe(
+      '<a href="index.html#top">Top</a>',
+    );
+    expect(rewriteSiteLinks('<a href="/sites/demo/about?x=1&amp;y=2#a">A</a>', "demo", pages)).toBe(
+      '<a href="about.html?x=1&amp;y=2#a">A</a>',
+    );
+  });
+
+  it("leaves a fragment link to a page that is not exported alone", () => {
+    const html = '<a href="/sites/demo/draft#x">Draft</a>';
+    expect(rewriteSiteLinks(html, "demo", pages)).toBe(html);
+  });
+
   it("leaves external links and other sites alone", () => {
     const html = '<a href="https://example.com">Out</a><a href="/sites/other/x">Other</a>';
     expect(rewriteSiteLinks(html, "demo", pages)).toBe(html);

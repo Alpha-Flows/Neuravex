@@ -62,6 +62,14 @@ export function injectStylesheet(html: string, href: string): string {
  * as the bare site URL. A link to a page that is not in this export (a draft,
  * when drafts are excluded) is left alone rather than pointed at a file that
  * will not be there.
+ *
+ * A fragment or a query string is carried across to the file. It used to be
+ * read as part of the slug, so `/sites/acme/about#team` looked for a page
+ * called `about#team`, found none, and was left pointing at a server that a
+ * folder opened from disk does not have — while the plain link to the same
+ * page beside it worked. The link picker keeps fragments on purpose, and a
+ * pricing plan's button pointing at `#contact` on another page is exactly
+ * what one looks like.
  */
 export function rewriteSiteLinks(
   html: string,
@@ -71,11 +79,14 @@ export function rewriteSiteLinks(
 ): string {
   const base = `/sites/${siteSlug}`;
   return html.replace(/href="([^"]*)"/g, (match, href: string) => {
-    if (href === base || href === `${base}/`) return `href="${homeFile}"`;
-    if (!href.startsWith(`${base}/`)) return match;
-    const slug = href.slice(base.length + 1).replace(/\/$/, "");
+    const cut = href.search(/[?#]/);
+    const path = cut < 0 ? href : href.slice(0, cut);
+    const tail = cut < 0 ? "" : href.slice(cut);
+    if (path === base || path === `${base}/`) return `href="${homeFile}${tail}"`;
+    if (!path.startsWith(`${base}/`)) return match;
+    const slug = path.slice(base.length + 1).replace(/\/$/, "");
     const file = pages.get(slug);
-    return file ? `href="${file}"` : match;
+    return file ? `href="${file}${tail}"` : match;
   });
 }
 

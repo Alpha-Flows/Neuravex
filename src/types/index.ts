@@ -157,9 +157,20 @@ export interface SpacerProps {
 }
 
 export interface VideoProps {
+  /**
+   * A YouTube or Vimeo link, which is drawn as that site's privacy-preserving
+   * player (see `src/lib/video-embed.ts`), or the address of a video file,
+   * which is drawn as a `<video>` element.
+   */
   src: string;
+  /** Shown before a video file starts. A YouTube or Vimeo player draws its own. */
   poster: string;
   ratio: "16/9" | "4/3" | "1/1" | "9/16";
+  /**
+   * What a screen reader calls the player. Empty means "YouTube video" or
+   * "Vimeo video" for an embed, and no name of its own for a file.
+   */
+  title?: string;
 }
 
 export interface QuoteProps {
@@ -244,8 +255,15 @@ export interface SliderProps {
 }
 
 export interface AudioProps {
+  /**
+   * A file from the library (`/uploads/…`), which the download carries with
+   * it, or an https address somebody typed, which it does not. Empty draws
+   * nothing on the published page.
+   */
   src: string;
+  /** What is playing — "Episode 4 — The long winter". Inline HTML. */
   title: string;
+  /** A line or two under the title. Optional, inline HTML. */
   description: string;
 }
 
@@ -344,6 +362,17 @@ export interface MapProps {
   mode: "card" | "embed";
   /** How tall the embedded map is drawn, in px. */
   height: number;
+  /**
+   * The words on the link to OpenStreetMap. A prop rather than a fixed
+   * English phrase because the page it sits on may be written in German;
+   * empty reads as the default for the mode ("Open in OpenStreetMap", "Open
+   * larger map").
+   */
+  linkLabel: string;
+  /** Whether a second link opens the same place on Google Maps. */
+  googleLink: boolean;
+  /** The words on that link; empty reads as "Open in Google Maps". */
+  googleLabel: string;
 }
 
 export interface CodeProps {

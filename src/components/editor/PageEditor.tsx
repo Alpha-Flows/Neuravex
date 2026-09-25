@@ -91,6 +91,21 @@ export function isTextEntry(el: Element | null): boolean {
   return (el as HTMLElement).isContentEditable === true;
 }
 
+/**
+ * Whether a key belongs to whatever has focus rather than to the page.
+ *
+ * Text entry, as above — and anything in the side rails or a dialog. The
+ * delete shortcut asked only the first question, so with the focus on a
+ * button in the inspector — "Use the upright 9 / 16 shape", a column count,
+ * a list row's "move up" — Backspace deleted the block being edited. The
+ * buttons that remove themselves as they are pressed made it worse: focus
+ * fell to the page, and the next Backspace a keyboard user pressed went
+ * the same way. A key pressed in the panel is about the panel.
+ */
+function keysBelongToFocus(el: Element | null): boolean {
+  return isTextEntry(el) || !!el?.closest("aside, [role='dialog']");
+}
+
 export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTargets, initial, nonce }: Props) {
   const [blocks, setBlocks] = useState<BaseBlock[]>(initial.blocks);
   const [title, setTitle] = useState(initial.title);
@@ -497,19 +512,19 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
         return;
       }
       // Duplicate selected block
-      if (mod && e.key === "d" && selectedId && !e.repeat && !isTextEntry(document.activeElement)) { e.preventDefault(); duplicateBlock(selectedId); return; }
+      if (mod && e.key === "d" && selectedId && !e.repeat && !keysBelongToFocus(document.activeElement)) { e.preventDefault(); duplicateBlock(selectedId); return; }
       // Delete / Backspace — delete the selected block, but never while a
       // caret is in something. Block text lives in a contentEditable, whose
       // tag is H1 or P, so a tag-name check let one backspace mid-sentence
       // delete the whole block.
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedId && !isTextEntry(document.activeElement)) {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedId && !keysBelongToFocus(document.activeElement)) {
         e.preventDefault();
         deleteBlock(selectedId);
         return;
       }
       // Arrow keys nudge a floating block. Only a floating one: in the flow
       // there is nowhere to nudge to, and the arrows still scroll the canvas.
-      if (e.key.startsWith("Arrow") && selectedId && !isTextEntry(document.activeElement)) {
+      if (e.key.startsWith("Arrow") && selectedId && !keysBelongToFocus(document.activeElement)) {
         const selected = findBlock(blocks, selectedId);
         if (selected && isFloating(selected)) {
           const step = e.shiftKey ? 2 : 0.5;

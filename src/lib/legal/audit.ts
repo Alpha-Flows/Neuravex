@@ -23,6 +23,8 @@
 import { Parser } from "htmlparser2";
 import { BaseBlock } from "@/types";
 import { sanitizeHtml, sanitizeInlineHtml } from "@/lib/sanitize";
+import { VIDEO_PROVIDER_NAME, videoEmbed, videoSiteOf } from "@/lib/video-embed";
+import { osmEmbedUrl, osmTileHosts } from "@/lib/map-location";
 
 export type FindingKind =
   /** A form that can take personal data from a visitor. */
@@ -82,20 +84,34 @@ export interface SiteAudit {
   selfContained: boolean;
 }
 
-/** The host of an absolute URL, or null for a path on this same site. */
+/**
+ * A host no address can really name, standing in for this site.
+ *
+ * `.invalid` is reserved for exactly this (RFC 2606): nothing an author writes
+ * can resolve to it, so an address that comes back with it as its host was a
+ * path on this site all along.
+ */
+const THIS_SITE = "https://self.invalid/";
+
+/**
+ * The host of an address somebody else serves, or null for one on this site.
+ *
+ * The address is resolved the way a browser resolves it, against a stand-in
+ * for this site, rather than sorted by what it starts with. Sorting by prefix
+ * read `//fonts.gstatic.com/x.woff2` as a path until it was taught otherwise,
+ * and it still read `/\cdn.example/clip.mp4` and `\\cdn.example\clip.mp4` as
+ * paths: a browser treats a backslash in an http address as a slash, so both
+ * are somebody else's server, and a video block pointing at one loaded it for
+ * every visitor while the privacy notice said the site loaded nothing.
+ */
 export function remoteHost(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const url = value.trim();
-  if (!url) return null;
-  // A protocol-relative address is still somebody else's server, and it has to
-  // be tested before the leading-slash check or `//fonts.gstatic.com/x.woff2`
-  // reads as a path on this site.
-  const protocolRelative = url.startsWith("//");
-  if (!protocolRelative && (url.startsWith("/") || url.startsWith("#") || url.startsWith("data:"))) return null;
-  const withProtocol = protocolRelative ? `https:${url}` : url;
+  if (!url || url.startsWith("#") || /^data:/i.test(url)) return null;
   try {
-    const parsed = new URL(withProtocol);
-    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.host : null;
+    const parsed = new URL(url, THIS_SITE);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed.host === new URL(THIS_SITE).host ? null : parsed.host;
   } catch {
     return null;
   }
@@ -306,14 +322,37 @@ function walk(blocks: BaseBlock[], where: string, out: Finding[], depth = 0): vo
       });
     }
 
+    // A YouTube or Vimeo link is drawn as a frame from the privacy-preserving
+    // player, not from the address that was pasted — so the host named is
+    // the one the visitor's browser actually contacts. This branch used to
+    // read the pasted link, which was right while the block could only hand
+    // it to a `<video>` element; read that way now, it would name
+    // `www.youtube.com` in the privacy notice for a page that only ever talks
+    // to `www.youtube-nocookie.com`. A frame is an embed like one in a Custom
+    // HTML block, and its poster is never drawn, so the poster is not a
+    // request anybody makes. A block with no address, or with a YouTube or
+    // Vimeo address that has no video in it, is not drawn at all — poster
+    // included — so it is not one either.
     if (block.type === "video") {
-      const host = remoteHost(props.src);
-      if (host) {
-        out.push({ kind: "remote-video", host, where, detail: String(props.src), needsConsent: true });
-      }
-      const poster = remoteHost(props.poster);
-      if (poster) {
-        out.push({ kind: "remote-asset", host: poster, where, detail: String(props.poster), needsConsent: true });
+      const embed = videoEmbed(props.src);
+      const embedHost = embed ? remoteHost(embed.embedUrl) : null;
+      if (embed && embedHost) {
+        out.push({
+          kind: "embed",
+          host: embedHost,
+          where,
+          detail: `Video block showing a ${VIDEO_PROVIDER_NAME[embed.provider]} player (${embed.embedUrl})`,
+          needsConsent: true,
+        });
+      } else if (props.src && !videoSiteOf(props.src)) {
+        const host = remoteHost(props.src);
+        if (host) {
+          out.push({ kind: "remote-video", host, where, detail: String(props.src), needsConsent: true });
+        }
+        const poster = remoteHost(props.poster);
+        if (poster) {
+          out.push({ kind: "remote-asset", host: poster, where, detail: String(props.poster), needsConsent: true });
+        }
       }
     }
 
@@ -366,8 +405,12 @@ function walk(blocks: BaseBlock[], where: string, out: Finding[], depth = 0): vo
     }
 
     // An embedded map is a frame from openstreetmap.org that every visitor's
-    // browser loads as the page opens. A map drawn as a card is only a link,
-    // which transmits nothing until somebody follows it.
+    // browser loads as the page opens, and the frame then draws the map from
+    // OpenStreetMap's tile server — a second host that is handed the
+    // visitor's IP address just the same, and one the notice has to name
+    // too. A map drawn as a card makes no request at all. Both modes carry a
+    // link to OpenStreetMap and, unless the author turned it off, one to
+    // Google Maps; a link transmits nothing until somebody follows it.
     if (block.type === "map") {
       if (props.mode === "embed") {
         out.push({
@@ -377,8 +420,14 @@ function walk(blocks: BaseBlock[], where: string, out: Finding[], depth = 0): vo
           detail: "Map block showing an OpenStreetMap frame",
           needsConsent: true,
         });
-      } else {
-        out.push({ kind: "outbound-link", host: "www.openstreetmap.org", where, detail: "Map block linking to OpenStreetMap", needsConsent: false });
+        const frame = osmEmbedUrl(Number(props.lat) || 0, Number(props.lng) || 0, Number(props.zoom) || 16);
+        for (const host of osmTileHosts(frame)) {
+          out.push({ kind: "remote-asset", host, where, detail: "Map tiles drawn inside the OpenStreetMap frame", needsConsent: true });
+        }
+      }
+      out.push({ kind: "outbound-link", host: "www.openstreetmap.org", where, detail: "Map block linking to OpenStreetMap", needsConsent: false });
+      if (props.googleLink !== false) {
+        out.push({ kind: "outbound-link", host: "www.google.com", where, detail: "Map block linking to Google Maps", needsConsent: false });
       }
     }
 
@@ -416,6 +465,12 @@ function walk(blocks: BaseBlock[], where: string, out: Finding[], depth = 0): vo
       }
       for (const host of new Set(linkHostsInHtml(html))) {
         out.push({ kind: "outbound-link", host, where, detail: "Link in custom HTML", needsConsent: false });
+      }
+      // An OpenStreetMap frame pasted from its share dialog draws its map
+      // from a tile server the frame's own address never names; the map
+      // block reports it, and so does the same frame pasted here.
+      for (const host of new Set(htmlReferences(html).loads.flatMap(osmTileHosts))) {
+        out.push({ kind: "remote-asset", host, where, detail: "Map tiles drawn inside an OpenStreetMap frame", needsConsent: true });
       }
     }
 
@@ -466,6 +521,10 @@ export function auditSite(input: AuditInput): SiteAudit {
     }
     for (const host of hosts) {
       findings.push({ kind: "chrome-remote", host, where: label, detail: host, needsConsent: true });
+    }
+    // The tile servers behind an OpenStreetMap frame, as for a Custom HTML block.
+    for (const host of new Set(htmlReferences(clean).loads.flatMap(osmTileHosts))) {
+      findings.push({ kind: "chrome-remote", host, where: label, detail: "Map tiles drawn inside an OpenStreetMap frame", needsConsent: true });
     }
     for (const host of new Set(linkHostsInHtml(clean))) {
       findings.push({ kind: "outbound-link", host, where: label, detail: host, needsConsent: false });

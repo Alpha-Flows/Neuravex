@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { BaseBlock, BlockLayer, HeadingProps, TextProps, ImageProps, ButtonProps, DividerProps, SpacerProps, SectionProps, ColumnsProps, ColumnStyle, VideoProps, QuoteProps, ListProps, FormProps, HtmlProps } from "@/types";
+import { BaseBlock, BlockLayer, HeadingProps, TextProps, ImageProps, ButtonProps, DividerProps, SpacerProps, SectionProps, ColumnsProps, ColumnStyle, QuoteProps, ListProps, FormProps, HtmlProps } from "@/types";
 import { clampColumnCount } from "@/lib/tree-utils";
 import { clampLevel, layerOf, MAX_LEVEL, MIN_LEVEL, withLayer } from "@/lib/block-layer";
 import { Input, Label, Textarea } from "@/components/ui/Input";
@@ -18,6 +18,7 @@ import { TablePanel } from "./inspectors/TablePanel";
 import { PricingPanel } from "./inspectors/PricingPanel";
 import { MapPanel } from "./inspectors/MapPanel";
 import { CodePanel } from "./inspectors/CodePanel";
+import { VideoPanel } from "./inspectors/VideoPanel";
 import type { ContainerChoice } from "@/lib/containers";
 
 interface Placement {
@@ -584,18 +585,8 @@ function InspectorBody({
         </>
       );
     }
-    case "video": {
-      const p = block.props as VideoProps;
-      return (
-        <>
-          <Field label="Video URL"><Input value={p.src} onChange={(e) => set("src", e.target.value)} /></Field>
-          <Field label="Poster image URL"><Input value={p.poster} onChange={(e) => set("poster", e.target.value)} /></Field>
-          <Field label="Aspect ratio">
-            <SegBtns value={p.ratio} options={["16/9", "4/3", "1/1", "9/16"]} onChange={(v) => set("ratio", v)} />
-          </Field>
-        </>
-      );
-    }
+    case "video":
+      return <VideoPanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
     case "quote": {
       const p = block.props as QuoteProps;
       return (

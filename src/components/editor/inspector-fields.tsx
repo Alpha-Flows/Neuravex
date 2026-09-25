@@ -85,6 +85,7 @@ export function SegBtns<T extends string>({
   options,
   onChange,
   nameFor,
+  labelFor,
 }: {
   value: T;
   options: readonly T[];
@@ -95,6 +96,12 @@ export function SegBtns<T extends string>({
    * numbers in the columns inspector.
    */
   nameFor?: (v: T) => string;
+  /**
+   * What the button shows, when the stored value is not a word a person
+   * would pick — "sm" reads better as "S", and "embed" as "Live map". Left
+   * out, the value is shown as it is, capitalised.
+   */
+  labelFor?: (v: T) => string;
 }) {
   return (
     <div className="inline-flex rounded-md border border-bg-border overflow-hidden w-full">
@@ -104,9 +111,9 @@ export function SegBtns<T extends string>({
           onClick={() => onChange(o)}
           aria-label={nameFor ? nameFor(o) : undefined}
           aria-pressed={value === o}
-          className={`flex-1 h-8 text-xs capitalize ${value === o ? "bg-brand text-white" : "text-fg-muted hover:text-fg hover:bg-bg-card"}`}
+          className={`flex-1 h-8 text-xs ${labelFor ? "" : "capitalize"} ${value === o ? "bg-brand text-white" : "text-fg-muted hover:text-fg hover:bg-bg-card"}`}
         >
-          {o.replace("/", " / ")}
+          {labelFor ? labelFor(o) : o.replace("/", " / ")}
         </button>
       ))}
     </div>
@@ -189,11 +196,17 @@ export function LinkField({
   onChange,
   pages,
   siteSlug,
+  ariaLabel,
 }: {
   value: string;
   onChange: (next: string) => void;
   pages?: LinkTarget[];
   siteSlug?: string;
+  /**
+   * What the field is called, where there is no visible label beside it — a
+   * link inside one row of a list, say. The page menu is named after it.
+   */
+  ariaLabel?: string;
 }) {
   const href = value ?? "";
   const target = pages && siteSlug ? targetOf(href, siteSlug, pages) : null;
@@ -206,6 +219,7 @@ export function LinkField({
         value={href}
         placeholder="https://example.com, /sites/…, #anchor or mailto:"
         onChange={(e) => onChange(e.target.value)}
+        aria-label={ariaLabel}
       />
       {pages && siteSlug && pages.length > 0 ? (
         <select
@@ -213,6 +227,7 @@ export function LinkField({
           // the site, so the select shows its own first option rather than
           // claiming the link goes to a page it does not.
           value={target ? target.slug : ""}
+          aria-label={ariaLabel ? `${ariaLabel}: a page in this site` : undefined}
           onChange={(e) => {
             const page = pages.find((p) => p.slug === e.target.value);
             if (page) onChange(pagePath(siteSlug, page.slug, page.isHome));

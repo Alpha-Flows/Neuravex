@@ -4,6 +4,7 @@ import { getBlockDefinition } from "@/lib/blocks";
 import { columnCount, groupIntoColumns } from "@/lib/tree-utils";
 import { isFloating, layerOf } from "@/lib/block-layer";
 import { cn } from "@/lib/utils";
+import { iconOutlineName } from "@/lib/icon-card";
 
 interface Props {
   blocks: BaseBlock[];
@@ -13,6 +14,7 @@ interface Props {
 
 /** A few words from the block itself, so a row is recognisable at a glance. */
 function describe(block: BaseBlock): string {
+  if (block.type === "icon") return iconOutlineName(block.props);
   const props = block.props as Record<string, unknown>;
   const text =
     typeof props.text === "string" && props.text ? props.text
@@ -37,10 +39,12 @@ function describe(block: BaseBlock): string {
   if (block.type === "accordion") return count("items", "question", "questions");
   if (block.type === "map" && typeof props.address === "string") return props.address.replace(/<[^>]*>/g, "");
   if (block.type === "code") {
-    const first = typeof props.code === "string" ? props.code.split("\n")[0].trim() : "";
+    // The file name when there is one; otherwise the first line with anything
+    // on it, since a sample often opens with a blank line or two.
+    const named = typeof props.filename === "string" ? props.filename.trim() : "";
+    const first = named || (typeof props.code === "string" ? props.code.split("\n").find((l) => l.trim())?.trim() ?? "" : "");
     return first.length > 34 ? `${first.slice(0, 34)}…` : first;
   }
-  if (block.type === "icon" && typeof props.icon === "string") return props.icon;
   if (block.type === "columns") return `${columnCount(block)} columns`;
   if (block.type === "section") return `${block.children?.length ?? 0} inside`;
   return "";
