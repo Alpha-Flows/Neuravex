@@ -26,7 +26,7 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 22 or
 - **Autosave** with `Cmd/Ctrl+S` shortcut
 - **Page history** — revisions with preview and restore; autosaves within five minutes of each other share one entry, and Cmd/Ctrl+S saves are kept separately
 - **A picture library you can search** — uploads keep the name they arrived with, can be renamed and described in place, and are found by either; the 74 bundled photographs are searchable by what they show
-- **Form submissions** stored in the CMS, viewable per page
+- **Forms with the fields people ask for** — text, email, phone, number, date, dropdowns, one or several choices, and a privacy checkbox that links the Datenschutzerklärung — with placeholders and help text, submissions stored in the CMS and viewable per page, and a hidden trap and a minimum fill time to keep programs out
 - **Per-page and per-site SEO** — search title, description, and social image
 - **German legal pages** — a guided flow collects what § 5 DDG and Art. 13 DSGVO ask for, writes an Impressum and a Datenschutzerklärung as editable pages, and links both in the footer of every page and subpage. The privacy notice describes what your site actually does: the builder reads your pages and only mentions third-party content it finds
 - **No external services** — no accounts, no sign-in, and no analytics in your published sites
@@ -198,9 +198,11 @@ as-is, with no build step.
 Two things to know:
 
 - Only **published** pages are exported. Drafts stay in the builder.
-- **Forms** are included, but a static file has nowhere to send an answer.
-  Keep using the builder if you want submissions stored, or point the form at
-  a form-handling service.
+- **Forms** are included, but a static file has no server of its own to send
+  an answer to. Give the form a destination in its settings — a form service's
+  address such as Formspree, or your email address — and the downloaded form
+  sends there, with the page's security policy opened for that address alone.
+  Without one, the form says it cannot send anything.
 
 ## Telemetry
 

@@ -95,7 +95,7 @@ function BlockBody({ block: raw, onChange, disabled, onSelect, onChildDelete, on
     case "list":
       return <List props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     case "form":
-      return <Form props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} pageId={pageId} />;
+      return <Form blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} pageId={pageId} />;
     case "html":
       return <CustomHtml props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     case "gallery":

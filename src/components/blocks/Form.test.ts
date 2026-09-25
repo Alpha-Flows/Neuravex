@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { submissionKeys } from "@/components/blocks/Form";
+import { submissionKeys } from "@/lib/form-fields";
 import { FormField } from "@/types";
 
 const f = (label: string): FormField => ({ label, type: "text", required: false });

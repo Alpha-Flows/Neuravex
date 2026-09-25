@@ -9,6 +9,8 @@
  * server route.
  */
 
+import { destinationSource } from "./form-fields";
+
 /** Where a page ends up in the archive. The home page becomes index.html. */
 export function pageFileName(slug: string, isHome: boolean): string {
   if (isHome) return "index.html";
@@ -290,12 +292,55 @@ export function rewriteAssetPaths(html: string): string {
  * `script-src 'none'` is safe to say because the export strips the runtime —
  * a downloaded site is HTML and CSS by design.
  */
-export const EXPORT_CSP =
-  "<meta http-equiv=\"Content-Security-Policy\" content=\"script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'\">";
+export function exportCsp(formSources: string[] = []): string {
+  const formAction = formSources.length > 0 ? [...new Set(formSources)].sort().join(" ") : "'none'";
+  return `<meta http-equiv="Content-Security-Policy" content="script-src 'none'; object-src 'none'; base-uri 'none'; form-action ${formAction}">`;
+}
 
+/** The policy of a page with no form that sends anywhere. */
+export const EXPORT_CSP = exportCsp();
+
+/**
+ * The page's policy, with `form-action` opened for exactly the addresses its
+ * forms were given — the origin of each form service, `mailto:` for email —
+ * and for nothing when none was. A form switched off by
+ * `disableExportedForms` opens nothing.
+ */
 export function injectExportCsp(html: string): string {
-  if (html.includes("</head>")) return html.replace("</head>", `${EXPORT_CSP}</head>`);
-  return EXPORT_CSP + html;
+  const sources: string[] = [];
+  for (const [, attrs] of html.matchAll(FORM_TAG)) {
+    const source = sendsTo(attrs);
+    if (source && !/\sdata-exported-form=/i.test(attrs)) sources.push(source);
+  }
+  const csp = exportCsp(sources);
+  if (html.includes("</head>")) return html.replace("</head>", `${csp}</head>`);
+  return csp + html;
+}
+
+const FORM_TAG = /<form\b([^>]*)>/gi;
+
+/** An attribute's value from a tag's attribute text, with React's escaping undone. */
+function attributeValue(attrs: string, name: string): string | null {
+  const found = new RegExp(`\\s${name}="([^"]*)"`, "i").exec(attrs);
+  if (!found) return null;
+  return found[1]
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+/**
+ * What the policy must allow for this form to send, or null when it sends
+ * nowhere: only a form the block marked as having a destination, and only a
+ * destination the block would itself accept — an archive edited by hand
+ * cannot point a form at `javascript:` or plain http this way.
+ */
+function sendsTo(attrs: string): string | null {
+  if (!/\sdata-form-destination="/i.test(attrs)) return null;
+  const action = attributeValue(attrs, "action");
+  return action ? destinationSource(action) : null;
 }
 
 /**
@@ -321,15 +366,18 @@ const EXPORTED_FORM_NOTE =
   "</p>";
 
 export function disableExportedForms(html: string): string {
-  const withGuard = html.replace(/<form\b([^>]*)>/gi, (match, attrs: string) => {
+  // One form at a time: a page can hold a form that was given somewhere to
+  // send and one that was not, and only the second is switched off and
+  // labelled. Forms cannot nest, so the first closing tag is this form's.
+  return html.replace(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi, (match, attrs: string, inside: string) => {
     if (/\bonsubmit=/i.test(attrs)) return match;
+    // Given somewhere to send in its block's settings: it posts there
+    // natively, and the page's policy is opened for that address alone.
+    if (sendsTo(attrs)) return match;
     // `action=""` keeps a browser that ignores the handler from navigating
     // somewhere new; the handler is what stops the submit happening at all.
-    return `<form${attrs} onsubmit="return false" data-exported-form="1">`;
+    return `<form${attrs} onsubmit="return false" data-exported-form="1">${inside}${EXPORTED_FORM_NOTE}</form>`;
   });
-
-  if (!withGuard.includes('data-exported-form="1"')) return withGuard;
-  return withGuard.replace(/<\/form>/gi, `${EXPORTED_FORM_NOTE}</form>`);
 }
 
 export interface PreparePageOptions {

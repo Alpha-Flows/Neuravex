@@ -214,6 +214,50 @@ describe("an exported form cannot send anything", () => {
   });
 });
 
+describe("an exported form given somewhere to send", () => {
+  const service =
+    '<form action="https://formspree.io/f/abc?x=1&amp;y=2" method="post" data-form-destination="service"><input name="Name"></form>';
+  const email = '<form action="mailto:info@example.de" method="post" enctype="text/plain" data-form-destination="email"><input name="Name"></form>';
+  const nowhere = '<form class="x"><input name="Name"></form>';
+  const page = (body: string) => `<html><head><title>x</title></head><body>${body}</body></html>`;
+
+  it("is left to post there, and only a form without one is switched off", () => {
+    const out = disableExportedForms(service + nowhere);
+    expect(out.startsWith(service)).toBe(true);
+    expect(out.match(/onsubmit="return false"/g)).toHaveLength(1);
+    expect(out.match(/cannot send anything/g)).toHaveLength(1);
+  });
+
+  it("opens the page's policy for that service's origin, and nothing else", () => {
+    const out = injectExportCsp(disableExportedForms(page(service + nowhere)));
+    expect(out).toContain("form-action https://formspree.io\">");
+    expect(out).toContain("script-src 'none'");
+  });
+
+  it("opens it for mailto: when answers go by email", () => {
+    expect(injectExportCsp(page(email))).toContain("form-action mailto:\">");
+  });
+
+  it("keeps it shut when no form sends anywhere", () => {
+    expect(injectExportCsp(disableExportedForms(page(nowhere)))).toContain("form-action 'none'");
+    expect(injectExportCsp(page("<p>hi</p>"))).toContain("form-action 'none'");
+  });
+
+  it("is not a way for an edited archive to open the policy wider", () => {
+    // The same checks the block's own settings make: https only, and a form
+    // the builder marked as having a destination.
+    for (const form of [
+      '<form action="http://example.com/f" data-form-destination="service"></form>',
+      '<form action="javascript:alert(1)" data-form-destination="service"></form>',
+      '<form action="https://example.com/f"></form>',
+    ]) {
+      const out = injectExportCsp(disableExportedForms(page(form)));
+      expect(out, form).toContain("form-action 'none'");
+      expect(out, form).toContain('onsubmit="return false"');
+    }
+  });
+});
+
 describe("a malformed asset reference is one missing picture, not a 500", () => {
   it("skips a broken percent escape", () => {
     // This used to throw out of decodeURIComponent and turn the whole

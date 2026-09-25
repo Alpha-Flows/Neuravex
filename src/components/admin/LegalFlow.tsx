@@ -740,6 +740,12 @@ function Review({
         ) : (
           <ul className="text-xs text-fg-muted space-y-1">
             {audit.hasForm ? <li>A form that can collect what a visitor types.</li> : null}
+            {audit.formHosts.map((host) => (
+              <li key={`form-${host}`}>
+                Form answers sent to <span className="text-fg">{host}</span> by the downloaded site — the notice
+                names it.
+              </li>
+            ))}
             {audit.remoteHosts.map((host) => (
               <li key={host}>
                 Content loaded from <span className="text-fg">{host}</span> — the visitor&apos;s IP reaches that

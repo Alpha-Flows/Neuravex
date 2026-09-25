@@ -49,7 +49,7 @@ const gmbh = (over: Partial<LegalProfile> = {}): LegalProfile => ({
   ...over,
 });
 
-const emptyAudit = { findings: [], hasForm: false, remoteHosts: [], linkHosts: [], selfContained: true };
+const emptyAudit = { findings: [], hasForm: false, remoteHosts: [], linkHosts: [], formHosts: [], selfContained: true };
 
 describe("what the law asks of whom", () => {
   it("asks a GmbH for its representatives and its register, and a sole trader for neither", () => {
@@ -200,6 +200,7 @@ describe("the Datenschutzerklärung", () => {
       hasForm: false,
       remoteHosts: ["fonts.googleapis.com", "www.youtube.com"],
       linkHosts: [],
+      formHosts: [],
       selfContained: false,
     };
     const out = text(buildDatenschutz(gmbh(), audit, DEFAULT_LOOK));

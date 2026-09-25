@@ -186,15 +186,29 @@ export interface ListProps {
 }
 
 export interface FormField {
+  /** Inline HTML, so a privacy checkbox can link the notice from inside its sentence. */
   label: string;
-  type: "text" | "email" | "textarea";
+  /** See `FORM_FIELD_TYPES` in `src/lib/form-fields.ts`. */
+  type: "text" | "email" | "textarea" | "tel" | "number" | "date" | "select" | "radio" | "checkboxes" | "consent";
   required: boolean;
+  /** Shown in an empty box; in a dropdown, the choice that means none yet. */
+  placeholder?: string;
+  /** A line beneath the field, read out with it. */
+  help?: string;
+  /** The answers a dropdown, a set of buttons or of tick boxes offers. */
+  options?: string[];
 }
 
 export interface FormProps {
   fields: FormField[];
   submitLabel: string;
   successMessage: string;
+  /**
+   * Where the form in a downloaded copy of the site sends its answers — a
+   * form service's https address or `mailto:` — or "" for nowhere. The
+   * builder's own pages always store answers in the builder.
+   */
+  destination?: string;
 }
 
 export interface HtmlProps {

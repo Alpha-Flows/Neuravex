@@ -1,4 +1,13 @@
 import { z } from "zod";
+import {
+  FORM_FIELD_TYPES,
+  MAX_FORM_FIELDS,
+  STARTER_OPTIONS,
+  formDestination,
+  formOptions,
+  hasChoices,
+  takesPlaceholder,
+} from "./form-fields";
 import type { BaseBlock } from "@/types";
 import { isSafeHref } from "./url-safety";
 import { sanitizeStyleAttribute } from "./css-safety";
@@ -216,6 +225,36 @@ function listOf<T extends z.ZodType>(item: T, max: number) {
  */
 const LIST_ITEMS = new WeakMap<z.ZodType, z.ZodType>();
 
+/**
+ * One field of a form.
+ *
+ * The label is inline HTML, as the canvas has always written it back — it is
+ * edited in place — and as a privacy checkbox needs, since its sentence links
+ * the notice. It was stored as plain text and drawn as HTML, so a label typed
+ * as "Name & address" in the panel came back "Name &amp; address" once edited
+ * on the canvas. What a kind of field has no use for is left out rather than
+ * stored empty: a placeholder on a date, options on an email address.
+ */
+const formField = z
+  .object({
+    label: inlineText(500),
+    type: z.enum(FORM_FIELD_TYPES).catch("text"),
+    required: flag(false),
+    placeholder: text(200),
+    help: text(500),
+    options: z.unknown().optional().transform(formOptions),
+  })
+  .transform(({ label, type, required, placeholder, help, options }) => ({
+    label,
+    type,
+    required,
+    ...(placeholder && takesPlaceholder(type) ? { placeholder } : {}),
+    ...(help ? { help } : {}),
+    // A choice with nothing to choose from cannot be answered, and a required
+    // one would stop the form being sent at all.
+    ...(hasChoices(type) ? { options: options.length > 0 ? options : STARTER_OPTIONS.slice() } : {}),
+  }));
+
 /** One picture in a gallery or a slider, checked the way an image block's is. */
 const mediaItem = z.object({
   src: z.unknown().optional().transform((v) => safeMediaSrc(v) ?? ""),
@@ -358,19 +397,14 @@ const PROPS: Record<string, z.ZodType> = {
   }),
 
   form: z.object({
-    // Same shape of failure as `items`, on the block that takes visitor data.
-    fields: z
-      .array(
-        z.object({
-          label: text(500),
-          type: z.enum(["text", "email", "textarea"]).catch("text"),
-          required: z.boolean().catch(false),
-        }).catch({ label: "", type: "text" as const, required: false }),
-      )
-      .max(100)
-      .catch([]),
+    // Same shape of failure as `items`, on the block that takes visitor data —
+    // and read with `listOf`, so one field that is not a field is dropped
+    // rather than emptying the form, or standing in it as a blank box nobody
+    // wrote.
+    fields: listOf(formField, MAX_FORM_FIELDS),
     submitLabel: text(200),
     successMessage: text(2000),
+    destination: z.unknown().optional().transform(formDestination),
   }),
 
   html: z.object({

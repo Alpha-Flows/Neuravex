@@ -37,7 +37,7 @@ export default async function PageEditorRoute(
   const linkTargets = await prisma.page.findMany({
     where: { siteId: site.id },
     orderBy: [{ isHome: "desc" }, { sortOrder: "asc" }],
-    select: { slug: true, title: true, isHome: true, published: true },
+    select: { slug: true, title: true, isHome: true, published: true, legalKind: true },
   });
 
   // The same reading every other path uses. This was a bare `JSON.parse` with
