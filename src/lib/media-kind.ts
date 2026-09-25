@@ -73,6 +73,44 @@ export function mediaKindOf(url: string): MediaKind {
   return KIND_OF_EXTENSION.get(extensionOf(trimmed)) ?? "other";
 }
 
+const MB = 1024 * 1024;
+
+/**
+ * How large an upload of each kind may be.
+ *
+ * One limit used to cover everything, 10 MB, and Next held a video to it in
+ * any case by cutting every request body off there. Ten megabytes is a
+ * photograph many times over and a minute of phone video, so the Video block
+ * that took "a video file that travels with this site" could be given almost
+ * none. A video is allowed a few minutes of 1080p now, and a sound an album
+ * track; a picture or a document keeps the old limit, since every one of
+ * them is read into memory to be checked and cleaned.
+ *
+ * Here, with no dependencies, so the picker can say a file is too large
+ * before it has sent any of it.
+ */
+export const UPLOAD_LIMITS: Readonly<Record<MediaKind, number>> = {
+  image: 10 * MB,
+  audio: 50 * MB,
+  video: 250 * MB,
+  other: 10 * MB,
+};
+
+/** The limit for a file of this name. */
+export function uploadLimitFor(name: string): number {
+  return UPLOAD_LIMITS[mediaKindOf(name)];
+}
+
+/** The largest limit, which is what a request may carry at all. */
+export const MAX_UPLOAD_LIMIT = Math.max(...Object.values(UPLOAD_LIMITS));
+
+/** "That file is larger than 250 MB, the most a video may be." */
+export function tooLargeMessage(name: string): string {
+  const kind = mediaKindOf(name);
+  const what = kind === "image" ? "a picture" : kind === "audio" ? "a sound" : kind === "video" ? "a video" : "a file of this kind";
+  return `That file is larger than ${Math.round(UPLOAD_LIMITS[kind] / MB)} MB, the most ${what} may be.`;
+}
+
 /**
  * The file input's `accept`, per kind.
  *

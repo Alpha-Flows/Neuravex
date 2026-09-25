@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { matchesQuery } from "@/lib/media";
 import { ACCEPT, extensionList, libraryFor, mediaKindOf, type PickableKind } from "@/lib/media-kind";
 import { Overlay } from "@/components/ui/Overlay";
+import { sendUpload } from "@/lib/send-upload";
 
 export interface PickedImage {
   /** The picture's own pixel size, when it could be read. */
@@ -230,24 +231,18 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
 
     setUploadError(null);
     setUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
     try {
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const info = await res.json().catch(() => ({}));
-      if (res.ok && info.url) {
-        setFiles((f) => [...f, { url: info.url, name: info.name, alt: "" }]);
-        onSelect(info.url, { naturalWidth: info.width, naturalHeight: info.height });
+      const sent = await sendUpload(file);
+      if (sent.ok) {
+        setFiles((f) => [...f, { url: sent.url, name: sent.name, alt: "" }]);
+        onSelect(sent.url, { naturalWidth: sent.width, naturalHeight: sent.height });
         onClose();
       } else {
         // The route says why — too large, contents not matching the name —
         // and that used to go nowhere: the button stopped spinning and nothing
-        // else happened. A sound file meets the size cap far sooner than a
-        // photograph does, so this is the message people will actually see.
-        setUploadError(typeof info.error === "string" ? info.error : "That file could not be uploaded.");
+        // else happened.
+        setUploadError(sent.error);
       }
-    } catch {
-      setUploadError("That file could not be uploaded.");
     } finally {
       setUploading(false);
     }
@@ -267,19 +262,14 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
     if (!file) return;
     setOtherError(null);
     setOtherUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
     try {
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const info = await res.json().catch(() => ({}));
-      if (res.ok && info.url) {
-        setFiles((f) => [...f, { url: info.url, name: info.name, alt: "" }]);
-        setShownAddress(info.url);
+      const sent = await sendUpload(file);
+      if (sent.ok) {
+        setFiles((f) => [...f, { url: sent.url, name: sent.name, alt: "" }]);
+        setShownAddress(sent.url);
       } else {
-        setOtherError(typeof info.error === "string" ? info.error : "That file could not be uploaded.");
+        setOtherError(sent.error);
       }
-    } catch {
-      setOtherError("That file could not be uploaded.");
     } finally {
       setOtherUploading(false);
     }

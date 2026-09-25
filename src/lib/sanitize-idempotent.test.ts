@@ -76,6 +76,18 @@ describe("sanitising what was already sanitised", () => {
     }
   });
 
+  it("leaves a link to the top of the page as the bare `#` it is", () => {
+    // It was stored as `#c-`, a link to an element no page has.
+    expect(sanitizeInlineHtml('<a href="#">Back to top</a>')).toBe('<a href="#">Back to top</a>');
+    expect(sanitizeHtml('<a href="#">Back to top</a>')).toBe('<a href="#">Back to top</a>');
+    // And one saved by the old code comes back as it was meant.
+    expect(sanitizeInlineHtml('<a href="#c-">Back to top</a>')).toBe('<a href="#">Back to top</a>');
+    expect(sanitizeHtml('<p><a href="#c-">Back to top</a></p>')).toBe('<p><a href="#">Back to top</a></p>');
+    // A fragment that names something is still pointed into the content's ids.
+    expect(sanitizeInlineHtml('<a href="#team">Team</a>')).toBe('<a href="#c-team">Team</a>');
+    expect(sanitizeInlineHtml('<a href="#c-team">Team</a>')).toBe('<a href="#c-team">Team</a>');
+  });
+
   it("gives the same text back however many times a page is saved", () => {
     const body = "x&y<br>".repeat(3000);
     const first = props("accordion", { items: [{ title: "Q", body }] }).items[0].body;

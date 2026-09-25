@@ -225,7 +225,7 @@ Neuravex has no sign-in and no access control — it's meant to run locally on y
 - Uploaded SVGs are parsed and reduced to the elements that draw. `<script>`, `<style>`, `<foreignObject>`, `<use>` and the animation elements are dropped, along with every event handler and any URL that is not a page, a fragment or an inline picture
 - Custom CSS is parsed rather than pattern-matched, and anything that reaches off the page — `@import`, a `url()` naming somewhere other than this document, `expression()`, `behavior` — is dropped. A stylesheet also cannot close the `<style>` element it is written into
 - A Content-Security-Policy names each page's scripts by a nonce that changes every request, so a `<script>` arriving inside someone's content cannot run even if it gets past a sanitizer. The page can only talk back to this server, which is what stops anything it did find being sent elsewhere
-- File uploads are restricted to a safe allowlist of extensions with a 10MB size limit
+- File uploads are restricted to a safe allowlist of extensions, with a size limit for each kind: 250 MB for a video, 50 MB for a sound, 10 MB for a picture or a document
 - Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) are set on all responses
 
 ## Known limitations (V1)
