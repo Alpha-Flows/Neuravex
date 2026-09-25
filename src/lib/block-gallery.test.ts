@@ -228,6 +228,18 @@ describe("what the lightbox's CSS has to keep saying", () => {
   const region = css.slice(start, end);
   const flat = region.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, " ");
   const source = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
+  /**
+   * Every declaration given to a selector in the region, from each rule that
+   * names it, alone or in a list. Asking for one whole rule as a string failed
+   * the moment a declaration was added beside the one being checked.
+   */
+  const declarations = (selector: string) => {
+    const out: string[] = [];
+    for (const rule of flat.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (rule[1].split(",").some((s) => s.trim() === selector)) out.push(rule[2]);
+    }
+    return out.join(";");
+  };
 
   it("has a region to read", () => {
     expect(start).toBeGreaterThan(-1);
@@ -237,13 +249,13 @@ describe("what the lightbox's CSS has to keep saying", () => {
   it("hides the page behind an open picture from focus and from screen readers", () => {
     // Painting over the page left Tab walking on into the header's links
     // behind the backdrop. Hidden, nothing behind can be focused or read.
-    expect(flat).toContain("html:has(.nvx-gallery-lightbox:target:not(.editor-mode *)) body { visibility: hidden; }");
-    expect(flat).toContain(".nvx-gallery-lightbox:target:not(.editor-mode *) { visibility: visible; }");
+    expect(declarations("html:has(.nvx-gallery-lightbox:target:not(.editor-mode *)) body")).toMatch(/visibility:\s*hidden/);
+    expect(declarations(".nvx-gallery-lightbox:target:not(.editor-mode *)")).toMatch(/visibility:\s*visible/);
     expect(source("src/components/blocks/Gallery.tsx")).toContain('aria-modal="true"');
   });
 
   it("never opens a picture over the builder, or hides the builder for one", () => {
-    expect(flat).toContain(".editor-mode .nvx-gallery-lightbox:target { display: none; }");
+    expect(declarations(".editor-mode .nvx-gallery-lightbox:target")).toMatch(/display:\s*none/);
     // Every rule that reaches outside the gallery is keyed on an open picture
     // that is not inside the builder.
     const reaches = flat.match(/:has\([^)]*lightbox[^)]*\)/g) ?? [];
@@ -259,7 +271,7 @@ describe("what the lightbox's CSS has to keep saying", () => {
   });
 
   it("holds a place for a natural picture whose size is unknown, and only for one", () => {
-    expect(flat).toContain('.nvx-gallery-grid[data-aspect="natural"] .nvx-gallery-img:not([width][height]) { aspect-ratio: auto 4 / 3; }');
+    expect(declarations('.nvx-gallery-grid[data-aspect="natural"] .nvx-gallery-img:not([width][height])')).toMatch(/aspect-ratio:\s*auto 4 \/ 3/);
   });
 
   it("loads the panel's thumbnails lazily and shows captions as words", () => {

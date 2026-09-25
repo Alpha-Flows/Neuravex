@@ -278,6 +278,28 @@ describe("the words on a page", () => {
     expect(rewritten).toContain('<img src="uploads/real.png"/>');
   });
 
+  it("are words inside a tag as well", () => {
+    // The code block writes its file name into a label, and the gallery a
+    // picture's description into `alt` and into the link that opens it.
+    const html =
+      '<pre aria-label="Code sample, (/uploads/theme.css)"></pre>' +
+      '<a href="#nvx-g-photo-1" aria-label="Open the logo (/uploads/logo.png)" title="&quot;/stock/nature/a.jpg">' +
+      '<img src="/uploads/real.png" poster="/uploads/still.png" alt="the logo (/uploads/logo.png)"/></a>';
+    expect(collectLocalAssets(html)).toEqual(["uploads/real.png", "uploads/still.png"]);
+    const rewritten = rewriteAssetPaths(html);
+    expect(rewritten).toContain('aria-label="Code sample, (/uploads/theme.css)"');
+    expect(rewritten).toContain('alt="the logo (/uploads/logo.png)"');
+    expect(rewritten).toContain('title="&quot;/stock/nature/a.jpg"');
+    expect(rewritten).toContain('src="uploads/real.png" poster="uploads/still.png"');
+  });
+
+  it("do not move an absolute address in a description either", () => {
+    const html = '<img src="http://localhost:3939/uploads/a.png" alt="(http://localhost:3939/uploads/b.png)"/>';
+    expect(relativizeSelfUrls(html, ["http://localhost:3939"])).toBe(
+      '<img src="/uploads/a.png" alt="(http://localhost:3939/uploads/b.png)"/>',
+    );
+  });
+
   it("leave a stylesheet's references to the rewrite", () => {
     const html = "<style>.hero{background:url(/uploads/h.png)}</style><p>(/uploads/h.png)</p>";
     expect(rewriteAssetPaths(html)).toBe("<style>.hero{background:url(uploads/h.png)}</style><p>(/uploads/h.png)</p>");

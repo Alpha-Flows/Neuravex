@@ -1,7 +1,9 @@
 "use client";
-import { useId, useRef } from "react";
+import { useId, useRef, useState } from "react";
 import type { VideoProps } from "@/types";
 import { Input, Label } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { MediaPicker } from "../MediaPicker";
 import { Field, SegBtns, type BlockPanelProps } from "../inspector-fields";
 import {
   VIDEO_PROVIDER_NAME,
@@ -37,6 +39,7 @@ export function VideoPanel({ block, onChange }: BlockPanelProps) {
   const titleId = useId();
   const titleHint = useId();
   const ratioRow = useRef<HTMLDivElement>(null);
+  const [picking, setPicking] = useState(false);
 
   const embed = videoEmbed(p.src);
   const site = embed ? null : videoSiteOf(p.src);
@@ -56,6 +59,24 @@ export function VideoPanel({ block, onChange }: BlockPanelProps) {
           placeholder="https://www.youtube.com/watch?v=…"
           aria-describedby={srcHint}
           onChange={(e) => set("src", e.target.value)}
+        />
+        {/*
+          A file of the site's own travels with it into the download and
+          needs no connection to play. There was no way left to put one here
+          once the picture library stopped taking files that are not
+          pictures, so the video library opens from the block that uses it.
+        */}
+        <Button size="sm" variant="outline" onClick={() => setPicking(true)} className="mt-2 w-full">
+          Choose video file
+        </Button>
+        <MediaPicker
+          open={picking}
+          kind="video"
+          onClose={() => setPicking(false)}
+          onSelect={(url) => {
+            set("src", url);
+            setPicking(false);
+          }}
         />
         <div id={srcHint} className="mt-1 space-y-1 text-[11px] text-fg-subtle">
           <p>A YouTube or Vimeo link, or the address of a video file.</p>

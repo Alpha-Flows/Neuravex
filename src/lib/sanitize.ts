@@ -201,7 +201,17 @@ export function sanitizeHtml(dirty: string): string {
  */
 export function sanitizeInlineHtml(dirty: string): string {
   if (typeof dirty !== "string") return "";
+  const once = inlinePass(dirty);
+  // A second pass, because one is not always the last word. An element the
+  // profile drops, sitting between two links — `<a><d><a>x` — is removed and
+  // leaves the second link inside the first, which the next pass separates;
+  // so a field saved twice came back different each time until it settled,
+  // and a browser drew the stored copy the way the second pass writes it
+  // anyway. Most text has nothing to settle, and is not parsed again.
+  return once.includes("<a") ? inlinePass(once) : once;
+}
 
+function inlinePass(dirty: string): string {
   return sanitizeHtmlLib(dirty, {
     ...COMMON,
     allowedTags: ["b", "i", "u", "s", "em", "strong", "mark", "sub", "sup", "a", "br", "span", "code"],

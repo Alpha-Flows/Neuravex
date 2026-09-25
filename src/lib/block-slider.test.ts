@@ -181,7 +181,14 @@ describe("moving between slides", () => {
 
   it("puts every arrow it draws, link or button, through that rule", () => {
     const source = readFileSync(join(process.cwd(), "src/components/blocks/Slider.tsx"), "utf8");
-    const arrows = source.match(/className="nvx-slider-arrow [^"]*"[^>]*>/g) ?? [];
+    // Each arrow's whole opening tag, whatever order its attributes are in.
+    // Cutting at the first `>` stopped at the arrow of `onClick={() => …}`,
+    // so the test passed only while the spread came first.
+    const arrows = [...source.matchAll(/className="nvx-slider-arrow /g)].map((m) => {
+      const start = source.lastIndexOf("<", m.index);
+      const end = source.slice(m.index).search(/[^=]>/);
+      return source.slice(start, m.index + end + 2);
+    });
     expect(arrows).toHaveLength(4);
     for (const tag of arrows) expect(tag).toContain("{...arrowAccess}");
   });

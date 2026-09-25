@@ -105,7 +105,19 @@ export function RevisionsPanel({ pageId, refreshKey = 0, onRestore }: Props) {
         <div className="p-4 text-xs text-fg-muted border-b border-bg-border bg-bg-soft">
           This is a read-only preview. Restoring will replace the page&apos;s current content — your unsaved changes, if any, will be lost.
         </div>
-        <div className="public-canvas">
+        {/*
+          The revision is drawn as the published page, links and all, and
+          following one walked out of the editor with whatever had not been
+          saved — the very state the warning above is about. The canvas
+          cancels its links for the same reason; a slider still moves, since
+          it scrolls itself by hand when its link has been cancelled.
+        */}
+        <div
+          className="public-canvas"
+          onClickCapture={(e) => {
+            if ((e.target as HTMLElement).closest?.("a[href]")) e.preventDefault();
+          }}
+        >
           {previewBlocks ? (
             previewBlocks.length > 0 ? (
               <PublicBlocks blocks={previewBlocks} />

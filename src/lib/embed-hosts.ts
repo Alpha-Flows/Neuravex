@@ -101,5 +101,12 @@ export function normalizeEmbed(src: string | undefined | null): string | undefin
   const path = EMBED_PATHS[host as (typeof EMBED_HOSTS)[number]];
   if (path !== undefined && url.pathname !== path) return undefined;
 
+  // The privacy notice tells a visitor that Vimeo's player is asked not to
+  // track them, and it says so for every player frame the page audit finds.
+  // Only the video block used to ask: a frame pasted from Vimeo's own share
+  // dialog into a Custom HTML block carried no `dnt`, and the notice was
+  // wrong about it. So the question is put here, where every frame passes.
+  if (host === "player.vimeo.com") url.searchParams.set("dnt", "1");
+
   return url.toString();
 }

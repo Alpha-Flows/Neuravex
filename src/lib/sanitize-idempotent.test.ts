@@ -30,8 +30,25 @@ describe("a class that would lift content off the page", () => {
   });
 
   it("keeps everything that only styles the text", () => {
-    const kept = "font-bold text-indigo-600 md:text-lg px-4 rounded-xl anim-float-slow relative";
+    const kept = "font-bold text-indigo-600 md:text-lg px-4 mt-4 mt-[37px] rounded-xl anim-float-slow";
     expect(sanitizeClassAttribute(kept)).toBe(kept);
+  });
+
+  it("keeps the names an author gives their own markup", () => {
+    // Refused by prefix, these went from every custom header and footer, and
+    // the styling the site's custom CSS hung on them went too.
+    const kept = "top-bar left-col right-rail bottom-links select-box z-stack scale-note nvx-site-column";
+    expect(sanitizeClassAttribute(kept)).toBe(kept);
+  });
+
+  it("refuses position whatever its value, as the style filter does", () => {
+    expect(sanitizeClassAttribute("relative static md:relative")).toBe("");
+  });
+
+  it("refuses a margin that pulls content back over the page", () => {
+    expect(sanitizeClassAttribute("-mt-4 md:-mx-px -space-y-8 mt-[-100vh] m-[calc(0px-100vh)] space-x-[-2rem]")).toBe("");
+    expect(sanitizeInlineHtml('<a href="/about" style="margin-top:-100vh;color:red">x</a>')).toBe('<a href="/about" style="color:red">x</a>');
+    expect(sanitizeInlineHtml('<span style="margin:0 0 calc(0px - 100vh)">x</span>')).toBe("<span>x</span>");
   });
 
   it("leaves no empty class attribute behind", () => {
@@ -47,6 +64,16 @@ describe("sanitising what was already sanitised", () => {
     const html = sanitizeHtml('<h2 id="team">Team</h2><a href="#team">Team</a>');
     expect(sanitizeHtml(html)).toBe(html);
     expect(html).toContain('id="c-team"');
+  });
+
+  it("settles a link left inside another in one call, not one save at a time", () => {
+    // The dropped `<d>` used to leave the second link inside the first, which
+    // only the next save separated.
+    for (const dirty of ['<a href="/a">1<d><a href="/b">2</a></d>3</a>', "<a><d><a>x"]) {
+      const once = sanitizeInlineHtml(dirty);
+      expect(sanitizeInlineHtml(once)).toBe(once);
+      expect(once).not.toMatch(/<a\b[^>]*>(?:(?!<\/a>).)*<a\b/);
+    }
   });
 
   it("gives the same text back however many times a page is saved", () => {
@@ -69,5 +96,21 @@ describe("sanitising what was already sanitised", () => {
 
   it("leaves short text exactly as it was", () => {
     expect(props("text", { text: "Fish &amp; chips" }).text).toBe("Fish &amp; chips");
+  });
+});
+
+describe("cutting text that is too long", () => {
+  it("takes a bounded amount of work, however the text is built", () => {
+    // Nested elements used to make each pass of the cut give back what it
+    // took: a field at the limit, `<b>` a few thousand deep, took minutes.
+    const nested = "<b>".repeat(6000) + "x" + "</b>".repeat(6000);
+    const started = performance.now();
+    const cell = props("table", { rows: [[nested]] }).rows[0][0] as string;
+    const body = props("accordion", { items: [{ title: "Q", body: "<i>".repeat(20_000) + "x" }] }).items[0].body as string;
+    expect(performance.now() - started).toBeLessThan(5000);
+    expect(cell.length).toBeLessThanOrEqual(5000);
+    expect(body.length).toBeLessThanOrEqual(20_000);
+    // What was kept is well formed: a second save gives it back unchanged.
+    expect(props("table", { rows: [[cell]] }).rows[0][0]).toBe(cell);
   });
 });

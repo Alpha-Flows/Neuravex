@@ -267,14 +267,28 @@ export function videoEmbed(src: unknown): VideoEmbed | null {
  * Which video site a link belongs to, whether or not a video could be found
  * in it — so the panel can say "that is a YouTube address, but not one with a
  * video in it" instead of drawing a broken file player and saying nothing.
- * A channel page, a search, a playlist: all of those arrive here.
+ * A channel page, a search, a playlist: all of those arrive here, and the
+ * block leaves such an address off the page.
+ *
+ * Only pages, though. Vimeo's paid plans hand out the video itself from the
+ * player's host — `player.vimeo.com/external/<id>.hd.mp4?s=…` and
+ * `player.vimeo.com/progressive_redirect/playback/<id>/rendition/1080p/…` —
+ * and a `<video>` element plays those like any file. This used to answer
+ * "vimeo" for the whole host, so an existing block playing one of those
+ * files vanished from the published page and the download as soon as the
+ * block learned to read Vimeo links. So an address that ends like a video
+ * file is a file, whoever serves it, and on the player's host only
+ * `/video/…` is a page: the other paths there are files or redirects to one,
+ * whether or not the last segment says `.mp4`.
  */
 export function videoSiteOf(src: unknown): VideoProvider | null {
+  if (looksLikeVideoFile(src)) return null;
   const url = parse(src);
   if (!url) return null;
   const host = url.hostname.toLowerCase();
   if (YOUTUBE_HOSTS.has(host) || YOUTUBE_NOCOOKIE_HOSTS.has(host) || host === YOUTU_BE) return "youtube";
-  if (VIMEO_HOSTS.has(host) || host === VIMEO_PLAYER) return "vimeo";
+  if (VIMEO_HOSTS.has(host)) return "vimeo";
+  if (host === VIMEO_PLAYER) return url.pathname.split("/").filter(Boolean)[0] === "video" ? "vimeo" : null;
   return null;
 }
 

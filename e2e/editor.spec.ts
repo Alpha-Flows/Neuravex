@@ -134,3 +134,57 @@ test.describe("Picking a block in the outline", () => {
     await request.delete(`/api/sites/${site.id}?permanent=1`);
   });
 });
+
+test.describe("A shortcut key", () => {
+  test("pressed in the inspector is about the inspector", async ({ page, request }) => {
+    const { site, page: p } = await siteWith(request, [line("a", "First"), line("b", "Second")]);
+    await openEditor(page, site.id, p.id);
+
+    const before = await blockCount(page);
+    await page.locator(".public-canvas .editor-block").first().click();
+    // A button in the panel, as a keyboard user would reach it by Tab.
+    await page.locator("[data-inspector] button").last().focus();
+    await page.keyboard.press("Backspace");
+    await page.waitForTimeout(300);
+    expect(await blockCount(page)).toBe(before);
+
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
+  });
+
+  test("pressed on an outline row is about the block it names", async ({ page, request }) => {
+    const { site, page: p } = await siteWith(request, [line("a", "First"), line("b", "Second")]);
+    await openEditor(page, site.id, p.id);
+
+    const before = await blockCount(page);
+    await page.getByRole("button", { name: "outline" }).click();
+    await page.getByRole("treeitem").first().click();
+    // The left rail is an aside as well, and taking every aside for a panel
+    // left a block picked here beyond the reach of the keyboard.
+    await page.keyboard.press("Delete");
+    await expect.poll(() => blockCount(page)).toBe(before - 1);
+
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
+  });
+});
+
+test.describe("A revision's preview", () => {
+  test("does not follow its links out of the editor", async ({ page, request }) => {
+    const button = { id: "go", type: "button", props: { label: "Somewhere else", href: "https://example.com/", variant: "primary", size: "md", align: "left" } };
+    const { site, page: p } = await siteWith(request, [line("a", "Before"), button]);
+    // A second save, so there is a revision whatever the first one kept.
+    await request.put(`/api/pages/${p.id}/save`, { data: { published: true, content: [line("a", "After"), button] } });
+    await openEditor(page, site.id, p.id);
+
+    const editorUrl = page.url();
+    await page.getByRole("button", { name: "Preview", exact: true }).and(page.locator("aside button")).first().click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("link", { name: "Somewhere else" }).click();
+    await page.waitForTimeout(300);
+
+    // Following it used to leave the editor, and whatever was unsaved with it.
+    expect(page.url()).toBe(editorUrl);
+    await expect(dialog).toBeVisible();
+
+    await request.delete(`/api/sites/${site.id}?permanent=1`);
+  });
+});

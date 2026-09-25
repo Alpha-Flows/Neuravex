@@ -66,7 +66,7 @@ interface Props {
 export function BlockInspector({ block, onChange, onClose, placement, levels, containers, onSaveForReuse, linkTargets, siteSlug }: Props) {
   if (!block) {
     return (
-      <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full p-4 text-sm text-fg-muted">
+      <aside data-inspector="" className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full p-4 text-sm text-fg-muted">
         <div className="text-xs uppercase tracking-wide text-fg-muted font-semibold mb-3">Inspector</div>
         <div className="rounded-lg border border-dashed border-bg-border p-6 text-center">
           <div className="text-2xl mb-1">←</div>
@@ -77,7 +77,7 @@ export function BlockInspector({ block, onChange, onClose, placement, levels, co
   }
 
   return (
-    <aside className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full overflow-y-auto">
+    <aside data-inspector="" className="w-72 shrink-0 border-l border-bg-border bg-bg-soft h-full overflow-y-auto">
       <div className="p-4 border-b border-bg-border sticky top-0 bg-bg-soft z-10 flex items-center justify-between">
         <div>
           <div className="text-[11px] uppercase tracking-wide text-fg-subtle">Editing</div>

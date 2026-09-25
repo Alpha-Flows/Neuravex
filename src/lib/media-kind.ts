@@ -22,8 +22,15 @@
 
 export type MediaKind = "image" | "audio" | "video" | "other";
 
-/** What the library can be asked to choose. */
-export type PickableKind = "image" | "audio";
+/**
+ * What the library can be asked to choose.
+ *
+ * Video joined late. Once the picker refused files that were not of its kind,
+ * a video could no longer be uploaded anywhere in the builder, while the
+ * video block's panel still spoke of "a video file that travels with this
+ * site" — a file there was no way left to put in it.
+ */
+export type PickableKind = "image" | "audio" | "video";
 
 export const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp", "avif", "svg", "ico"] as const;
 export const AUDIO_EXTENSIONS = ["mp3", "wav", "ogg"] as const;
@@ -77,11 +84,20 @@ export function mediaKindOf(url: string): MediaKind {
 export const ACCEPT: Record<PickableKind, string> = {
   image: "image/*",
   audio: [...AUDIO_EXTENSIONS.map((ext) => `.${ext}`), "audio/mpeg", "audio/wav", "audio/x-wav", "audio/ogg"].join(","),
+  // Named, not `video/*`: a QuickTime or an AVI would be offered by the
+  // dialog and then refused by the upload route.
+  video: [...VIDEO_EXTENSIONS.map((ext) => `.${ext}`), "video/mp4", "video/webm"].join(","),
+};
+
+const EXTENSIONS_OF: Record<PickableKind, readonly string[]> = {
+  image: IMAGE_EXTENSIONS,
+  audio: AUDIO_EXTENSIONS,
+  video: VIDEO_EXTENSIONS,
 };
 
 /** The extensions of a kind, for a sentence: "MP3, WAV or OGG". */
 export function extensionList(kind: PickableKind): string {
-  const names = (kind === "audio" ? AUDIO_EXTENSIONS : IMAGE_EXTENSIONS).map((ext) => ext.toUpperCase());
+  const names = EXTENSIONS_OF[kind].map((ext) => ext.toUpperCase());
   return names.length > 1 ? `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}` : names.join("");
 }
 
@@ -93,8 +109,8 @@ export function extensionList(kind: PickableKind): string {
  * stopped showing PDFs, fonts and video files as broken thumbnails, those
  * files could be uploaded and never removed again. The picture library is
  * the one every site can open, so it lists everything that is not a picture
- * as well, apart from the grid, for deleting. The sound library opens only
- * from an audio block and has nothing to add to that.
+ * as well, apart from the grid, for deleting. The sound and video libraries
+ * open only from their own blocks and have nothing to add to that.
  */
 export function libraryFor<T extends { url: string }>(files: T[], kind: PickableKind): { choosable: T[]; other: T[] } {
   const choosable = files.filter((f) => mediaKindOf(f.url) === kind);

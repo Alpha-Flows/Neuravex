@@ -41,7 +41,7 @@ interface Props {
  * dialog's name, the search box, the empty state, the delete warning. An
  * audio block that opened it and was told to "upload an image" would be a
  * picker that did not know what it was for, so every one of those sentences
- * is here twice rather than bent into something that fits neither.
+ * is written once per kind rather than bent into something that fits none.
  */
 const WORDS = {
   image: {
@@ -74,6 +74,31 @@ const WORDS = {
     thing: "sound",
     broken: "a player with nothing to play",
   },
+  video: {
+    dialog: "Videos",
+    search: "Search videos",
+    searchPlaceholder: "Search your videos…",
+    empty: `No videos yet. Upload an ${extensionList("video")} file to get started.`,
+    noMatch: "A video answers to its name and to what it is.",
+    wrongKind: `That is not a video file. Choose an ${extensionList("video")} file.`,
+    editing: "Editing this video",
+    namePlaceholder: "Workshop — the two-minute version",
+    describe: "What it is",
+    describePlaceholder: "A walk round the studio, filmed in spring",
+    describeHint: "Only for finding it here later. The page shows the title you give the block.",
+    thing: "video",
+    broken: "a player with nothing to play",
+  },
+} as const;
+
+/**
+ * The two libraries drawn as a list rather than a grid of thumbnails, and what
+ * each calls itself there. A sound has no picture to show, and a video's first
+ * frame is too small at thumbnail size to tell one clip from the next.
+ */
+const LISTED = {
+  audio: { heading: "Your sounds", list: "Sound files", icon: "♪", preview: "Listen to" },
+  video: { heading: "Your videos", list: "Video files", icon: "▶", preview: "Watch" },
 } as const;
 
 /** What the delete warning calls a file that is neither a picture nor a sound. */
@@ -116,6 +141,19 @@ interface UploadedFile {
   usedOn?: string[];
 }
 
+/** "Copy address" on a row of Other files, saying so once it has. */
+function CopyAddress({ name, copied, onCopy }: { name: string; copied: boolean; onCopy: () => void }) {
+  return (
+    <button
+      aria-label={`Copy the address of ${name}`}
+      onClick={onCopy}
+      className="shrink-0 px-1.5 h-6 rounded text-[11px] text-fg-muted hover:text-fg hover:bg-bg-card"
+    >
+      {copied ? "Copied" : "Copy address"}
+    </button>
+  );
+}
+
 export function MediaPicker({ open, ...rest }: Props) {
   // Closing unmounts the body, which is what clears the search box, the
   // picture being renamed and the loaded list. That used to be done by the
@@ -127,13 +165,21 @@ export function MediaPicker({ open, ...rest }: Props) {
 
 function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "open">) {
   const words = WORDS[kind];
-  const audio = kind === "audio";
+  const listed = kind === "image" ? null : LISTED[kind];
   const [tab, setTab] = useState<"uploads" | "stock">("uploads");
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   /** Why the last upload did not become a choice, in the words the server used. */
   const [uploadError, setUploadError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  /** The upload under "Other files", which takes what no picker chooses. */
+  const otherInputRef = useRef<HTMLInputElement>(null);
+  const [otherUploading, setOtherUploading] = useState(false);
+  const [otherError, setOtherError] = useState<string | null>(null);
+  /** An address to show for copying by hand: just uploaded, or the clipboard refused. */
+  const [shownAddress, setShownAddress] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   /** What was typed in the search box, for whichever tab is showing. */
   const [query, setQuery] = useState("");
@@ -207,6 +253,53 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
     }
   }
 
+  /**
+   * An upload for a file no block chooses — a PDF for a button to offer, a
+   * font. Once the picture library refused what was not a picture, and the
+   * only other libraries took sounds and videos, a document could no longer
+   * be put on the site at all. It is added to the library and its address
+   * shown, not handed to the block that opened this: an image cannot be a
+   * PDF. The route decides what it takes, as it does for every upload.
+   */
+  async function handleOtherUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setOtherError(null);
+    setOtherUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const info = await res.json().catch(() => ({}));
+      if (res.ok && info.url) {
+        setFiles((f) => [...f, { url: info.url, name: info.name, alt: "" }]);
+        setShownAddress(info.url);
+      } else {
+        setOtherError(typeof info.error === "string" ? info.error : "That file could not be uploaded.");
+      }
+    } catch {
+      setOtherError("That file could not be uploaded.");
+    } finally {
+      setOtherUploading(false);
+    }
+  }
+
+  /**
+   * Puts a file's address on the clipboard, for pasting into a button's link.
+   * The clipboard is only offered to a secure page, and the builder reached by
+   * its LAN address over plain http is not one, so the address is shown to be
+   * copied by hand when the browser says no.
+   */
+  async function copyAddress(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(url);
+    } catch {
+      setShownAddress(url);
+    }
+  }
+
   function startEditing(file: UploadedFile) {
     setEditing(file);
     setDraftName(file.name);
@@ -242,7 +335,7 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
     const used = files.find((f) => f.url === url)?.usedOn ?? [];
     if (used.length > 0) {
       const own = mediaKindOf(url);
-      const { thing, broken } = own === "image" ? WORDS.image : own === "audio" ? WORDS.audio : OTHER_FILE;
+      const { thing, broken } = own === "image" || own === "audio" || own === "video" ? WORDS[own] : OTHER_FILE;
       const names = used.slice(0, 5).join(", ");
       const more = used.length > 5 ? ` and ${used.length - 5} more` : "";
       const ok = confirm(
@@ -257,9 +350,9 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
   }
 
   async function pick(file: UploadedFile) {
-    // Only a picture has a size worth waiting for; a sound would sit here for
-    // the four seconds `measure` allows before giving up on it.
-    const size = audio ? {} : await measure(file.url);
+    // Only a picture has a size worth waiting for; a sound or a video would
+    // sit here for the four seconds `measure` allows before giving up on it.
+    const size = listed ? {} : await measure(file.url);
     onSelect(file.url, { ...size, alt: file.alt || undefined });
     onClose();
   }
@@ -271,7 +364,7 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
   const otherFiles = other.filter((f) => matchesQuery(query, [f.name, f.alt]));
   const visibleStockPhotos = (activeCategory ? stockPhotos.filter((p) => p.category === activeCategory) : stockPhotos)
     .filter((p) => matchesQuery(query, [p.alt, p.category, p.credit]));
-  const showingUploads = audio || tab === "uploads";
+  const showingUploads = listed !== null || tab === "uploads";
 
   return (
     // Drawn on the body: a dialog written inside a block would otherwise be
@@ -289,11 +382,11 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-4">
-            {audio ? (
-              // There is no bundled library of sounds, so there is no second
-              // tab to offer — a "Stock photos" button here would hand an
-              // audio block a photograph.
-              <h2 className="text-sm font-medium text-fg">Your sounds</h2>
+            {listed ? (
+              // There is no bundled library of sounds or videos, so there is
+              // no second tab to offer — a "Stock photos" button here would
+              // hand an audio or a video block a photograph.
+              <h2 className="text-sm font-medium text-fg">{listed.heading}</h2>
             ) : (
               <div className="flex items-center gap-1 rounded-lg bg-bg p-1 border border-bg-border">
                 <button
@@ -351,12 +444,12 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
                 </div>
               ) : (
                 <>
-                  {audio ? (
+                  {listed ? (
                     // A sound has no thumbnail, and a grid of identical note
                     // icons is a list of names with extra steps. Each row is its
                     // name and a small player, so the one wanted can be heard
                     // before it is chosen; nothing loads until it is played.
-                    <ul aria-label="Sound files" className="max-h-80 overflow-y-auto space-y-1.5">
+                    <ul aria-label={listed.list} className="max-h-80 overflow-y-auto space-y-1.5">
                       {visibleFiles.map((f) => (
                         <li
                           key={f.url}
@@ -371,7 +464,7 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
                               title={f.alt ? `${f.name} — ${f.alt}` : f.name}
                               className="flex-1 min-w-0 flex items-center gap-2 text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
                             >
-                              <span aria-hidden className="text-fg-subtle">♪</span>
+                              <span aria-hidden className="text-fg-subtle">{listed.icon}</span>
                               <span className="text-sm text-fg truncate">{f.name}</span>
                             </button>
                             {f.usedOn && f.usedOn.length > 0 ? (
@@ -395,14 +488,30 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
                             >×</button>
                           </div>
                           {/* Playing it is not choosing it. */}
-                          <audio
-                            controls
-                            preload="none"
-                            src={f.url}
-                            aria-label={`Listen to ${f.name}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="mt-1.5 block w-full h-9"
-                          />
+                          {kind === "audio" ? (
+                            <audio
+                              controls
+                              preload="none"
+                              src={f.url}
+                              aria-label={`${listed.preview} ${f.name}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-1.5 block w-full h-9"
+                            />
+                          ) : (
+                            // `metadata`, not `none`: a video that has loaded
+                            // nothing is a black box, and a column of black
+                            // boxes tells no clip from another. The files are
+                            // this builder's own uploads, so the cost is a
+                            // few kilobytes of each read from the local disk.
+                            <video
+                              controls
+                              preload="metadata"
+                              src={f.url}
+                              aria-label={`${listed.preview} ${f.name}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-1.5 block w-full max-h-40 rounded bg-black"
+                            />
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -447,8 +556,8 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
                   {editing ? (
                     <div className="mt-3 rounded-lg border border-bg-border bg-bg p-3 space-y-3">
                       <div className="flex items-center gap-3">
-                        {audio ? (
-                          <span aria-hidden className="w-12 h-12 shrink-0 rounded border border-bg-border bg-bg-card flex items-center justify-center text-lg text-fg-muted">♪</span>
+                        {listed ? (
+                          <span aria-hidden className="w-12 h-12 shrink-0 rounded border border-bg-border bg-bg-card flex items-center justify-center text-lg text-fg-muted">{listed.icon}</span>
                         ) : (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={editing.url} alt="" className="w-12 h-12 rounded object-cover border border-bg-border" />
@@ -492,16 +601,33 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
                   ) : null}
                 </>
               )}
-              {otherFiles.length > 0 ? (
+              {otherFiles.length > 0 || kind === "image" ? (
                 <details className="mt-3 rounded-lg border border-bg-border bg-bg">
                   <summary className="cursor-pointer select-none px-3 py-2 text-xs text-fg-muted hover:text-fg">
-                    Other files ({otherFiles.length})
+                    Other files{otherFiles.length > 0 ? ` (${otherFiles.length})` : ""}
                   </summary>
                   <div className="border-t border-bg-border px-3 py-2 space-y-1.5">
                     <p className="text-[11px] text-fg-subtle">
-                      Uploads that are not pictures — sounds, videos, documents, fonts. An image cannot use them; they are
-                      here so they can be deleted.
+                      Uploads that are not pictures — sounds, videos, documents, fonts. An image cannot use them. Copy a
+                      document&apos;s address into a button&apos;s link to offer it on a page; the rest are here so they
+                      can be deleted.
                     </p>
+                    <div className="flex items-center gap-2">
+                      <input ref={otherInputRef} type="file" onChange={handleOtherUpload} className="hidden" />
+                      <Button size="sm" variant="outline" onClick={() => otherInputRef.current?.click()} loading={otherUploading}>
+                        Add a document or other file
+                      </Button>
+                    </div>
+                    {otherError ? (
+                      <p role="alert" className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                        {otherError}
+                      </p>
+                    ) : null}
+                    {shownAddress ? (
+                      <p className="text-[11px] text-fg-muted">
+                        Its address: <code className="select-all rounded bg-bg-card px-1 text-fg">{shownAddress}</code>
+                      </p>
+                    ) : null}
                     <ul aria-label="Other files" className="max-h-40 overflow-y-auto space-y-1">
                       {otherFiles.map((f) => (
                         <li key={f.url} className="flex items-center gap-2">
@@ -514,6 +640,7 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
                               in use
                             </span>
                           ) : null}
+                          <CopyAddress name={f.name} copied={copied === f.url} onCopy={() => void copyAddress(f.url)} />
                           <button
                             aria-label={`Delete ${f.name}`}
                             onClick={() => void handleDelete(f.url)}

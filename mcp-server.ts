@@ -446,7 +446,7 @@ server.tool(
     slug: z.string().optional().describe("New URL slug"),
     published: z.boolean().optional().describe("Set to true to publish the page"),
     isHome: z.boolean().optional().describe("Set to true to make this the home page"),
-    blocks: z.string().optional().describe("Full block tree as a JSON string. Each block has: id, type, props, and optional children. Example types: heading, text, image, button, section, columns, video, quote, list, form, html, divider, spacer."),
+    blocks: z.string().optional().describe("Full block tree as a JSON string. Each block has: id, type, props, and optional children. Call get_block_reference for every block type, its props and the values each one accepts."),
   },
   async ({ pageId, title, slug, published, isHome, blocks }) => {
     const page = await prisma.page.findUnique({ where: { id: pageId } });
@@ -597,22 +597,28 @@ server.tool(
   async () => {
     const blocks = await import("./src/lib/blocks").then((m) => m.BLOCKS);
     const { ICON_NAMES } = await import("./src/lib/icon-names");
-    const { SOCIAL_NETWORKS } = await import("./src/lib/block-tree");
+    const { allowedValues } = await import("./src/lib/block-tree");
     // A prop that has to be one of a fixed set is repaired silently when it
     // is not — an icon named "bell" is saved as a star, and nothing tells the
-    // agent. An example shows one value; the agent needs the whole list.
-    const allowed: Record<string, Record<string, readonly string[]>> = {
-      icon: { icon: ICON_NAMES },
-      social: { "links[].network": SOCIAL_NETWORKS },
-    };
-    const ref = blocks.map((b) => ({
-      type: b.type,
-      label: b.label,
-      description: b.description,
-      category: b.category,
-      exampleProps: b.defaultProps,
-      ...(allowed[b.type] ? { allowedValues: allowed[b.type] } : {}),
-    }));
+    // agent. An example shows one value; the agent needs the whole list. The
+    // sets come from the validator's own schemas; the icon names are added by
+    // hand, because that prop is read by a function that also takes lucide's
+    // other spellings, not by a list the schema can show.
+    const allowedFor = (type: string): Record<string, readonly (string | number)[]> => ({
+      ...allowedValues(type),
+      ...(type === "icon" ? { icon: ICON_NAMES } : {}),
+    });
+    const ref = blocks.map((b) => {
+      const allowed = allowedFor(b.type);
+      return {
+        type: b.type,
+        label: b.label,
+        description: b.description,
+        category: b.category,
+        exampleProps: b.defaultProps,
+        ...(Object.keys(allowed).length > 0 ? { allowedValues: allowed } : {}),
+      };
+    });
     return {
       content: [{
         type: "text",

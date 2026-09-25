@@ -106,8 +106,9 @@ const ASSET_DIRS = ["uploads", "stock"] as const;
 const ASSET_REFERENCE = /(["'(]|&quot;|&#x27;|&#39;)\/(uploads|stock)\/([^"')\s&]+)/g;
 
 /**
- * `edit` applied to the page's markup — every tag, and the body of every
- * `<style>` — and never to the words between tags.
+ * `edit` applied to the page's references — the addresses in every tag, and
+ * the body of every `<style>` — and never to the words on the page, between
+ * tags or inside them.
  *
  * The rewrites below match a path after a quote or a bracket, and ran over
  * the whole document. A quote in text is written as `&quot;`, so that held
@@ -120,8 +121,32 @@ const ASSET_REFERENCE = /(["'(]|&quot;|&#x27;|&#39;)\/(uploads|stock)\/([^"')\s&
  * and words on the page never are.
  */
 function inMarkup(html: string, edit: (markup: string) => string): string {
-  return html.replace(/<style\b[^>]*>[\s\S]*?<\/style>|<[^>]*>/gi, edit);
+  return html.replace(/<style\b[^>]*>[\s\S]*?<\/style>|<[^>]*>/gi, (markup) =>
+    /^<style\b/i.test(markup)
+      ? edit(markup)
+      : markup.replace(ATTRIBUTE, (attribute, name: string, value: string) =>
+          URL_ATTRIBUTES.has(name.toLowerCase()) ? attribute.slice(0, -value.length) + edit(value) : attribute,
+        ),
+  );
 }
+
+/**
+ * The attributes a page makes a reference in, which are the only ones inside
+ * a tag that `inMarkup` hands on.
+ *
+ * Inside a tag used to mean inside a reference, until the new blocks began
+ * copying the author's words into attributes: a code sample's file name into
+ * its `aria-label`, a picture's description into `alt` and into the label of
+ * the link that opens it. A description reading "the logo (/uploads/logo.png)"
+ * came out of the download with the screen-reader text changed beside a
+ * caption that was not, the file it merely named copied into the zip, and the
+ * README reporting a missing picture when it was not there. Words are words
+ * in an attribute too; only these carry an address.
+ */
+const URL_ATTRIBUTES = new Set([
+  "src", "href", "srcset", "imagesrcset", "poster", "style", "content", "action", "data", "xlink:href",
+]);
+const ATTRIBUTE = /\s([^\s"'<>/=]+)\s*=\s*("[^"]*"|'[^']*')/g;
 
 /**
  * An absolute reference back at the builder, made relative first.

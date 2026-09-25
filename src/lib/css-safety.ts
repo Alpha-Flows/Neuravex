@@ -246,26 +246,50 @@ const CONTENT_STYLE_BANNED = new Set([
  * fixed overlay by design.
  *
  * So a class is judged by the utility it names — after any `md:` or
- * `hover:` variant, and without the `!` or `-` Tailwind allows in front —
- * against the same families of property the style filter refuses, and an
- * arbitrary property in square brackets is refused outright, since it can
- * set any of them. Everything else a class can do stays: colour, size,
- * spacing, type, and the template animations.
+ * `hover:` variant, and without the `!` Tailwind allows in front — against
+ * the same families of property the style filter refuses, `position` whatever
+ * its value included, and an arbitrary property in square brackets is refused
+ * outright, since it can set any of them. A negative margin goes too, in a
+ * class and in a style alike: `relative` was never the only way in flow, and
+ * a link pulled up a whole window's height with `margin-top: -100vh` sits
+ * over everything above it just as a fixed sheet does.
+ *
+ * Only the forms Tailwind actually writes are refused — `top-0`, `z-50`,
+ * `translate-x-1/2` — not every name that starts the same way. The first
+ * version refused by prefix, so `top-bar`, `left-col` and `select-box`, the
+ * names an author gives their own markup and styles from the site's custom
+ * CSS, were stripped from every custom header and footer, and the site's
+ * styling went with them. The app's own classes are refused as a family —
+ * most of the blocks' parts are positioned by design — apart from
+ * `nvx-site-column`, the page column a custom header is meant to line up
+ * with. Everything else a class can do stays: colour, size, spacing, type,
+ * and the template animations.
  */
+const TAILWIND_VALUE = String.raw`(?:px|full|auto|screen|\d[\d.]*(?:\/\d+)?|\[.*\])`;
 const CONTENT_CLASS_BANNED = [
-  /^(?:fixed|absolute|sticky)$/,
-  /^inset(?:-|$)/,
-  /^(?:top|right|bottom|left|start|end)-/,
-  /^z-/,
-  /^pointer-events-/,
-  /^(?:transform|transform-gpu|transform-cpu)$/,
-  /^(?:translate|rotate|scale|skew)-/,
-  /^mix-blend-/,
+  /^(?:static|fixed|absolute|relative|sticky)$/,
+  new RegExp(`^(?:inset(?:-[xy])?|top|right|bottom|left|start|end)-${TAILWIND_VALUE}$`),
+  /^z-(?:\d+|auto|\[.*\])$/,
+  /^pointer-events-(?:none|auto)$/,
+  /^transform(?:-gpu|-cpu|-none)?$/,
+  new RegExp(`^(?:translate-[xy]|rotate|scale(?:-[xy])?|skew-[xy])-${TAILWIND_VALUE}$`),
+  /^mix-blend-(?:normal|multiply|screen|overlay|darken|lighten|color-dodge|color-burn|hard-light|soft-light|difference|exclusion|hue|saturation|color|luminosity|plus-darker|plus-lighter)$/,
   /^isolat(?:e|ion-auto)$/,
-  /^select-/,
+  /^select-(?:none|text|all|auto)$/,
   /^\[.*\]$/,
   /^(?:nvx|editor)-/,
 ];
+
+/** The app's own classes content may use: the page column, and nothing else. */
+const CONTENT_CLASS_ALLOWED = new Set(["nvx-site-column"]);
+
+/**
+ * `-mt-4`, `-space-y-8`, `mt-[-100vh]` and `mt-[calc(0px-100vh)]`: a margin
+ * that pulls the element, or its children, back over what came before. An
+ * arbitrary value is refused if it has a minus sign or a function call in it
+ * at all, for the reason `pullsBack` gives; `mt-[37px]` stays.
+ */
+const NEGATIVE_MARGIN = /^(?:-(?:m[trblxyse]?|space-[xy])-.|(?:m[trblxyse]?|space-[xy])-\[[^\]]*[-(])/;
 
 /** A `class` attribute out of somebody's content, filtered. */
 export function sanitizeClassAttribute(value: string): string {
@@ -284,10 +308,25 @@ export function sanitizeClassAttribute(value: string): string {
         else if (c === "]") depth = Math.max(0, depth - 1);
         else if (c === ":" && depth === 0) cut = i;
       }
-      const utility = token.slice(cut + 1).replace(/^[!-]+/, "").toLowerCase();
+      const written = token.slice(cut + 1).replace(/^!+/, "").toLowerCase();
+      if (CONTENT_CLASS_ALLOWED.has(written)) return true;
+      if (NEGATIVE_MARGIN.test(written)) return false;
+      // A negative inset or translate is the same utility pulled the other way.
+      const utility = written.replace(/^-+/, "");
       return !CONTENT_CLASS_BANNED.some((banned) => banned.test(utility));
     })
     .join(" ");
+}
+
+/**
+ * A margin with a negative length in it, or one worked out with `calc()` or
+ * the like, which could come out negative. See `CONTENT_CLASS_BANNED`.
+ */
+function pullsBack(prop: string, body: string): boolean {
+  const name = decodeCssEscapes(prop).trim().toLowerCase();
+  if (!name.startsWith("margin")) return false;
+  const value = decodeCssEscapes(body).toLowerCase();
+  return /(?:^|[\s,(])-/.test(value) || /[a-z-]+\(/.test(value);
 }
 
 /** Whether a property is one content may set at all. */
@@ -338,6 +377,7 @@ export function sanitizeStyleAttribute(value: string): string {
     if (!body) continue;
 
     if (!contentStyleAllows(prop)) continue;
+    if (pullsBack(prop, body)) continue;
     if (!declarationIsSafe(prop, body)) continue;
 
     kept.push(`${prop}:${body}${important ? " !important" : ""}`);
