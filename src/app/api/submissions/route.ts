@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { readJsonObject } from "@/lib/request-body";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { MIN_FILL_MS } from "@/lib/form-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "That form has been sent several times already. Please wait a moment and try again." },
       { status: 429, headers: { "Retry-After": String(limit.retryAfter) } },
+    );
+  }
+
+  // Programs, told apart from people the two cheap ways that catch most of
+  // them. A published form had a rate limit and nothing else, and a program
+  // filling in every form it finds stays under any limit a real enquiry needs.
+  //
+  // The trap is a field nobody can see. Filled in, the answer is taken as if
+  // stored — a program told it failed tries another way; one told it worked
+  // moves on — and nothing is written. No person is turned away by it, since
+  // no person can reach the field.
+  const trap = typeof body.trap === "string" ? body.trap : "";
+  if (trap.trim()) return NextResponse.json({ ok: true }, { status: 201 });
+
+  // The time since the form appeared, as the page measured it. Sent sooner
+  // than a person can read and type, the answer is refused out loud rather
+  // than dropped: a person who really was that quick presses Send again a
+  // moment later and it goes through. Missing is allowed — a script of the
+  // owner's own, or a page opened before this was added, sends none.
+  const elapsed = typeof body.elapsed === "number" && Number.isFinite(body.elapsed) ? body.elapsed : undefined;
+  if (elapsed !== undefined && elapsed >= 0 && elapsed < MIN_FILL_MS) {
+    return NextResponse.json(
+      { error: "That was sent quicker than a person fills a form in. Please check your answers and press Send again." },
+      { status: 422 },
     );
   }
 

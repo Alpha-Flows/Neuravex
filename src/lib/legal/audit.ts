@@ -26,6 +26,7 @@ import { sanitizeHtml, sanitizeInlineHtml } from "@/lib/sanitize";
 import { VIDEO_PROVIDER_NAME, videoEmbed, videoSiteOf } from "@/lib/video-embed";
 import { osmEmbedUrl, osmTileHosts } from "@/lib/map-location";
 import { richTextValues } from "@/lib/rich-text-props";
+import { destinationHost } from "@/lib/form-fields";
 
 export type FindingKind =
   /** A form that can take personal data from a visitor. */
@@ -50,7 +51,15 @@ export type FindingKind =
    * the page opens. That is the opposite failure from missing a tracker, and
    * it is just as wrong.
    */
-  | "outbound-link";
+  | "outbound-link"
+  /**
+   * The form service a form's downloaded copy sends its answers to.
+   *
+   * Kept apart from the hosts a page loads from, for the reason links are:
+   * nothing reaches the service until a visitor presses Send. But what does
+   * reach it is everything they typed, so the notice has to name it.
+   */
+  | "form-destination";
 
 export interface Finding {
   kind: FindingKind;
@@ -81,6 +90,8 @@ export interface SiteAudit {
    * of `remoteHosts`: nothing is transmitted until a visitor clicks.
    */
   linkHosts: string[];
+  /** Every form service a form sends its answers to, deduplicated. */
+  formHosts: string[];
   /** True when nothing on the site reaches outside the visitor's browser. */
   selfContained: boolean;
 }
@@ -275,6 +286,16 @@ function walk(blocks: BaseBlock[], where: string, out: Finding[], depth = 0): vo
         detail: "Form block",
         needsConsent: false,
       });
+      const service = destinationHost(typeof props.destination === "string" ? props.destination : "");
+      if (service) {
+        out.push({
+          kind: "form-destination",
+          host: service,
+          where,
+          detail: `Form answers are sent to ${service}`,
+          needsConsent: false,
+        });
+      }
     }
 
     // A YouTube or Vimeo link is drawn as a frame from the privacy-preserving
@@ -499,7 +520,7 @@ export function auditSite(input: AuditInput): SiteAudit {
   const remoteHosts = [
     ...new Set(
       findings
-        .filter((f) => f.kind !== "outbound-link")
+        .filter((f) => f.kind !== "outbound-link" && f.kind !== "form-destination")
         .map((f) => f.host)
         .filter((h): h is string => !!h),
     ),
@@ -513,11 +534,16 @@ export function auditSite(input: AuditInput): SiteAudit {
     ),
   ].sort();
 
+  const formHosts = [
+    ...new Set(findings.filter((f) => f.kind === "form-destination").map((f) => f.host).filter((h): h is string => !!h)),
+  ].sort();
+
   return {
     findings,
     hasForm: findings.some((f) => f.kind === "form"),
     remoteHosts,
     linkHosts,
+    formHosts,
     selfContained: remoteHosts.length === 0,
   };
 }

@@ -103,6 +103,21 @@ in brackets is the finding it closes.
 
 ### Added
 
+- **Forms ask for more than text.** A form's fields can be a phone number, a
+  number, a date, a dropdown, one choice of several, several choices, or a
+  privacy checkbox whose sentence links the site's Datenschutzerklärung, and
+  any field can carry a placeholder and a line of help beneath it. The panel
+  adds the privacy checkbox linked to the notice when the legal pages exist.
+- **A downloaded form can send.** A form's settings name where the downloaded
+  copy sends its answers — a form service's https address, such as
+  Formspree, or one email address — and the exported page's policy opens
+  `form-action` for that origin alone. The privacy audit reports a form
+  service as where answers go, and the notice names it. The builder's own
+  pages store answers in the builder as before.
+- **Forms keep programs out** with a hidden trap field — a filled one is
+  thanked and nothing is stored — and a minimum time to fill the form in: an
+  answer sent within three seconds of the form appearing is refused with a
+  message asking the visitor to press Send again.
 - Ten blocks: **Gallery**, **Slider**, **Audio**, **Map**, **Accordion**,
   **Icon**, **Social links**, **Table**, **Pricing** and **Code**. A published
   page runs no script of a block's own and a downloaded one runs none at all,
@@ -236,6 +251,16 @@ in brackets is the finding it closes.
 
 ### Fixed
 
+- A form field could not be made required in the panel at all, though every
+  template's form had required fields; and no label was tied to its field, so
+  a screen reader named none of them. Each field's label is its field's name
+  now, choices are grouped under their question, and help is read out with
+  the field.
+- A form label typed as "Name & address" in the panel came back as
+  "Name &amp; address" once edited on the canvas: it was stored as plain text
+  and drawn as HTML. Labels are stored as inline HTML, like every other piece
+  of rich text.
+- A form whose send failed could not be sent again without reloading the page.
 - A link to `#`, the top of the page, was stored as `#c-` and went nowhere.
   It stays `#`, and links already stored as `#c-` are read back as `#`.
 - The download read only the first address in a `srcset`, so the larger

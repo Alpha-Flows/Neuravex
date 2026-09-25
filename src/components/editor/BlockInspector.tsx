@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { BaseBlock, BlockLayer, HeadingProps, TextProps, ImageProps, ButtonProps, DividerProps, SpacerProps, SectionProps, ColumnsProps, ColumnStyle, QuoteProps, ListProps, FormProps, HtmlProps } from "@/types";
+import { BaseBlock, BlockLayer, HeadingProps, TextProps, ImageProps, ButtonProps, DividerProps, SpacerProps, SectionProps, ColumnsProps, ColumnStyle, QuoteProps, ListProps, HtmlProps } from "@/types";
 import { clampColumnCount } from "@/lib/tree-utils";
 import { clampLevel, layerOf, MAX_LEVEL, MIN_LEVEL, withLayer } from "@/lib/block-layer";
 import { Input, Label, Textarea } from "@/components/ui/Input";
@@ -18,6 +18,7 @@ import { TablePanel } from "./inspectors/TablePanel";
 import { PricingPanel } from "./inspectors/PricingPanel";
 import { MapPanel } from "./inspectors/MapPanel";
 import { CodePanel } from "./inspectors/CodePanel";
+import { FormPanel } from "./inspectors/FormPanel";
 import { VideoPanel } from "./inspectors/VideoPanel";
 import type { ContainerChoice } from "@/lib/containers";
 
@@ -632,39 +633,10 @@ function InspectorBody({
         </>
       );
     }
-    case "form": {
-      const p = block.props as FormProps;
-      return (
-        <>
-          <Field label="Submit label"><Input value={p.submitLabel} onChange={(e) => set("submitLabel", e.target.value)} /></Field>
-          <Field label="Success message"><Input value={p.successMessage} onChange={(e) => set("successMessage", e.target.value)} /></Field>
-          <Field label="Fields">
-            <div className="space-y-2">
-              {p.fields.map((f, i) => (
-                <div key={i} className="flex items-center gap-1">
-                  <Input value={f.label} onChange={(e) => {
-                    const fields = p.fields.slice();
-                    fields[i] = { ...f, label: e.target.value };
-                    set("fields", fields);
-                  }} placeholder="Field label" />
-                  <select value={f.type} onChange={(e) => {
-                    const fields = p.fields.slice();
-                    fields[i] = { ...f, type: e.target.value as any };
-                    set("fields", fields);
-                  }} className="h-9 w-24 text-xs px-1 rounded-md bg-bg border border-bg-border text-fg">
-                    <option value="text">Text</option>
-                    <option value="email">Email</option>
-                    <option value="textarea">Textarea</option>
-                  </select>
-                  <button onClick={() => set("fields", p.fields.filter((_, k) => k !== i))} className="text-fg-subtle hover:text-red-400">×</button>
-                </div>
-              ))}
-              <button onClick={() => set("fields", [...p.fields, { label: "Field", type: "text", required: false }])} className="text-xs text-fg-muted hover:text-fg">+ Add field</button>
-            </div>
-          </Field>
-        </>
-      );
-    }
+    case "form":
+      // Keyed by block, because the panel remembers which destination kind
+      // was picked before an address is typed, and that belongs to one form.
+      return <FormPanel key={block.id} block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
     case "html": {
       const p = block.props as HtmlProps;
       return <Field label="HTML"><Textarea rows={8} value={p.html} onChange={(e) => set("html", e.target.value)} /></Field>;

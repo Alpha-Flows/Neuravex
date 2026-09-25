@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { BaseBlock } from "@/types";
 import { buildDatenschutz } from "./datenschutz";
+import { auditSite } from "./audit";
 import { emptyProfile, type LegalProfile } from "./profile";
 import { DEFAULT_LOOK } from "../page-starters";
 import { sanitizeHtml } from "../sanitize";
@@ -36,7 +37,7 @@ const profile = (): LegalProfile => ({
 });
 
 const notice = (remoteHosts: string[]) =>
-  text(buildDatenschutz(profile(), { findings: [], hasForm: false, remoteHosts, linkHosts: [], selfContained: remoteHosts.length === 0 }, DEFAULT_LOOK));
+  text(buildDatenschutz(profile(), { findings: [], hasForm: false, remoteHosts, linkHosts: [], formHosts: [], selfContained: remoteHosts.length === 0 }, DEFAULT_LOOK));
 
 describe("the services the builder's own blocks embed", () => {
   it("are named with their provider, not only by host", () => {
@@ -81,5 +82,47 @@ describe("what the notice says about Vimeo", () => {
     expect(sanitizeHtml(once)).toBe(once);
     expect(once.match(/dnt=/g)).toHaveLength(1);
     expect(once).toContain("dnt=1");
+  });
+});
+
+describe("a form that sends to a service", () => {
+  it("is found by the audit as where answers go, not as something the page loads", () => {
+    const audit = auditSite({
+      pages: [
+        {
+          title: "Kontakt",
+          content: JSON.stringify([
+            { id: "f", type: "form", props: { fields: [], destination: "https://formspree.io/f/abc" } },
+          ]),
+        },
+      ],
+    });
+    expect(audit.formHosts).toEqual(["formspree.io"]);
+    expect(audit.remoteHosts).toEqual([]);
+    expect(audit.selfContained).toBe(true);
+  });
+
+  it("is named in the notice, with the IP address that goes with the answers", () => {
+    const out = text(
+      buildDatenschutz(
+        profile(),
+        { findings: [], hasForm: true, remoteHosts: [], linkHosts: [], formHosts: ["formspree.io"], selfContained: true },
+        DEFAULT_LOOK,
+      ),
+    );
+    expect(out).toContain("an den Dienst formspree.io übermittelt");
+    expect(out).toContain("IP-Adresse");
+  });
+
+  it("is not also said to be connected to nothing", () => {
+    const out = text(
+      buildDatenschutz(
+        { ...profile(), formFate: "none" },
+        { findings: [], hasForm: true, remoteHosts: [], linkHosts: [], formHosts: ["formspree.io"], selfContained: true },
+        DEFAULT_LOOK,
+      ),
+    );
+    expect(out).toContain("formspree.io");
+    expect(out).not.toContain("nicht an eine Verarbeitung angebunden");
   });
 });

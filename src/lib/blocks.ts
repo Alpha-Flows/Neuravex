@@ -176,7 +176,8 @@ export const BLOCKS: BlockDefinition[] = [
     label: "Form",
     category: "content",
     icon: "☰",
-    description: "A contact or signup form. Submissions are saved in the CMS.",
+    description:
+      "A contact, booking or signup form: text, email, phone, number, date, dropdowns, choices and a privacy checkbox. Answers are stored in the builder; a downloaded copy sends them to `destination` — a form service's https address or an email address — if one is set.",
     defaultProps: {
       fields: [
         { label: "Name", type: "text", required: true },

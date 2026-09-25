@@ -185,6 +185,8 @@ export interface LinkTarget {
   title: string;
   isHome: boolean;
   published: boolean;
+  /** "impressum" or "datenschutz" for a generated legal page — so a form's privacy checkbox can find the notice. */
+  legalKind?: string | null;
 }
 
 /**

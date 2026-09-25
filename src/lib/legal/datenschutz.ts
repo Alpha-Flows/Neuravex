@@ -180,12 +180,31 @@ export function buildDatenschutz(profile: LegalProfile, audit: SiteAudit, look: 
      * native GET that puts every field into the URL and the host's access
      * log. Neither of those is "nowhere".
      */
-    body.push(
-      p(
-        look,
-        formHandling(profile.formFate),
-      ),
-    );
+    // "Not connected to anything" is not true of a form that posts to a
+    // service, whatever the wizard was told, and the paragraph below says
+    // where it posts; the two together contradicted each other.
+    if (!(profile.formFate === "none" && audit.formHosts.length > 0)) {
+      body.push(
+        p(
+          look,
+          formHandling(profile.formFate),
+        ),
+      );
+    }
+    // A form service a form posts to is named, whatever the operator said
+    // becomes of the answers afterwards: it is where they go first, and the
+    // visitor's IP address and everything they typed go with them.
+    if (audit.formHosts.length > 0) {
+      body.push(space(12));
+      body.push(
+        p(
+          look,
+          `Beim Absenden werden Ihre Eingaben an ${audit.formHosts.length > 1 ? "die Dienste" : "den Dienst"} ` +
+            `${audit.formHosts.join(", ")} übermittelt, über ${audit.formHosts.length > 1 ? "die" : "den"} wir ` +
+            "Formularanfragen entgegennehmen. Dabei wird auch Ihre IP-Adresse an diesen Anbieter übertragen.",
+        ),
+      );
+    }
     if (profile.formFate !== "none" && profile.formRetention.trim()) {
       body.push(space(12));
       body.push(p(look, `Aufbewahrung: ${profile.formRetention.trim()}`));
