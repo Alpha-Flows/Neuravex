@@ -51,6 +51,13 @@ describe("siteThemeCss", () => {
     expect(full).toContain("--site-radius: 1rem");
   });
 
+  it("sets a published page's body font on the body, which carries a font of its own", () => {
+    expect(siteThemeCss({ fontFamily: "Georgia, serif" })).toContain(":root body { font-family: var(--site-font); }");
+    // Nothing to put there without one, and the canvas's rule is on the canvas.
+    expect(siteThemeCss({})).not.toContain("body");
+    expect(siteThemeCss({ fontFamily: "Georgia, serif" }, ".public-canvas")).not.toContain("body");
+  });
+
   it("scopes to the selector it is given, so the editor canvas can use it", () => {
     const css = siteThemeCss({ accent: "#000000" }, ".public-canvas");
     expect(css).toContain(".public-canvas {");

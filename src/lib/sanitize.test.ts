@@ -262,3 +262,26 @@ describe("sanitizeInlineHtml — what a rich-text prop may contain", () => {
     expect(sanitizeInlineHtml(undefined as unknown as string)).toBe("");
   });
 });
+
+describe("sanitizeInlineHtml — the rest of the formatting toolbar", () => {
+  it("keeps underline and strikethrough, the latter as <s> whatever the browser wrote", () => {
+    expect(sanitizeInlineHtml("<u>under</u> <strike>struck</strike> <s>also</s>")).toBe("<u>under</u> <s>struck</s> <s>also</s>");
+  });
+
+  it("keeps a colour and a highlight, the site's palette colours included", () => {
+    expect(sanitizeInlineHtml('<span style="color: rgb(220, 38, 38);">red</span>')).toBe('<span style="color:rgb(220, 38, 38)">red</span>');
+    expect(sanitizeInlineHtml('<span style="background-color: var(--site-color-2, #fef08a);">marked</span>')).toBe(
+      '<span style="background-color:var(--site-color-2, #fef08a)">marked</span>',
+    );
+  });
+
+  it("still drops a colour that fetches something, in a <strike> as anywhere", () => {
+    expect(sanitizeInlineHtml('<strike style="background:url(https://attacker.example/b)">x</strike>')).toBe("<s>x</s>");
+  });
+
+  it("settles in one pass, so a struck word saved twice is saved the same", () => {
+    const once = sanitizeInlineHtml("<b><strike>bold</strike> word</b>");
+    expect(once).toBe("<b><s>bold</s> word</b>");
+    expect(sanitizeInlineHtml(once)).toBe(once);
+  });
+});

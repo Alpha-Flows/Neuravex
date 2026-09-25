@@ -237,6 +237,10 @@ function inlinePass(dirty: string): string {
     },
     transformTags: {
       "*": transformAny,
+      // The browser's strikethrough command writes `<strike>`, which HTML
+      // dropped long ago and this profile does not keep, so struck-through
+      // text would lose its line the moment it was saved. It becomes `<s>`.
+      strike: (_tagName, attribs) => ({ ...transformAny("s", attribs), tagName: "s" }),
       a: (tagName, attribs) => {
         const { attribs: base } = transformAny(tagName, attribs);
         const href = isSafeHref(base.href);

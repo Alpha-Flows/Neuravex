@@ -44,12 +44,29 @@ export interface BaseBlock {
    * flow — see `BlockLayer`.
    */
   layer?: BlockLayer;
+  /**
+   * Spacing, a border, a shadow and a fill around the block, whatever its
+   * type — see `src/lib/block-box.ts`. Absent means none of them, which is
+   * how every block authored before this was drawn.
+   */
+  box?: BlockBox;
+}
+
+/**
+ * A two-colour linear gradient behind a section or a column. `angle` is in
+ * degrees as CSS reads it: 180 runs from top to bottom, 90 from left to right.
+ */
+export interface BackgroundGradient {
+  from: string;
+  to: string;
+  angle: number;
 }
 
 export interface SectionProps {
-  background: string; // hex / rgba / "transparent" — used when no backgroundImage is set
+  background: string; // hex / rgba / "transparent" — used when no backgroundImage or gradient is set
   backgroundImage?: string; // optional image URL, takes priority over background
   backgroundOverlay?: string; // optional rgba() tint layered over backgroundImage for legibility
+  backgroundGradient?: BackgroundGradient; // drawn instead of `background` when there is no image
   paddingY: number; // px
   paddingX: number; // px
   /**
@@ -68,9 +85,10 @@ export interface SectionProps {
  * without the whole row taking it.
  */
 export interface ColumnStyle {
-  background?: string; // hex / rgba / "transparent" — used when no backgroundImage is set
+  background?: string; // hex / rgba / "transparent" — used when no backgroundImage or gradient is set
   backgroundImage?: string; // optional image URL, takes priority over background
   backgroundOverlay?: string; // optional rgba() tint layered over backgroundImage for legibility
+  backgroundGradient?: BackgroundGradient; // drawn instead of `background` when there is no image
   padding?: number; // px of space between the column's edge and its blocks
   radius?: number; // px corner rounding
 }
@@ -417,6 +435,25 @@ export interface CodeProps {
  * Absent — which is every block written before this existed — means a block
  * in the flow at level 0, i.e. exactly what the page did before.
  */
+/** The frame around a block. Every length is in px; see `normalizeBox` for the ranges. */
+export interface BlockBox {
+  /** Inside the frame, top and bottom. */
+  paddingY?: number;
+  /** Inside the frame, left and right. */
+  paddingX?: number;
+  /** Room kept above and below the block. */
+  marginTop?: number;
+  marginBottom?: number;
+  borderWidth?: number;
+  borderStyle?: "solid" | "dashed" | "dotted";
+  /** Empty or absent means the page's text colour, faded. */
+  borderColor?: string;
+  radius?: number;
+  shadow?: "none" | "sm" | "md" | "lg" | "xl";
+  /** A fill behind the block, so a bordered card can stand on a coloured section. */
+  background?: string;
+}
+
 export interface BlockLayer {
   /**
    * "flow" keeps the block in the stack, taking its own room.

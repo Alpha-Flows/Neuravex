@@ -3,6 +3,7 @@ import { Editable } from "./Editable";
 import { TextProps } from "@/types";
 import { cn } from "@/lib/utils";
 import { cssColor } from "@/lib/css-value";
+import { bodySizeClass } from "@/lib/text-styles";
 
 interface Props {
   props: TextProps;
@@ -33,7 +34,9 @@ export function Text({ props, onChange, disabled }: Props) {
       onChange={(text) => onChange?.({ ...props, text })}
       placeholder="Write something…"
       multiline
-      className={cn("leading-relaxed", sizeClass[props.size], alignClass[props.align])}
+      // The site's body size, when it has one, reaches the text through the
+      // second class; see `textStylesCss`.
+      className={cn("leading-relaxed", sizeClass[props.size], bodySizeClass(props.size), alignClass[props.align])}
       style={{ color: cssColor(props.color), whiteSpace: "pre-wrap" }}
     />
   );

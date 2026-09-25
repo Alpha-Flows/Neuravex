@@ -121,7 +121,7 @@ calls `req.json()` directly.
 
 - `scripts/first-run.js` — `.env`, schema push when the schema fingerprint moved, demo seed.
 - `scripts/build-state.js` — whether `.next` was built from the source on disk, as a
-  `(path, size, mtime)` walk. It never reads file bodies; `public/` is 53 MB.
+  `(path, size, mtime)` walk. It never reads file bodies; `public/` is 56 MB.
 - `scripts/e2e.js` — the throwaway database and the Playwright run (below).
 - `scripts/audit-gate.js` — fails the build on a high-or-above advisory in a production
   dependency. Exceptions are by advisory id and carry a `holds()` that re-checks the mitigation,

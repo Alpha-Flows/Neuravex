@@ -2,6 +2,9 @@ import { parseHex, THEME_FALLBACK } from "./site-theme";
 import { isSafeHref } from "./url-safety";
 import { MAX_CSS_BYTES } from "./css-safety";
 import { sanitizeHtml } from "./sanitize";
+import { normalizeCustomFonts } from "./fonts";
+import { normalizePalette } from "./palette";
+import { normalizeTextStyles } from "./text-styles";
 
 /**
  * What a site's settings are allowed to be, in one place.
@@ -100,6 +103,25 @@ export function normalizeSiteFields(
     const value = optionalString(input[key], 200);
     if (value !== undefined) out[key] = value;
     else if (complete) out[key] = null;
+  }
+
+  // The site's own font files go into a `<style>` element as `@font-face`
+  // rules, so the list is repaired to names and upload paths that cannot end
+  // one — and stored as the repaired JSON, never as it arrived.
+  if (has("fonts") || complete) {
+    const fonts = normalizeCustomFonts(input.fonts);
+    out.fonts = fonts.length > 0 ? JSON.stringify(fonts) : null;
+  }
+
+  // Both are read into the page's stylesheet, so they are stored repaired —
+  // hex slots and whole pixel sizes — and never as they arrived.
+  if (has("palette") || complete) {
+    const palette = normalizePalette(input.palette);
+    out.palette = palette.length > 0 ? JSON.stringify(palette) : null;
+  }
+  if (has("textStyles") || complete) {
+    const sizes = normalizeTextStyles(input.textStyles);
+    out.textStyles = Object.keys(sizes).length > 0 ? JSON.stringify(sizes) : null;
   }
 
   if (has("headerBackground") || complete) out.headerBackground = safeAccent(input.headerBackground, "#ffffff");

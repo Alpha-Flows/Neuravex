@@ -69,7 +69,8 @@ test.describe("A column with a backdrop of its own", () => {
 
     // Column two, then a colour for it.
     await inspector.getByRole("button", { name: "Column 2", exact: true }).click();
-    await inspector.locator("input.font-mono").fill("#123456");
+    // By its placeholder: the Frame panel below has a colour field as well.
+    await inspector.getByPlaceholder("No background").fill("#123456");
 
     const cells = page.locator(".nvx-columns-grid > div");
     await expect(cells.nth(1)).toHaveCSS("background-color", "rgb(18, 52, 86)");

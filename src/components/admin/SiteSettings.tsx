@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { ConfirmDelete } from "./ConfirmDelete";
 import { CONTENT_WIDTHS, THEME_FALLBACK } from "@/lib/site-theme";
+import { familyOf, normalizeCustomFonts, type CustomFont } from "@/lib/fonts";
+import { FontPicker, SiteFontFiles } from "./FontPicker";
+import { PaletteEditor, TextSizeFields } from "./BrandFields";
+import { normalizePalette } from "@/lib/palette";
+import { normalizeTextStyles, type TextStyles } from "@/lib/text-styles";
 
 interface SiteInfo {
   id: string;
@@ -32,9 +37,12 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
   const [slug, setSlug] = useState(site.slug);
   const [description, setDescription] = useState(site.description ?? "");
   const [accent, setAccent] = useState(site.accent);
+  const [palette, setPalette] = useState<string[]>([]);
   // Theme
   const [fontFamily, setFontFamily] = useState("");
   const [headingFont, setHeadingFont] = useState("");
+  const [fonts, setFonts] = useState<CustomFont[]>([]);
+  const [textStyles, setTextStyles] = useState<TextStyles>({});
   const [borderRadius, setBorderRadius] = useState("0.5rem");
   const [contentWidth, setContentWidth] = useState<string>(THEME_FALLBACK.contentWidth);
   // Layout
@@ -68,8 +76,11 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           setSlug(s.slug);
           setDescription(s.description ?? "");
           setAccent(s.accent);
+          setPalette(normalizePalette(s.palette));
           setFontFamily(s.fontFamily ?? "");
           setHeadingFont(s.headingFont ?? "");
+          setFonts(normalizeCustomFonts(s.fonts));
+          setTextStyles(normalizeTextStyles(s.textStyles));
           setBorderRadius(s.borderRadius ?? "0.5rem");
           setContentWidth(s.contentWidth || THEME_FALLBACK.contentWidth);
           setHeaderBackground(s.headerBackground ?? "#ffffff");
@@ -97,9 +108,11 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name, slug, description: description || null, accent,
+          name, slug, description: description || null, accent, palette,
           fontFamily: fontFamily || null,
           headingFont: headingFont || null,
+          fonts,
+          textStyles,
           borderRadius: borderRadius || null,
           contentWidth,
           headerBackground, headerOpacity, headerShape, headerPosition,
@@ -118,6 +131,22 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
     } finally {
       setSaving(false);
     }
+  }
+
+  /**
+   * The site's font files, changed. A field left naming a family whose last
+   * file was just taken away is set back to the default, rather than asking
+   * every visitor for a font that is no longer declared anywhere.
+   */
+  function changeFonts(next: CustomFont[]) {
+    const left = new Set(next.map((f) => f.family.toLowerCase()));
+    const gone = (stack: string) => {
+      const family = familyOf(stack).toLowerCase();
+      return family !== "" && fonts.some((f) => f.family.toLowerCase() === family) && !left.has(family);
+    };
+    if (gone(fontFamily)) setFontFamily("");
+    if (gone(headingFont)) setHeadingFont("");
+    setFonts(next);
   }
 
   async function destroy() {
@@ -165,12 +194,20 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                       on it — the inspector&apos;s &quot;Use site accent&quot; hands it back.
                     </p>
                   </div>
+                  <PaletteEditor palette={palette} onChange={setPalette} />
                 </div>
               )}
               {tab === "theme" && (
                 <div className="space-y-3">
-                  <div><Label>Body font</Label><Input value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} placeholder="Inter, system-ui, sans-serif" /></div>
-                  <div><Label>Heading font</Label><Input value={headingFont} onChange={(e) => setHeadingFont(e.target.value)} placeholder="Georgia, serif" /></div>
+                  <FontPicker label="Body font" value={fontFamily} onChange={setFontFamily} custom={fonts} unsetLabel="The system font" />
+                  <FontPicker label="Heading font" value={headingFont} onChange={setHeadingFont} custom={fonts} unsetLabel="Same as the body" />
+                  <SiteFontFiles fonts={fonts} onChange={changeFonts} />
+                  <p className="text-xs text-fg-subtle">
+                    The fonts Neuravex carries and your own files both go into a downloaded site beside its
+                    pages, so a font looks the same on every visitor&apos;s screen with nothing fetched from
+                    anywhere else.
+                  </p>
+                  <TextSizeFields styles={textStyles} onChange={setTextStyles} />
                   <div><Label>Border radius</Label><Input value={borderRadius} onChange={(e) => setBorderRadius(e.target.value)} placeholder="0.5rem" /></div>
                   <div>
                     <Label>Content width</Label>
@@ -195,7 +232,6 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                       section set to follow the site.
                     </p>
                   </div>
-                  <p className="text-xs text-fg-subtle">Fonts must be available on the visitor&apos;s system or loaded via a Google Fonts link in Advanced → Custom CSS.</p>
                 </div>
               )}
               {tab === "layout" && (

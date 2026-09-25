@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { backgroundStyle, columnBoxStyle, cssUrl } from "@/lib/block-style";
+import { backgroundStyle, columnBoxStyle, cssUrl, gradientCss, normalizeAngle } from "@/lib/block-style";
+import { normalizeBlockTree } from "@/lib/block-tree";
 
 describe("cssUrl", () => {
   it("quotes the URL so brackets in a file name cannot end the declaration", () => {
@@ -107,5 +108,66 @@ describe("a backdrop cannot carry a second declaration", () => {
   it("keeps the overlay it was meant to keep", () => {
     expect(backgroundStyle({ backgroundImage: "/a.jpg", backgroundOverlay: "rgba(0,0,0,0.4)" }).backgroundImage)
       .toBe('linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url("/a.jpg")');
+  });
+});
+
+describe("a gradient behind a section or a column", () => {
+  it("is drawn instead of the colour, from one end to the other at its angle", () => {
+    expect(backgroundStyle({ background: "#ffffff", backgroundGradient: { from: "#0f172a", to: "#1e3a8a", angle: 135 } })).toEqual({
+      background: "linear-gradient(135deg, #0f172a, #1e3a8a)",
+      color: "#ffffff",
+    });
+  });
+
+  it("gives up its place to a picture, which always wins", () => {
+    const style = backgroundStyle({ backgroundImage: "/uploads/a.jpg", backgroundGradient: { from: "#000000", to: "#ffffff", angle: 90 } });
+    expect(style.backgroundImage).toBe('url("/uploads/a.jpg")');
+    expect(style).not.toHaveProperty("background");
+  });
+
+  it("reads text off the colour halfway along when the two ends disagree", () => {
+    // Slate to white: the middle is a light grey, and dark text reads on it.
+    expect(backgroundStyle({ backgroundGradient: { from: "#475569", to: "#ffffff", angle: 180 } }).color).toBe("#0f172a");
+    // Black to white: the middle is #808080, which counts as dark, as it does for a flat colour.
+    expect(backgroundStyle({ backgroundGradient: { from: "#000000", to: "#ffffff", angle: 180 } }).color).toBe("#ffffff");
+    // Two palette colours that agree answer with the slot's own token.
+    expect(
+      backgroundStyle({ backgroundGradient: { from: "var(--site-color-1, #0f172a)", to: "var(--site-color-1, #0f172a)", angle: 180 } }).color,
+    ).toBe("var(--site-color-1-contrast, #ffffff)");
+  });
+
+  it("claims no text colour it cannot see", () => {
+    expect(backgroundStyle({ backgroundGradient: { from: "rgba(0,0,0,0.4)", to: "transparent", angle: 180 } })).toEqual({
+      background: "linear-gradient(180deg, rgba(0,0,0,0.4), transparent)",
+    });
+  });
+
+  it("is not drawn with an end that is not a colour, whatever reached the database", () => {
+    expect(gradientCss({ from: "red;background:url(//x.example)", to: "#fff", angle: 0 })).toBeUndefined();
+    expect(backgroundStyle({ background: "#101010", backgroundGradient: { from: "", to: "#fff", angle: 0 } })).toEqual({
+      background: "#101010",
+      color: "#ffffff",
+    });
+  });
+
+  it("keeps its angle to whole degrees round the circle", () => {
+    expect(normalizeAngle(-90)).toBe(270);
+    expect(normalizeAngle(450.4)).toBe(90);
+    expect(normalizeAngle(Number.NaN)).toBe(180);
+  });
+
+  it("survives the validator on a section and a column, and a one-ended one does not", () => {
+    const result = normalizeBlockTree([
+      { id: "s", type: "section", props: { background: "#ffffff", backgroundGradient: { from: "#0f172a", to: "#1e3a8a", angle: "-45" } } },
+      {
+        id: "c",
+        type: "columns",
+        props: { count: 2, gap: 24, columnStyles: [{ backgroundGradient: { from: "#fef08a", to: "javascript:1", angle: 90 } }, { backgroundGradient: { from: "#fef08a", to: "#fed7aa", angle: 90 } }] },
+      },
+    ]);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.tree[0].props.backgroundGradient).toEqual({ from: "#0f172a", to: "#1e3a8a", angle: 315 });
+    expect(result.tree[1].props.columnStyles[0].backgroundGradient).toBeUndefined();
+    expect(result.tree[1].props.columnStyles[1].backgroundGradient).toEqual({ from: "#fef08a", to: "#fed7aa", angle: 90 });
   });
 });

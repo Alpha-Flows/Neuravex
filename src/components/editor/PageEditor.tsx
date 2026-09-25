@@ -16,6 +16,8 @@ import { BaseBlock, BlockType } from "@/types";
 import { getBlockDefinition } from "@/lib/blocks";
 import { uid, slugify, cn } from "@/lib/utils";
 import { siteThemeCss, SiteThemeInput } from "@/lib/site-theme";
+import { normalizePalette } from "@/lib/palette";
+import { SiteColorsProvider } from "./site-colors";
 import { scopeCss } from "@/lib/scope-css";
 import { readClipboard, writeClipboard, pasteable, subscribeClipboard, clipboardLabel as readClipboardLabel, clipboardServerLabel } from "@/lib/clipboard";
 import { containerChoices } from "@/lib/containers";
@@ -681,6 +683,11 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
   // site's own CSS is scoped the same way, for the same reason — a rule on
   // `body` would otherwise reach the builder's chrome.
   const themeCss = useMemo(() => siteThemeCss(theme, ".public-canvas"), [theme]);
+  // The colours every colour field offers as swatches.
+  const siteColors = useMemo(
+    () => ({ accent: theme.accent ?? "", palette: normalizePalette(theme.palette) }),
+    [theme.accent, theme.palette],
+  );
   // Already sanitised by the page that rendered this, so all that is left is
   // to hold it inside the canvas.
   const customCss = useMemo(
@@ -716,6 +723,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
   );
 
   return (
+    <SiteColorsProvider value={siteColors}>
     <DndContext
       sensors={sensors}
       collisionDetection={rectIntersection}
@@ -1018,6 +1026,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
         </DragOverlay>
       </div>
     </DndContext>
+    </SiteColorsProvider>
   );
 }
 

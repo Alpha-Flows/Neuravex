@@ -1,10 +1,14 @@
 "use client";
 import { useState } from "react";
-import type { BaseBlock } from "@/types";
+import type { BackgroundGradient, BaseBlock } from "@/types";
 import { Input, Label } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { MediaPicker } from "./MediaPicker";
 import { isInternalLink, pagePath, targetOf, type LinkTarget } from "@/lib/page-links";
+import { cleanHex, resolveColor } from "@/lib/palette";
+import { GRADIENT_DIRECTIONS } from "@/lib/block-style";
+import { isDarkColor } from "@/lib/site-theme";
+import { SiteSwatches, useSiteColors } from "./site-colors";
 
 /**
  * The controls every block's panel is built from.
@@ -139,12 +143,16 @@ export function ColorInput({
 }) {
   const isTransparent = value === "transparent" || value === "rgba(0,0,0,0)";
   const inheriting = inherit != null && value === "";
+  const colors = useSiteColors();
+  // The picker takes only a hex. A palette colour shows as what it is today,
+  // and anything else it cannot show — rgba(), a named colour — as white.
+  const shown = isTransparent || inheriting ? "" : resolveColor(value, colors ?? {});
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
         <input
           type="color"
-          value={isTransparent || inheriting ? "#ffffff" : value}
+          value={shown || "#ffffff"}
           onChange={(e) => onChange(e.target.value)}
           className="w-9 h-9 rounded-md bg-transparent border border-bg-border"
         />
@@ -163,6 +171,8 @@ export function ColorInput({
           </button>
         ) : null}
       </div>
+      {/* The accent is left out where "Use site accent" already offers it. */}
+      <SiteSwatches value={value} onPick={onChange} withAccent={inherit !== "Site accent"} />
       {inherit ? (
         <button
           onClick={() => onChange("")}
@@ -176,6 +186,78 @@ export function ColorInput({
           {inheriting ? `Using ${inherit.toLowerCase()}` : `Use ${inherit.toLowerCase()}`}
         </button>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * What fills a section or a column when it has no picture: one colour, or two
+ * blended from one side to the other.
+ *
+ * One control for both, because they are one choice — a gradient is drawn
+ * instead of the colour, not over it — and a panel with a colour field and a
+ * gradient field side by side left it to the reader to work out which won.
+ * Switching to a gradient starts from the colour already there, so the first
+ * thing seen is that colour fading into another rather than something new.
+ */
+export function BackgroundFill({
+  background,
+  gradient,
+  onChange,
+  inherit,
+}: {
+  background: string;
+  gradient: BackgroundGradient | undefined;
+  onChange: (next: { background?: string; backgroundGradient?: BackgroundGradient }) => void;
+  /** What an empty colour means, as `ColorInput` takes it. */
+  inherit?: string;
+}) {
+  const colors = useSiteColors();
+  const mode = gradient ? "gradient" : "colour";
+  const accent = cleanHex(colors?.accent) || "#6366f1";
+  const start = resolveColor(background, colors ?? {}) || accent;
+  // The far end is the accent, unless that is where it starts — then white
+  // or near-black, whichever is further from it — so the first thing seen on
+  // switching is a gradient, and not the same colour twice.
+  const end = start === accent ? (isDarkColor(start) ? "#ffffff" : "#0f172a") : accent;
+  return (
+    <div className="space-y-2">
+      <SegBtns<"colour" | "gradient">
+        value={mode}
+        options={["colour", "gradient"]}
+        onChange={(v) =>
+          v === "gradient"
+            ? onChange({ background, backgroundGradient: gradient ?? { from: background && background !== "transparent" ? background : start, to: end, angle: 180 } })
+            : onChange({ background, backgroundGradient: undefined })
+        }
+        nameFor={(v) => (v === "colour" ? "One colour" : "Gradient")}
+      />
+      {gradient ? (
+        <>
+          <Field label="From">
+            <ColorInput value={gradient.from} onChange={(from) => onChange({ background, backgroundGradient: { ...gradient, from } })} />
+          </Field>
+          <Field label="To">
+            <ColorInput value={gradient.to} onChange={(to) => onChange({ background, backgroundGradient: { ...gradient, to } })} />
+          </Field>
+          <Field label="Direction">
+            <Select
+              value={String(gradient.angle)}
+              onChange={(v) => onChange({ background, backgroundGradient: { ...gradient, angle: Number(v) } })}
+              options={[
+                ...GRADIENT_DIRECTIONS.map((d) => ({ value: String(d.angle), label: d.label })),
+                // An angle set elsewhere — the MCP server, an import — is kept
+                // and shown rather than silently turned into the first choice.
+                ...(GRADIENT_DIRECTIONS.some((d) => d.angle === gradient.angle)
+                  ? []
+                  : [{ value: String(gradient.angle), label: `${gradient.angle}°` }]),
+              ]}
+            />
+          </Field>
+        </>
+      ) : (
+        <ColorInput value={background} allowTransparent inherit={inherit} onChange={(v) => onChange({ background: v, backgroundGradient: undefined })} />
+      )}
     </div>
   );
 }
