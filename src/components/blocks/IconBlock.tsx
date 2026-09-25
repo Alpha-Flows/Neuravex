@@ -5,6 +5,8 @@ interface Props {
   props: IconProps;
   onChange?: (next: IconProps) => void;
   disabled?: boolean;
+  /** The block's own id, for the ids and anchors it draws — see `domId`. */
+  blockId?: string;
 }
 
 // Placeholder until the block is written.

@@ -99,25 +99,25 @@ function BlockBody({ block: raw, onChange, disabled, onSelect, onChildDelete, on
     case "html":
       return <CustomHtml props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     case "gallery":
-      return <Gallery props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+      return <Gallery blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     case "accordion":
-      return <Accordion props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+      return <Accordion blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     case "slider":
-      return <Slider props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+      return <Slider blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     case "audio":
-      return <AudioBlock props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+      return <AudioBlock blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     case "icon":
-      return <IconBlock props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+      return <IconBlock blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     case "social":
-      return <SocialLinks props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+      return <SocialLinks blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     case "table":
-      return <TableBlock props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+      return <TableBlock blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     case "pricing":
-      return <Pricing props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+      return <Pricing blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     case "map":
-      return <MapBlock props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+      return <MapBlock blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     case "code":
-      return <CodeBlock props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+      return <CodeBlock blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     default:
       return <div className="text-red-500 text-sm">Unknown block: {String(block.type)}</div>;
   }
