@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PageEditor } from "@/components/editor/PageEditor";
 import { BaseBlock } from "@/types";
 import { normalizeBlockTree } from "@/lib/block-tree";
+import { sectionAnchors } from "@/lib/anchors";
 import { isLegalKind } from "@/lib/legal/pages";
 import { headers } from "next/headers";
 import { safeAccent } from "@/lib/site-fields";
@@ -25,7 +26,7 @@ export default async function PageEditorRoute(
       pages: {
         where: { published: true },
         orderBy: [{ sortOrder: "asc" }, { isHome: "desc" }],
-        select: { slug: true, title: true, isHome: true, legalKind: true },
+        select: { id: true, slug: true, title: true, isHome: true, legalKind: true },
       },
     },
   });
@@ -34,10 +35,20 @@ export default async function PageEditorRoute(
   // Everywhere in this site a link can point. Unlike the nav above, drafts are
   // in it: a Contact page you have not published yet is still the page you
   // mean to link to, and typing its path from memory is what this replaces.
-  const linkTargets = await prisma.page.findMany({
+  const pagesForLinks = await prisma.page.findMany({
     where: { siteId: site.id },
     orderBy: [{ isHome: "desc" }, { sortOrder: "asc" }],
-    select: { slug: true, title: true, isHome: true, published: true, legalKind: true },
+    select: { id: true, slug: true, title: true, isHome: true, published: true, legalKind: true, content: true },
+  });
+  // Each page's named sections, read through the validator like any other
+  // read of a page, and then only the names: the content itself stays here.
+  // The page being edited is left out, since the editor offers its own
+  // sections as they stand rather than as they were saved.
+  const linkTargets = pagesForLinks.map(({ id, content, ...target }) => {
+    if (id === params.pageId) return target;
+    const tree = normalizeBlockTree(content || "[]");
+    const anchors = tree.ok ? sectionAnchors(tree.tree).map(({ anchor, title }) => ({ anchor, title })) : [];
+    return anchors.length > 0 ? { ...target, anchors } : target;
   });
 
   // The same reading every other path uses. This was a bare `JSON.parse` with
@@ -75,6 +86,9 @@ export default async function PageEditorRoute(
           headerOpacity: site.headerOpacity,
           headerShape: site.headerShape,
           headerPosition: site.headerPosition,
+          logo: site.logo,
+          menu: site.menu,
+          footer: site.footer,
         },
         // The same split the visitor gets: the legal pages sit in the footer
         // rather than in the nav, and the canvas has to show that or it is

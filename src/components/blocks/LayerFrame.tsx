@@ -28,7 +28,11 @@ export function LayerFrame({ block, inPageColumn, children }: Props) {
   const { outer, inner } = layerBoxes(block);
   const column = !outer && inPageColumn;
   const styled = Object.keys(inner).length > 0;
-  const framed = <BlockFrame box={block.box}>{children}</BlockFrame>;
+  const framed = (
+    <BlockMotionFrame motion={block.motion}>
+      <BlockFrame box={block.box}>{children}</BlockFrame>
+    </BlockMotionFrame>
+  );
 
   // An ordinary block in the flow that is not held in the page's column needs
   // nothing said about it — no wrapper, and the markup is what it was before
@@ -70,3 +74,17 @@ export function BlockFrame({ box, children }: { box?: BlockBox; children: ReactN
   );
 }
 
+/**
+ * The element a block's scroll-in motion plays on, outside its frame so the
+ * border and the shadow come in with it. Only on the published page and in
+ * Preview: `BlockChrome` draws the frame without this, so nothing moves while
+ * the page is being edited. See `src/lib/block-motion.ts`.
+ */
+export function BlockMotionFrame({ motion, children }: { motion?: BaseBlock["motion"]; children: ReactNode }) {
+  if (!motion) return <>{children}</>;
+  return (
+    <div className="nvx-reveal" data-reveal={motion}>
+      {children}
+    </div>
+  );
+}

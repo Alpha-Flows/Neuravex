@@ -18,6 +18,8 @@ import { uid, slugify, cn } from "@/lib/utils";
 import { siteThemeCss, SiteThemeInput } from "@/lib/site-theme";
 import { normalizePalette } from "@/lib/palette";
 import { SiteColorsProvider } from "./site-colors";
+import { PageAnchorsProvider } from "./page-anchors";
+import { sectionAnchors } from "@/lib/anchors";
 import { scopeCss } from "@/lib/scope-css";
 import { readClipboard, writeClipboard, pasteable, subscribeClipboard, clipboardLabel as readClipboardLabel, clipboardServerLabel } from "@/lib/clipboard";
 import { containerChoices } from "@/lib/containers";
@@ -688,6 +690,8 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     () => ({ accent: theme.accent ?? "", palette: normalizePalette(theme.palette) }),
     [theme.accent, theme.palette],
   );
+  // This page's named sections as they stand now, for every link field.
+  const pageAnchors = useMemo(() => sectionAnchors(blocks), [blocks]);
   // Already sanitised by the page that rendered this, so all that is left is
   // to hold it inside the canvas.
   const customCss = useMemo(
@@ -724,6 +728,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
 
   return (
     <SiteColorsProvider value={siteColors}>
+    <PageAnchorsProvider value={pageAnchors}>
     <DndContext
       sensors={sensors}
       collisionDetection={rectIntersection}
@@ -1026,6 +1031,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
         </DragOverlay>
       </div>
     </DndContext>
+    </PageAnchorsProvider>
     </SiteColorsProvider>
   );
 }

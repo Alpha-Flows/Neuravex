@@ -9,6 +9,8 @@ import { cleanHex, resolveColor } from "@/lib/palette";
 import { GRADIENT_DIRECTIONS } from "@/lib/block-style";
 import { isDarkColor } from "@/lib/site-theme";
 import { SiteSwatches, useSiteColors } from "./site-colors";
+import { usePageAnchors } from "./page-anchors";
+import { anchorHref, anchorOfHref } from "@/lib/anchors";
 
 /**
  * The controls every block's panel is built from.
@@ -294,6 +296,30 @@ export function LinkField({
   const target = pages && siteSlug ? targetOf(href, siteSlug, pages) : null;
   const internal = siteSlug ? isInternalLink(href, siteSlug) : false;
   const broken = internal && !target;
+  const here = usePageAnchors();
+  // A link to a section of this page that no section is named: the name was
+  // changed, or the section deleted, after the link was made.
+  const lostAnchor = anchorOfHref(href);
+  const lost = lostAnchor !== "" && !here.some((a) => a.anchor === lostAnchor);
+
+  // Every place this site can be linked to, as the address a link stores: the
+  // named sections of this page, then each page with its own named sections
+  // under it. The list shows whichever the current link is, and nothing when
+  // it goes outside the site, rather than claiming a page it does not reach.
+  const onThisPage = here.map((a) => ({ value: anchorHref(a.anchor), label: a.title ? `${a.title} (#${a.anchor})` : `#${a.anchor}` }));
+  const inSite =
+    pages && siteSlug
+      ? pages.flatMap((p) => {
+          const path = pagePath(siteSlug, p.slug, p.isHome);
+          return [
+            { value: path, label: `${p.title}${p.isHome ? " (home)" : ""}${p.published ? "" : " — draft"}` },
+            ...(p.anchors ?? []).map((a) => ({ value: `${path}${anchorHref(a.anchor)}`, label: `\u2003${p.title} › ${a.title || a.anchor}` })),
+          ];
+        })
+      : [];
+  const chosen =
+    [...onThisPage, ...inSite].find((o) => o.value === href)?.value ??
+    (target && siteSlug ? pagePath(siteSlug, target.slug, target.isHome) : "");
 
   return (
     <div className="space-y-1.5">
@@ -303,31 +329,36 @@ export function LinkField({
         onChange={(e) => onChange(e.target.value)}
         aria-label={ariaLabel}
       />
-      {pages && siteSlug && pages.length > 0 ? (
+      {onThisPage.length > 0 || inSite.length > 0 ? (
         <select
-          // The value is never the current href when the link points outside
-          // the site, so the select shows its own first option rather than
-          // claiming the link goes to a page it does not.
-          value={target ? target.slug : ""}
-          aria-label={ariaLabel ? `${ariaLabel}: a page in this site` : undefined}
+          value={chosen}
+          aria-label={ariaLabel ? `${ariaLabel}: a page or section in this site` : "Link to a page or section in this site"}
           onChange={(e) => {
-            const page = pages.find((p) => p.slug === e.target.value);
-            if (page) onChange(pagePath(siteSlug, page.slug, page.isHome));
+            if (e.target.value) onChange(e.target.value);
           }}
           className="h-9 w-full px-2 rounded-md bg-bg border border-bg-border text-fg text-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
         >
-          <option value="">Link to a page in this site…</option>
-          {pages.map((p) => (
-            <option key={p.slug} value={p.slug}>
-              {p.title}
-              {p.isHome ? " (home)" : ""}
-              {p.published ? "" : " — draft"}
-            </option>
-          ))}
+          <option value="">Link to a page or section in this site…</option>
+          {onThisPage.length > 0 ? (
+            <optgroup label="On this page">
+              {onThisPage.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </optgroup>
+          ) : null}
+          {inSite.length > 0 ? (
+            <optgroup label="Pages">
+              {inSite.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </optgroup>
+          ) : null}
         </select>
       ) : null}
       {broken ? (
         <p className="text-xs text-amber-400">No page of this site is at that address — this link will 404.</p>
+      ) : lost ? (
+        <p className="text-xs text-amber-400">No section of this page is named &quot;{lostAnchor}&quot; — this link goes nowhere.</p>
       ) : target && !target.published ? (
         <p className="text-xs text-fg-subtle">{target.title} is a draft, so visitors get a 404 until it is published.</p>
       ) : null}

@@ -2,6 +2,7 @@
 import { BaseBlock, SectionProps } from "@/types";
 import { SortableContainer } from "./Sortable";
 import { backgroundStyle } from "@/lib/block-style";
+import { anchorId, cleanAnchor } from "@/lib/anchors";
 import { cn } from "@/lib/utils";
 import { cssLength } from "@/lib/css-value";
 
@@ -56,8 +57,14 @@ export function Section({
 
   const bgStyle = backgroundStyle(props);
 
+  // A named section carries its name as its id, so a link can land on it;
+  // the class keeps it clear of a sticky header when one does.
+  const anchor = cleanAnchor(props.anchor);
+
   return (
     <div
+      id={anchor ? anchorId(anchor) : undefined}
+      className={anchor ? "nvx-anchor" : undefined}
       style={{
         ...bgStyle,
         paddingTop: cssLength(props.paddingY) ?? 0,

@@ -15,6 +15,7 @@ import { isLegalKind } from "./legal/pages";
 import { normalizeSiteFields } from "./site-fields";
 import { normalizeBlockTreeJson, clampSortOrder } from "./block-tree";
 import { slugify } from "./utils";
+import { menuForArchive } from "./menu";
 
 export const ARCHIVE_VERSION = 3;
 
@@ -35,6 +36,9 @@ export const SITE_FIELDS = [
   "headerOpacity",
   "headerShape",
   "headerPosition",
+  "logo",
+  "menu",
+  "footer",
   "headerHtml",
   "footerHtml",
   "customCss",
@@ -95,9 +99,26 @@ export function serializeSite(
   return {
     version: ARCHIVE_VERSION,
     exportedAt: new Date().toISOString(),
-    site: pick(site, SITE_FIELDS),
+    site: archiveSite(site),
     pages: site.pages.map((p) => serializePage(p, { includeHistory })),
   };
+}
+
+/**
+ * The site's own fields, with its menu naming pages by slug rather than id.
+ *
+ * A page's id is not kept across an import — the pages are created afresh —
+ * so a menu that named its pages by id came back naming pages that were not
+ * there, and every one of them was dropped to the end of the menu with its
+ * label lost. A slug is kept, and the menu reads either.
+ */
+function archiveSite(site: Row & { pages: Row[] }): Row {
+  const out = pick(site, SITE_FIELDS);
+  if (typeof out.menu === "string") {
+    const pages = site.pages.flatMap((p) => (typeof p.id === "string" && typeof p.slug === "string" ? [{ id: p.id, slug: p.slug }] : []));
+    out.menu = JSON.stringify(menuForArchive(out.menu, pages));
+  }
+  return out;
 }
 
 export function serializePage(page: Row, { includeHistory = false }: SerializeOptions = {}): PageArchive {
