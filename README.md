@@ -153,13 +153,25 @@ copy keeps serving the database it started with.
 
 ## Adding a new block type
 
-1. Add the block props interface in `src/types/index.ts`.
-2. Register the block in `src/lib/blocks.ts` (label, icon, default props).
-3. Create a component in `src/components/blocks/` that accepts `{ props, onChange, disabled }`.
-4. Wire it into `src/components/blocks/BlockView.tsx`.
-5. Add inspector controls in `src/components/editor/BlockInspector.tsx`.
+1. Add the block type to `BlockType` and its props interface in `src/types/index.ts`.
+2. Describe its props in `PROPS` in `src/lib/block-tree.ts`. Every save, import, paste and
+   MCP write goes through this, and so do both read paths, so it is where a link is checked
+   with `isSafeHref`, a picture with `safeMediaSrc` and text with `inlineText`. A type with
+   no entry here is dropped from every page it is saved on.
+3. Register the block in `src/lib/blocks.ts` (label, icon, default props — bundled files only;
+   `blocks.test.ts` fails on a default that points off the machine).
+4. Create a component in `src/components/blocks/` that accepts `{ props, onChange, disabled }`
+   (and `blockId`, if it draws ids or anchors — make them with `domId`).
+5. Wire it into `src/components/blocks/BlockView.tsx`.
+6. Add its panel: a small one as a case in `src/components/editor/BlockInspector.tsx`, a larger
+   one as a file in `src/components/editor/inspectors/` built from the shared controls in
+   `inspector-fields.tsx`.
+7. If it loads anything or links anywhere, teach `src/lib/legal/audit.ts` to see it, and
+   `src/lib/page-links.ts` to move its links when a page is renamed.
 
-That's it — the palette, drag-and-drop, save, and public render all pick it up automatically.
+The palette, drag-and-drop, save, the published page and the download pick up the rest. A
+published or downloaded page runs no script of the block's own, so anything a visitor can
+open, close or step through has to be plain HTML and CSS.
 
 ## Downloading a site
 
