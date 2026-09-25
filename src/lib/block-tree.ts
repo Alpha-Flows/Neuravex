@@ -5,6 +5,7 @@ import { sanitizeStyleAttribute } from "./css-safety";
 import { sanitizeInlineHtml, sanitizeHtml } from "./sanitize";
 import { cssColor, cssLength } from "./css-value";
 import { normalizeLayer } from "./block-layer";
+import { DEFAULT_ICON, isIconName } from "./icon-names";
 
 /**
  * What a block tree is allowed to be, checked at every door.
@@ -100,6 +101,54 @@ const lengthProp = (fallback: number) =>
 
 const inlineText = (max = MAX_TEXT) =>
   z.unknown().optional().transform((v) => (typeof v === "string" ? sanitizeInlineHtml(v.slice(0, max)) : ""));
+
+const flag = (fallback: boolean) => z.boolean().catch(fallback);
+
+/**
+ * A list of records, each one repaired on its own and the list cut to length.
+ *
+ * `z.array(...).max(n).catch([])` is the obvious way to write this, and it is
+ * what the list and form schemas above do — but there one entry too many
+ * empties the whole list, and one entry that is not an object turns into a
+ * blank row that was never written. A gallery of forty pictures with one bad
+ * entry should come back as thirty-nine pictures, and a gallery of five
+ * hundred as the first sixty, not as nothing.
+ */
+function listOf<T extends z.ZodType>(item: T, max: number) {
+  return z.unknown().optional().transform((value) => {
+    const out: z.output<T>[] = [];
+    if (!Array.isArray(value)) return out;
+    for (const entry of value.slice(0, max)) {
+      const parsed = item.safeParse(entry);
+      if (parsed.success) out.push(parsed.data);
+    }
+    return out;
+  });
+}
+
+/** One picture in a gallery or a slider, checked the way an image block's is. */
+const mediaItem = z.object({
+  src: z.unknown().optional().transform((v) => safeMediaSrc(v) ?? ""),
+  alt: text(1000),
+  caption: inlineText(2000),
+  naturalWidth: z.coerce.number().int().min(0).max(100_000).optional().catch(undefined),
+  naturalHeight: z.coerce.number().int().min(0).max(100_000).optional().catch(undefined),
+  altFromLibrary: z.boolean().optional().catch(undefined),
+});
+
+const MAX_GALLERY_IMAGES = 60;
+const MAX_SLIDES = 30;
+const MAX_ACCORDION_ITEMS = 100;
+const MAX_TABLE_ROWS = 200;
+const MAX_TABLE_COLUMNS = 12;
+const MAX_PRICING_PLANS = 4;
+const MAX_PLAN_FEATURES = 30;
+const MAX_SOCIAL_LINKS = 20;
+
+const SOCIAL_NETWORKS = [
+  "instagram", "facebook", "x", "linkedin", "youtube", "tiktok", "github", "mastodon",
+  "bluesky", "pinterest", "threads", "whatsapp", "email", "website",
+] as const;
 
 const PROPS: Record<string, z.ZodType> = {
   heading: z.object({
@@ -220,6 +269,112 @@ const PROPS: Record<string, z.ZodType> = {
     // back into a contentEditable, and the export writes it into a file the
     // builder's CSP never sees.
     html: z.unknown().optional().transform((v) => (typeof v === "string" ? sanitizeHtml(v.slice(0, MAX_HTML)) : "")),
+  }),
+
+  gallery: z.object({
+    images: listOf(mediaItem, MAX_GALLERY_IMAGES),
+    columns: z.coerce.number().int().min(2).max(4).catch(3),
+    gap: lengthProp(12),
+    aspect: z.enum(["square", "landscape", "portrait", "natural"]).catch("square"),
+    rounded: z.enum(["none", "md", "xl"]).catch("md"),
+    lightbox: flag(true),
+  }),
+
+  accordion: z.object({
+    items: listOf(z.object({ title: inlineText(1000), body: inlineText(20_000) }), MAX_ACCORDION_ITEMS),
+    exclusive: flag(false),
+    openFirst: flag(false),
+    style: z.enum(["bordered", "separated", "minimal"]).catch("bordered"),
+  }),
+
+  slider: z.object({
+    slides: listOf(mediaItem, MAX_SLIDES),
+    ratio: z.enum(["16/9", "4/3", "1/1", "21/9"]).catch("16/9"),
+    rounded: z.enum(["none", "md", "xl"]).catch("xl"),
+    showArrows: flag(true),
+    showDots: flag(true),
+  }),
+
+  audio: z.object({
+    // An <audio> element, so the rule is the video block's: any http(s) file
+    // or one of this site's own, and never a scheme that runs something.
+    src: z.unknown().optional().transform((v) => safeMediaSrc(v) ?? ""),
+    title: inlineText(300),
+    description: inlineText(2000),
+  }),
+
+  icon: z.object({
+    icon: z.unknown().optional().transform((v) => (isIconName(v) ? v : DEFAULT_ICON)),
+    size: z.enum(["sm", "md", "lg", "xl"]).catch("md"),
+    color: colorProp,
+    shape: z.enum(["none", "circle", "square"]).catch("circle"),
+    title: inlineText(300),
+    text: inlineText(2000),
+    align,
+  }),
+
+  social: z.object({
+    links: listOf(
+      z.object({
+        network: z.enum(SOCIAL_NETWORKS).catch("website"),
+        // Every one of these is a link on the customer's published page, so
+        // it gets the button's rule: http(s), mailto:, tel:, a path, nothing
+        // that runs.
+        href: z.unknown().optional().transform((v) => isSafeHref(v) ?? ""),
+      }),
+      MAX_SOCIAL_LINKS,
+    ),
+    size: z.enum(["sm", "md", "lg"]).catch("md"),
+    shape: z.enum(["none", "circle", "square"]).catch("circle"),
+    color: colorProp,
+    align,
+  }),
+
+  table: z.object({
+    rows: listOf(listOf(inlineText(5000), MAX_TABLE_COLUMNS), MAX_TABLE_ROWS),
+    headerRow: flag(true),
+    headerColumn: flag(false),
+    striped: flag(true),
+    caption: inlineText(1000),
+  }),
+
+  pricing: z.object({
+    plans: listOf(
+      z.object({
+        name: inlineText(200),
+        price: inlineText(100),
+        period: inlineText(100),
+        description: inlineText(1000),
+        features: listOf(inlineText(1000), MAX_PLAN_FEATURES),
+        buttonLabel: inlineText(200),
+        buttonHref: z.unknown().optional().transform((v) => isSafeHref(v) ?? "#"),
+        highlighted: flag(false),
+        badge: inlineText(100),
+      }),
+      MAX_PRICING_PLANS,
+    ),
+    color: colorProp,
+  }),
+
+  map: z.object({
+    address: inlineText(500),
+    lat: z.coerce.number().min(-90).max(90).catch(52.5163),
+    lng: z.coerce.number().min(-180).max(180).catch(13.3777),
+    zoom: z.coerce.number().int().min(1).max(19).catch(15),
+    mode: z.enum(["card", "embed"]).catch("card"),
+    height: z.coerce.number().min(160).max(900).catch(360),
+  }),
+
+  code: z.object({
+    // Plain text. React writes it out escaped, so a sample of HTML is shown
+    // as HTML rather than becoming part of the page — which is why this is
+    // not sanitised: sanitising it would change the sample.
+    code: text(),
+    language: text(40),
+    filename: text(200),
+    theme: z.enum(["dark", "light"]).catch("dark"),
+    wrap: flag(false),
+    lineNumbers: flag(false),
   }),
 };
 

@@ -270,3 +270,41 @@ html, body {
 .editor-mode .editor-block.is-floating:not(.is-selected):not(:hover) > .editor-outline {
   outline-color: rgba(99, 102, 241, 0.3);
 }
+
+/* ---------------------------------------------------------------------
+ * The blocks that need a rule Tailwind cannot write as a class: a picture
+ * opened over the page, a row that snaps from slide to slide, a marker that
+ * turns as a question opens. None of them uses a script, because a
+ * downloaded site carries none — so each is plain CSS, and each block keeps
+ * its rules between its own two markers below.
+ * --------------------------------------------------------------------- */
+
+/* == block: gallery == */
+/* == end block: gallery == */
+
+/* == block: accordion == */
+/* == end block: accordion == */
+
+/* == block: slider == */
+/* == end block: slider == */
+
+/* == block: audio == */
+/* == end block: audio == */
+
+/* == block: icon == */
+/* == end block: icon == */
+
+/* == block: social == */
+/* == end block: social == */
+
+/* == block: table == */
+/* == end block: table == */
+
+/* == block: pricing == */
+/* == end block: pricing == */
+
+/* == block: map == */
+/* == end block: map == */
+
+/* == block: code == */
+/* == end block: code == */

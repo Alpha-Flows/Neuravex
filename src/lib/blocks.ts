@@ -2,6 +2,8 @@ import {
   HeadingProps, TextProps, ImageProps, ButtonProps,
   DividerProps, SpacerProps, SectionProps, ColumnsProps,
   VideoProps, QuoteProps, ListProps, FormProps, HtmlProps,
+  GalleryProps, AccordionProps, SliderProps, AudioProps, IconProps,
+  SocialProps, TableProps, PricingProps, MapProps, CodeProps,
   BlockType,
 } from "@/types";
 
@@ -193,6 +195,214 @@ export const BLOCKS: BlockDefinition[] = [
     defaultProps: {
       html: '<div style="padding:32px;text-align:center;background:#f1f5f9;border-radius:8px">Your custom HTML here</div>',
     } satisfies HtmlProps,
+  },
+  {
+    type: "gallery",
+    label: "Gallery",
+    category: "media",
+    icon: "▦",
+    description: "A grid of pictures that open large when clicked.",
+    defaultProps: {
+      // Bundled photographs, with the descriptions and sizes the library
+      // holds for them, so a gallery dropped on the page and left alone is
+      // neither a row of broken images offline nor six silent ones.
+      images: [
+        { src: "/stock/food/alexandru-bogdan-ghita-UeYkqQh4PoI-unsplash.jpg", alt: "A platter of grilled ribs with tomatoes, fries and pickles", caption: "", naturalWidth: 2560, naturalHeight: 1710, altFromLibrary: true },
+        { src: "/stock/food/edward-howell-vvUy1hWVYEA-unsplash.jpg", alt: "A plated dish of greens in a pale bowl", caption: "", naturalWidth: 2560, naturalHeight: 1706, altFromLibrary: true },
+        { src: "/stock/food/louis-hansel-wVoP_Q2Bg_A-unsplash.jpg", alt: "A restaurant dining room", caption: "", naturalWidth: 2560, naturalHeight: 1706, altFromLibrary: true },
+        { src: "/stock/nature/sam-ferrara-1527pjeb6jg-unsplash.jpg", alt: "Mountain peaks above the clouds at sunset", caption: "", naturalWidth: 2560, naturalHeight: 1706, altFromLibrary: true },
+        { src: "/stock/nature/cristian-palmer-3leBubkp5hk-unsplash.jpg", alt: "Sunlight through turquoise water", caption: "", naturalWidth: 2560, naturalHeight: 1920, altFromLibrary: true },
+        { src: "/stock/nature/sebastian-unrau-sp-p7uuT0tw-unsplash.jpg", alt: "A misty forest path", caption: "", naturalWidth: 2560, naturalHeight: 1706, altFromLibrary: true },
+      ],
+      columns: 3,
+      gap: 12,
+      aspect: "square",
+      rounded: "md",
+      lightbox: true,
+    } satisfies GalleryProps,
+  },
+  {
+    type: "slider",
+    label: "Slider",
+    category: "media",
+    icon: "⇆",
+    description: "Pictures one at a time, with arrows to move between them.",
+    defaultProps: {
+      slides: [
+        { src: "/stock/nature/sam-ferrara-1527pjeb6jg-unsplash.jpg", alt: "Mountain peaks above the clouds at sunset", caption: "", naturalWidth: 2560, naturalHeight: 1706, altFromLibrary: true },
+        { src: "/stock/nature/cristian-palmer-3leBubkp5hk-unsplash.jpg", alt: "Sunlight through turquoise water", caption: "", naturalWidth: 2560, naturalHeight: 1920, altFromLibrary: true },
+        { src: "/stock/nature/sebastian-unrau-sp-p7uuT0tw-unsplash.jpg", alt: "A misty forest path", caption: "", naturalWidth: 2560, naturalHeight: 1706, altFromLibrary: true },
+      ],
+      ratio: "16/9",
+      rounded: "xl",
+      showArrows: true,
+      showDots: true,
+    } satisfies SliderProps,
+  },
+  {
+    type: "audio",
+    label: "Audio",
+    category: "media",
+    icon: "♪",
+    description: "A sound file with a player — an episode, a track, a message.",
+    defaultProps: {
+      // Empty for the reason the video block is: the block asks for a file
+      // rather than shipping one somebody else hosts.
+      src: "",
+      title: "Episode 1 — Getting started",
+      description: "",
+    } satisfies AudioProps,
+  },
+  {
+    type: "map",
+    label: "Map",
+    category: "media",
+    icon: "⌖",
+    description: "Where to find you, with a link to open it on a map.",
+    defaultProps: {
+      address: "Pariser Platz, 10117 Berlin",
+      lat: 52.5163,
+      lng: 13.3777,
+      zoom: 16,
+      // A card, not a frame: a frame is a request to openstreetmap.org on
+      // every page view, which is the owner's decision to make, not ours.
+      mode: "card",
+      height: 360,
+    } satisfies MapProps,
+  },
+  {
+    type: "accordion",
+    label: "Accordion",
+    category: "content",
+    icon: "≡",
+    description: "Questions and answers that open one at a time — an FAQ.",
+    defaultProps: {
+      items: [
+        { title: "How long does delivery take?", body: "Most orders arrive within three to five working days." },
+        { title: "Can I change my order?", body: "Yes — write to us within 24 hours and we will change it before it ships." },
+        { title: "Do you ship abroad?", body: "We ship across the EU. Shipping costs are shown at checkout." },
+      ],
+      exclusive: true,
+      openFirst: false,
+      style: "bordered",
+    } satisfies AccordionProps,
+  },
+  {
+    type: "icon",
+    label: "Icon",
+    category: "content",
+    icon: "★",
+    description: "An icon on its own, or with a title and a line of text as a feature card.",
+    defaultProps: {
+      icon: "zap",
+      size: "md",
+      color: "",
+      shape: "circle",
+      title: "Fast by default",
+      text: "Pages load in a blink, on every connection.",
+      align: "left",
+    } satisfies IconProps,
+  },
+  {
+    type: "social",
+    label: "Social links",
+    category: "content",
+    icon: "@",
+    description: "Icons linking to your profiles elsewhere.",
+    defaultProps: {
+      // "#" until somebody names their own profile, the way a new button
+      // starts. A network's home page would be a guess at an address, and a
+      // default that names somewhere off the machine is what the block
+      // defaults test exists to catch.
+      links: [
+        { network: "instagram", href: "#" },
+        { network: "linkedin", href: "#" },
+        { network: "email", href: "mailto:hello@example.com" },
+      ],
+      size: "md",
+      shape: "circle",
+      color: "",
+      align: "left",
+    } satisfies SocialProps,
+  },
+  {
+    type: "table",
+    label: "Table",
+    category: "content",
+    icon: "▥",
+    description: "Rows and columns — opening hours, a price list, a comparison.",
+    defaultProps: {
+      rows: [
+        ["Day", "Opening hours"],
+        ["Monday – Friday", "9:00 – 18:00"],
+        ["Saturday", "10:00 – 14:00"],
+        ["Sunday", "Closed"],
+      ],
+      headerRow: true,
+      headerColumn: false,
+      striped: true,
+      caption: "",
+    } satisfies TableProps,
+  },
+  {
+    type: "pricing",
+    label: "Pricing",
+    category: "content",
+    icon: "€",
+    description: "Plans side by side, each with a price, what it includes and a button.",
+    defaultProps: {
+      plans: [
+        {
+          name: "Starter",
+          price: "€9",
+          period: "per month",
+          description: "For getting going on your own.",
+          features: ["One project", "Email support"],
+          buttonLabel: "Choose Starter",
+          buttonHref: "#",
+          highlighted: false,
+          badge: "",
+        },
+        {
+          name: "Pro",
+          price: "€29",
+          period: "per month",
+          description: "For a small team that ships often.",
+          features: ["Ten projects", "Priority support", "Custom domain"],
+          buttonLabel: "Choose Pro",
+          buttonHref: "#",
+          highlighted: true,
+          badge: "Most popular",
+        },
+        {
+          name: "Business",
+          price: "€79",
+          period: "per month",
+          description: "For a whole company.",
+          features: ["Unlimited projects", "Phone support", "Invoicing"],
+          buttonLabel: "Talk to us",
+          buttonHref: "#",
+          highlighted: false,
+          badge: "",
+        },
+      ],
+      color: "",
+    } satisfies PricingProps,
+  },
+  {
+    type: "code",
+    label: "Code",
+    category: "content",
+    icon: "{}",
+    description: "A code sample, shown exactly as written in a monospaced font.",
+    defaultProps: {
+      code: 'npm install\nnpm run dev',
+      language: "bash",
+      filename: "",
+      theme: "dark",
+      wrap: false,
+      lineNumbers: false,
+    } satisfies CodeProps,
   },
 ];
 

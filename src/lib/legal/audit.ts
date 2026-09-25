@@ -219,12 +219,51 @@ const MAX_AUDIT_DEPTH = 32;
  * The rendered form is what gets scanned, not the stored source: what matters
  * is what the browser is handed.
  */
-const TEXT_PROPS = ["text", "label", "caption", "author", "role", "submitLabel", "successMessage", "title"];
+const TEXT_PROPS = ["text", "label", "caption", "author", "role", "submitLabel", "successMessage", "title", "description", "address"];
 
-function richTextIn(props: Record<string, unknown>): string[] {
+/** The records in a list prop, skipping anything that is not one. */
+function recordsIn(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.filter((v): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v))
+    : [];
+}
+
+/**
+ * Rich text a block keeps inside a list rather than in a prop of its own — an
+ * accordion's answers, a table's cells, a plan's features, a slide's caption.
+ * `TEXT_PROPS` only looks at the top level, and every one of these renders
+ * through the same sanitiser a Text block does.
+ */
+function nestedRichText(type: string, props: Record<string, unknown>): unknown[] {
+  switch (type) {
+    case "accordion":
+      return recordsIn(props.items).flatMap((item) => [item.title, item.body]);
+    case "table":
+      return Array.isArray(props.rows) ? props.rows.flatMap((row) => (Array.isArray(row) ? row : [])) : [];
+    case "pricing":
+      return recordsIn(props.plans).flatMap((plan) => [
+        plan.name, plan.price, plan.period, plan.description, plan.badge, plan.buttonLabel,
+        ...(Array.isArray(plan.features) ? plan.features : []),
+      ]);
+    case "gallery":
+      return recordsIn(props.images).map((image) => image.caption);
+    case "slider":
+      return recordsIn(props.slides).map((slide) => slide.caption);
+    default:
+      return [];
+  }
+}
+
+function richTextIn(props: Record<string, unknown>, type = ""): string[] {
   const out: string[] = [];
+  // A code sample is shown as text, escaped, never as markup: `<img src=…>`
+  // written in one is a line of code on the page, not a request.
+  if (type === "code") return out;
   for (const key of TEXT_PROPS) {
     const value = props[key];
+    if (typeof value === "string" && value.includes("<")) out.push(sanitizeInlineHtml(value));
+  }
+  for (const value of nestedRichText(type, props)) {
     if (typeof value === "string" && value.includes("<")) out.push(sanitizeInlineHtml(value));
   }
   if (Array.isArray(props.items)) {
@@ -249,7 +288,7 @@ function walk(blocks: BaseBlock[], where: string, out: Finding[], depth = 0): vo
 
     // A remote resource written into a rich-text prop loads for every visitor
     // exactly like one in a Custom HTML block.
-    for (const fragment of richTextIn(props)) {
+    for (const fragment of richTextIn(props, block.type)) {
       for (const host of new Set(hostsInHtml(fragment))) {
         out.push({ kind: "remote-asset", host, where, detail: `Text in a ${block.type} block`, needsConsent: true });
       }
@@ -310,6 +349,51 @@ function walk(blocks: BaseBlock[], where: string, out: Finding[], depth = 0): vo
     if (block.type === "button") {
       const host = remoteHost(props.href);
       if (host) out.push({ kind: "outbound-link", host, where, detail: String(props.href), needsConsent: false });
+    }
+
+    // Every picture in a gallery or a slider is a request of its own, exactly
+    // as an image block's is.
+    if (block.type === "gallery" || block.type === "slider") {
+      for (const item of recordsIn(block.type === "gallery" ? props.images : props.slides)) {
+        const host = remoteHost(item.src);
+        if (host) out.push({ kind: "remote-asset", host, where, detail: String(item.src), needsConsent: true });
+      }
+    }
+
+    if (block.type === "audio") {
+      const host = remoteHost(props.src);
+      if (host) out.push({ kind: "remote-asset", host, where, detail: String(props.src), needsConsent: true });
+    }
+
+    // An embedded map is a frame from openstreetmap.org that every visitor's
+    // browser loads as the page opens. A map drawn as a card is only a link,
+    // which transmits nothing until somebody follows it.
+    if (block.type === "map") {
+      if (props.mode === "embed") {
+        out.push({
+          kind: "embed",
+          host: "www.openstreetmap.org",
+          where,
+          detail: "Map block showing an OpenStreetMap frame",
+          needsConsent: true,
+        });
+      } else {
+        out.push({ kind: "outbound-link", host: "www.openstreetmap.org", where, detail: "Map block linking to OpenStreetMap", needsConsent: false });
+      }
+    }
+
+    if (block.type === "social") {
+      for (const link of recordsIn(props.links)) {
+        const host = remoteHost(link.href);
+        if (host) out.push({ kind: "outbound-link", host, where, detail: String(link.href), needsConsent: false });
+      }
+    }
+
+    if (block.type === "pricing") {
+      for (const plan of recordsIn(props.plans)) {
+        const host = remoteHost(plan.buttonHref);
+        if (host) out.push({ kind: "outbound-link", host, where, detail: String(plan.buttonHref), needsConsent: false });
+      }
     }
 
     if (block.type === "html" && typeof props.html === "string") {
