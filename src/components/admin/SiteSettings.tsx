@@ -14,6 +14,8 @@ import { editableMenu, type MenuEntry } from "@/lib/menu";
 import { normalizeFooter, type FooterDesign } from "@/lib/footer";
 import { normalizePalette } from "@/lib/palette";
 import { normalizeTextStyles, type TextStyles } from "@/lib/text-styles";
+import { cleanSiteUrl } from "@/lib/site-address";
+import { BUSINESS_TYPES } from "@/lib/business-types";
 
 interface SiteInfo {
   id: string;
@@ -81,6 +83,8 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
   const [ogImage, setOgImage] = useState("");
   const [favicon, setFavicon] = useState("");
   const [language, setLanguage] = useState("en");
+  const [siteUrl, setSiteUrl] = useState("");
+  const [businessType, setBusinessType] = useState("");
   // Advanced
   const [customCss, setCustomCss] = useState("");
   // The menu is arranged in the site's own language. A page in another
@@ -140,6 +144,8 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           setMetaDescription(s.metaDescription ?? "");
           setOgImage(s.ogImage ?? "");
           setFavicon(s.favicon ?? "");
+          setSiteUrl(s.siteUrl ?? "");
+          setBusinessType(s.businessType ?? "");
           setLanguage(s.language ?? "en");
           setSavedLanguage(s.language ?? "en");
           setCustomCss(s.customCss ?? "");
@@ -173,6 +179,8 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           metaDescription: metaDescription || null,
           ogImage: ogImage || null,
           favicon: favicon || null,
+          siteUrl: cleanSiteUrl(siteUrl),
+          businessType: businessType || null,
           language: language.trim() || "en",
           customCss: customCss || null,
         }),
@@ -373,6 +381,43 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                     <Label>Language</Label>
                     <Input value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="en" className="font-mono text-xs" />
                     <p className="text-xs text-fg-subtle mt-1">The language this site is written in, as a code like <code>en</code>, <code>de</code> or <code>pt-BR</code>. Screen readers and translation tools read it.</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="site-url">Where the site will live</Label>
+                    <Input
+                      id="site-url"
+                      value={siteUrl}
+                      onChange={(e) => setSiteUrl(e.target.value)}
+                      onBlur={() => { const clean = cleanSiteUrl(siteUrl); if (clean) setSiteUrl(clean); }}
+                      placeholder="https://www.example.com"
+                    />
+                    {siteUrl.trim() && !cleanSiteUrl(siteUrl) ? (
+                      <p className="text-xs text-amber-300 mt-1" role="alert">That is not a web address like https://www.example.com, so it will not be kept.</p>
+                    ) : (
+                      <p className="text-xs text-fg-subtle mt-1">
+                        The address you will put the downloaded files at. With it, the download gives search engines and link
+                        previews each page&apos;s full address and its picture, and carries a <code>sitemap.xml</code>.
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="business-type">Who runs this site</Label>
+                    <select
+                      id="business-type"
+                      value={businessType}
+                      onChange={(e) => setBusinessType(e.target.value)}
+                      className="h-9 w-full px-2 rounded-md bg-bg border border-bg-border text-fg text-sm focus:outline-none focus:border-brand/60"
+                    >
+                      <option value="">Say nothing</option>
+                      {BUSINESS_TYPES.map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-fg-subtle mt-1">
+                      Tells search engines, on the home page, the name, address, phone and email from your legal details
+                      (an address only for a business, never for a person). Questions in an accordion that end in &ldquo;?&rdquo; are
+                      given to them as questions and answers either way.
+                    </p>
                   </div>
                   <p className="text-xs text-fg-subtle pt-1">Every published page also carries a canonical address and appears in the site&apos;s <code>sitemap.xml</code>.</p>
                 </div>

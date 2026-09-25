@@ -23,7 +23,7 @@ import { anchorOfHref, sectionAnchors } from "./anchors";
 import { normalizeMenu, type MenuEntry } from "./menu";
 import { normalizeFooter } from "./footer";
 
-export type FindingKind = "alt" | "link" | "section" | "nowhere" | "description" | "heading" | "heavy-image";
+export type FindingKind = "alt" | "link" | "section" | "nowhere" | "description" | "heading" | "heavy-image" | "address";
 
 export interface Finding {
   kind: FindingKind;
@@ -57,6 +57,8 @@ export interface CheckSite {
   footer: string | null;
   /** Old addresses still forwarding, by old slug, to the page's id; see `afterRename`. */
   formerSlugs: Map<string, string>;
+  /** Where the downloaded site will live, when it has been said; see `lib/site-address`. */
+  siteUrl?: string | null;
 }
 
 /** What is known about an uploaded picture: its weight, its size, and what it is called. */
@@ -272,6 +274,16 @@ export function checkChrome(site: CheckSite, pages: CheckPage[]): Finding[] {
       const trouble = linkTrouble(link.href, site, null, pages, targets);
       if (trouble) findings.push({ ...trouble, pageId: null, message: `In the footer: ${trouble.message}` });
     }
+  }
+  if (site.siteUrl === null) {
+    findings.push({
+      kind: "address",
+      severity: "suggestion",
+      pageId: null,
+      message:
+        "The site's address is not set, so the download has no sitemap and gives search engines and link previews " +
+        "addresses relative to the folder. Say where it will live in Settings → SEO.",
+    });
   }
   return findings;
 }

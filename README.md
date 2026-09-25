@@ -33,7 +33,9 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 22 or
 - **Text formatting** — bold, italic, underline, strikethrough, text colour, highlight and links on selected text, and one button to clear it
 - **Fonts that go wherever the site goes** — sixteen open-licence typefaces (Inter, Roboto, Montserrat, Playfair Display, Lora, JetBrains Mono and more), each shown in itself in the picker, plus font files of your own; the files are served by the builder and copied into the download, so a visitor's screen shows the font you picked and nothing is fetched from anyone else's server
 - **Publish / unpublish** workflow — unpublished pages are drafts
-- **Download the site as files** — plain HTML, CSS and images you can open or host anywhere
+- **Download the site as files** — plain HTML, CSS and images you can open or host anywhere; give the site's address and the download also carries a sitemap and full addresses for search engines and link previews
+- **Structured data** — say what kind of business runs the site and the home page describes it to search engines from your legal details; questions in an accordion are given to them as an FAQ
+- **Backups that include the pictures** — one zip per site, imported again from the list of sites on this computer or another
 - **SQLite storage** in a single file, zero config
 - **Autosave** with `Cmd/Ctrl+S` shortcut
 - **Page history** — revisions with preview and restore; autosaves within five minutes of each other share one entry, and Cmd/Ctrl+S saves are kept separately
@@ -205,6 +207,7 @@ fonts/              the bundled fonts the pages use, each with its licence
 feed.xml            the blog's posts, for a feed reader (when the site has posts)
 404.html            the site's own "not found" page (when it has one)
 old-name.html       a renamed page's old address, forwarding to where it is now
+sitemap.xml         every page's full address (once the site's address is set)
 README.txt          what's inside, and how to host it
 ```
 

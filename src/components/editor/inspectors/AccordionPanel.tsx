@@ -64,6 +64,12 @@ export function AccordionPanel({ block, onChange }: BlockPanelProps) {
         checked={p.openFirst}
         onChange={(openFirst) => set({ openFirst })}
       />
+      <Toggle
+        label="Tell search engines these are questions and answers"
+        checked={p.faq !== false}
+        onChange={(faq) => set({ faq: faq ? undefined : false })}
+        hint="Each item whose title ends in a question mark is given to them with its answer, as a site's FAQ."
+      />
       <Field label="Style">
         <Select value={p.style} onChange={(v) => set({ style: v as AccordionProps["style"] })} options={STYLES} />
       </Field>

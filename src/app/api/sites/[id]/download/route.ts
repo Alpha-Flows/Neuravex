@@ -6,7 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { zipStream, MAX_ZIP_BYTES, type ZipEntry, type ZipFileEntry } from "@/lib/zip";
 import { buildExportCss } from "@/lib/export-css";
 import { forwardingPage, pageFileName, prepareExportedPage } from "@/lib/static-export";
-import { robotsTxt } from "@/lib/seo";
+import { robotsTxt, sitemapXml } from "@/lib/seo";
+import { absoluteHeadLinks, addressOf, basePathOf, cleanSiteUrl } from "@/lib/site-address";
 import { internalOrigin, publicOrigin } from "@/lib/self-origin";
 import { BUNDLED_FONTS } from "@/lib/fonts";
 import { postItems } from "@/lib/posts";
@@ -19,6 +20,8 @@ export const dynamic = "force-dynamic";
 const NOT_FOUND_FILE = "404.html";
 /** The site's feed of posts, beside its pages. */
 const FEED_FILE = "feed.xml";
+/** Every page's full address, once the site's own is known. */
+const SITEMAP_FILE = "sitemap.xml";
 
 const STYLESHEET_PATH = "assets/site.css";
 
@@ -41,6 +44,10 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     },
   });
   if (!site) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Where the folder will be put online, when the operator has said; see
+  // `lib/site-address`. Checked again on the way out, as everything written
+  // into a page is.
+  const siteUrl = cleanSiteUrl(site.siteUrl);
 
   if (site.pages.length === 0) {
     return NextResponse.json(
@@ -114,6 +121,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
         // Where the page just fetched thinks it lives: the loopback address
         // it was asked at, or PUBLIC_URL when the operator set one.
         selfOrigins: [origin, publicOrigin()],
+        siteUrl,
       }));
     } catch (err) {
       // One page the exporter cannot prepare should name itself rather than
@@ -126,12 +134,17 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     // A host shows 404.html at whatever address went nowhere, however deep —
     // `/shop/old/thing` — and every address in it is relative to the folder,
     // so from there its stylesheet and pictures would be looked for under
-    // `/shop/old/`. Anchored to the root, they are found wherever it is
-    // shown, which is right for a site at the root of its address.
-    if (page === notFound) html = html.replace(/<head(\s[^>]*)?>/i, (head) => `${head}<base href="/">`);
+    // `/shop/old/`. Anchored to the site's folder they are found wherever it
+    // is shown: the root, or the folder the site's address names.
+    if (page === notFound) {
+      html = html.replace(/<head(\s[^>]*)?>/i, (head) => `${head}<base href="${basePathOf(siteUrl)}">`);
+    }
     // The page's link to the feed names the builder's address for it; in the
     // folder the feed sits beside the page.
     html = html.split(`/sites/${site.slug}/feed.xml`).join(FEED_FILE);
+    // Where the site is going is known: the addresses a search engine and a
+    // link preview read are written out in full.
+    if (siteUrl) html = absoluteHeadLinks(html, siteUrl);
     assets.forEach((a) => assetPaths.add(a));
     documents.push(html);
     entries.push({ path: pageFiles.get(page.slug)!, data: Buffer.from(html, "utf8") });
@@ -156,7 +169,8 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     taken.add(name);
     forwards.push(name);
     // In the language of the page it sends a visitor to, as that page is.
-    const html = forwardingPage({ to, title: target.title, language: pageLanguage(target, site.language || "en") });
+    const forward = forwardingPage({ to, title: target.title, language: pageLanguage(target, site.language || "en") });
+    const html = siteUrl ? absoluteHeadLinks(forward, siteUrl) : forward;
     entries.push({ path: name, data: Buffer.from(html, "utf8") });
   }
 
@@ -195,12 +209,15 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   // its own address, so the same file works wherever the folder is put.
   const posts = postItems(site.pages, site.slug);
   if (posts.length > 0) {
+    // Full addresses when the site's is known, which a feed reader that was
+    // handed the feed alone can follow; relative ones otherwise.
+    const at = (file: string) => (siteUrl ? addressOf(siteUrl, file) : file);
     const xml = atomFeed({
       siteId: site.id,
       siteName: site.name,
-      homeHref: "index.html",
-      selfHref: FEED_FILE,
-      hrefOf: (post) => pageFiles.get(post.slug) ?? "index.html",
+      homeHref: at("index.html"),
+      selfHref: at(FEED_FILE),
+      hrefOf: (post) => at(pageFiles.get(post.slug) ?? "index.html"),
       posts,
     });
     entries.push({ path: FEED_FILE, data: Buffer.from(xml, "utf8") });
@@ -208,13 +225,22 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
 
   const css = await buildExportCss(documents);
   entries.push({ path: STYLESHEET_PATH, data: Buffer.from(css, "utf8") });
-  // A crawler looks for this the moment the folder is hosted. The sitemap is
-  // left out on purpose: its entries have to be absolute, and the address this
-  // ends up on is not known here.
-  entries.push({ path: "robots.txt", data: Buffer.from(robotsTxt(true), "utf8") });
+  // A crawler looks for these the moment the folder is hosted. The sitemap's
+  // entries have to be full addresses, so it is only written once the site's
+  // address has been given; the "not found" page and the forwarding pages are
+  // not pages anyone should be sent to, and are left out of it.
+  const sitemap = siteUrl
+    ? sitemapXml(
+        site.pages
+          .filter((p) => p !== notFound)
+          .map((p) => ({ loc: addressOf(siteUrl, pageFiles.get(p.slug)!), lastmod: p.updatedAt, priority: p.isHome ? "1.0" : "0.8" })),
+      )
+    : null;
+  if (sitemap) entries.push({ path: SITEMAP_FILE, data: Buffer.from(sitemap, "utf8") });
+  entries.push({ path: "robots.txt", data: Buffer.from(robotsTxt(true, siteUrl ? addressOf(siteUrl, SITEMAP_FILE) : undefined), "utf8") });
   entries.push({
     path: "README.txt",
-    data: Buffer.from(readme(site.name, [...pageFiles.values()], missingAssets, posts.length > 0, forwards), "utf8"),
+    data: Buffer.from(readme(site.name, [...pageFiles.values()], missingAssets, posts.length > 0, forwards, siteUrl), "utf8"),
   });
 
   const zip = zipStream(entries);
@@ -237,7 +263,14 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   });
 }
 
-function readme(siteName: string, files: string[], missingAssets: string[], hasFeed = false, forwards: string[] = []): string {
+function readme(
+  siteName: string,
+  files: string[],
+  missingAssets: string[],
+  hasFeed = false,
+  forwards: string[] = [],
+  siteUrl: string | null = null,
+): string {
   const lines = [
     `${siteName}`,
     `Exported from Neuravex on ${new Date().toISOString().slice(0, 10)}`,
@@ -250,6 +283,7 @@ function readme(siteName: string, files: string[], missingAssets: string[], hasF
     "  uploads/, stock/   the images the pages point at",
     "  fonts/             the typefaces the pages use, each with its licence",
     "  robots.txt         tells search engines they may read the site",
+    ...(siteUrl ? ["  sitemap.xml        every page's full address, for search engines"] : []),
     ...(hasFeed ? ["  feed.xml           the blog's posts, newest first, for a feed reader"] : []),
     ...(files.includes(NOT_FOUND_FILE)
       ? ["  404.html           what a visitor sees at an address that finds nothing;", "                     most hosts pick it up by its name"]
@@ -274,14 +308,22 @@ function readme(siteName: string, files: string[], missingAssets: string[], hasF
     "  - Only published pages are exported. Drafts stay in the builder.",
     ...(files.includes(NOT_FOUND_FILE)
       ? [
-          "  - 404.html finds its stylesheet and pictures from the root of the",
-          "    address, so it looks right when the site is at the root of its",
-          "    domain (example.com/), not in a folder under it (example.com/site/).",
+          `  - 404.html finds its stylesheet and pictures from ${basePathOf(siteUrl)} on the`,
+          "    host, so it looks right when the site is put at that address.",
         ]
       : []),
-    "  - A sitemap is not included: its entries must be full addresses, and",
-    "    the address this folder ends up on is not known yet. Neuravex serves",
-    "    one at /sites/<site>/sitemap.xml while you are building.",
+    ...(siteUrl
+      ? [
+          `  - The pages give ${siteUrl}/ as the site's address, to search`,
+          "    engines and to link previews. Put the folder there, or change the",
+          "    address in the site's settings and download it again.",
+        ]
+      : [
+          "  - A sitemap is not included, and search engines are given each",
+          "    page's address relative to the folder: the address the site will",
+          "    have is not known. Give it in the site's settings (SEO) and",
+          "    download again for both.",
+        ]),
   ];
   if (missingAssets.length > 0) {
     lines.push(

@@ -303,6 +303,12 @@ export interface AccordionProps {
   /** The first item starts open rather than closed. */
   openFirst: boolean;
   style: "bordered" | "separated" | "minimal";
+  /**
+   * False keeps its questions out of the page's structured data; see
+   * `src/lib/structured-data.ts`. Absent or true gives search engines every
+   * item whose title is a question.
+   */
+  faq?: boolean;
 }
 
 export interface SliderProps {

@@ -28,7 +28,9 @@ export function pageFileName(slug: string, isHome: boolean): string {
  */
 export function stripAppRuntime(html: string): string {
   return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    // Every script but structured data, which is data a browser never runs;
+    // see `rewriteStructuredData`.
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (tag) => (JSON_LD_OPEN.test(tag) ? tag : ""))
     .replace(/<script\b[^>]*\/>/gi, "")
     .replace(/<link\b[^>]*\/_next\/[^>]*>/gi, "")
     .replace(/<!--\/?\$[!?]?-->/g, "")
@@ -423,6 +425,84 @@ export function forwardingPage({ to, title, language }: { to: string; title: str
   ].join("\n");
 }
 
+/** The opening of a structured-data block, which the export keeps. */
+const JSON_LD_OPEN = /^<script\b[^>]*\btype="application\/ld\+json"[^>]*>/i;
+const JSON_LD = /(<script\b[^>]*\btype="application\/ld\+json"[^>]*>)([\s\S]*?)(<\/script>)/gi;
+
+/** JSON as the body of a script element; see `jsonLd` in lib/structured-data. */
+function scriptJson(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026");
+}
+
+/**
+ * The page's structured data with its addresses moved into the folder.
+ *
+ * The data names the site's home page and its logo by the builder's full
+ * address, and none of the rewrites above look inside a script: they read
+ * attributes and stylesheets. Left alone, a downloaded bakery described itself
+ * to search engines as living at `http://127.0.0.1:3939/sites/bakery`. Each
+ * address of this builder's is moved as a link or a picture would be — to the
+ * page's file, or to the file copied beside it — and made full again under the
+ * site's own address when that is known. A picture named only here is listed
+ * among the files to copy.
+ */
+export function rewriteStructuredData(
+  html: string,
+  { siteSlug, pages, selfOrigins, siteUrl }: { siteSlug: string; pages: Map<string, string>; selfOrigins?: string[]; siteUrl?: string | null },
+): { html: string; assets: string[] } {
+  const own = (selfOrigins ?? []).map((o) => o.replace(/\/+$/, "").toLowerCase());
+  const assets: string[] = [];
+  const full = (file: string) => (siteUrl ? (file === "index.html" ? `${siteUrl}/` : `${siteUrl}/${file}`) : file);
+  const move = (value: string): string => {
+    let url: URL;
+    try {
+      url = new URL(value);
+    } catch {
+      return value;
+    }
+    if (!own.includes(url.origin.toLowerCase())) return value;
+    let path: string;
+    try {
+      path = decodeURIComponent(url.pathname);
+    } catch {
+      return value;
+    }
+    const base = `/sites/${siteSlug}`;
+    if (path === base || path === `${base}/`) return full("index.html");
+    if (path.startsWith(`${base}/`)) {
+      const file = pages.get(path.slice(base.length + 1).replace(/\/$/, ""));
+      return file ? full(file) : value;
+    }
+    const asset = /^\/(uploads|stock|fonts)\/([^/][^?#]*)$/.exec(path);
+    if (asset && !asset[2].includes("..")) {
+      const rel = `${asset[1]}/${asset[2]}`;
+      assets.push(rel);
+      return full(rel);
+    }
+    return value;
+  };
+  const walk = (value: unknown): unknown => {
+    if (typeof value === "string") return move(value);
+    if (Array.isArray(value)) return value.map(walk);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, walk(v)]));
+    }
+    return value;
+  };
+  const out = html.replace(JSON_LD, (match, open: string, body: string, close: string) => {
+    try {
+      return `${open}${scriptJson(walk(JSON.parse(body)))}${close}`;
+    } catch {
+      // Data that does not parse is data nobody can read; it goes.
+      return "";
+    }
+  });
+  return { html: out, assets };
+}
+
 export interface PreparePageOptions {
   siteSlug: string;
   /** Page slug to file name, for every page included in this export. */
@@ -430,19 +510,23 @@ export interface PreparePageOptions {
   stylesheetHref: string;
   /** The addresses the builder itself is reached at, for `relativizeSelfUrls`. */
   selfOrigins?: string[];
+  /** Where the site will be hosted, when known; see `lib/site-address`. */
+  siteUrl?: string | null;
 }
 
 /** Everything above, in the order a page needs it. */
 export function prepareExportedPage(
   html: string,
-  { siteSlug, pages, stylesheetHref, selfOrigins }: PreparePageOptions,
+  { siteSlug, pages, stylesheetHref, selfOrigins, siteUrl }: PreparePageOptions,
 ): { html: string; assets: string[] } {
   let out = stripAppRuntime(html);
+  const structured = rewriteStructuredData(out, { siteSlug, pages, selfOrigins, siteUrl });
+  out = structured.html;
   out = cleanBodyClasses(out);
   out = relativizeSelfUrls(out, selfOrigins);
   out = relativizeSiteUrls(out, siteSlug);
   out = rewriteSiteLinks(out, siteSlug, pages);
-  const assets = collectLocalAssets(out);
+  const assets = [...new Set([...collectLocalAssets(out), ...structured.assets])].sort();
   out = rewriteAssetPaths(out);
   out = disableExportedForms(out);
   out = injectStylesheet(out, stylesheetHref);

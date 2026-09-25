@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { normalizeBlockTree } from "@/lib/block-tree";
 import { existingUploadPath } from "@/lib/uploads";
 import { uploadAddresses } from "@/lib/image-plan";
+import { cleanSiteUrl } from "@/lib/site-address";
 import { checkPage, checkSite, type CheckPage, type CheckSite, type ImageFacts } from "@/lib/prepublish";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
       metaDescription: true,
       menu: true,
       footer: true,
+      siteUrl: true,
       pages: {
         orderBy: [{ isHome: "desc" }, { sortOrder: "asc" }],
         select: {
@@ -60,6 +62,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     menu: site.menu,
     footer: site.footer,
     formerSlugs: new Map(redirects.map((r) => [r.fromSlug, r.pageId])),
+    siteUrl: cleanSiteUrl(site.siteUrl),
   };
 
   // How heavy each uploaded picture is, from the file, and how wide and what

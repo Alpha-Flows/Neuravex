@@ -58,6 +58,16 @@ model Site {
   metaTitle       String?
   metaDescription String?
   ogImage         String?
+  /// Where the downloaded site will be put online, as `https://example.com`
+  /// or `https://example.com/folder` (see `cleanSiteUrl` in lib/site-address).
+  /// A search engine wants a page's canonical address, its sitemap and its
+  /// social picture as full addresses, and those are only known once this is.
+  siteUrl         String?
+  /// What kind of business or person runs the site, as a schema.org type,
+  /// for the structured data on the home page (see lib/structured-data).
+  /// Empty says nothing, which is the default: the details it is built from
+  /// are the legal profile's, and it is the operator's to publish them.
+  businessType    String?
   // The tab icon, and the language the site is written in. The language ends
   // up on <html lang>, which is what a screen reader and a translator read.
   favicon         String?

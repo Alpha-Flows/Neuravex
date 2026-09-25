@@ -10,6 +10,21 @@ const nextConfig = {
   // `experimental.serverComponentsExternalPackages` until Next 15 stabilised
   // it under this name.
   serverExternalPackages: ["tailwindcss", "postcss", "autoprefixer"],
+  /**
+   * A page's metadata in its head, for every client.
+   *
+   * Next sends the page before `generateMetadata` has finished for any client
+   * it does not take for a crawler, and streams the title, the canonical link
+   * and the social tags in afterwards, into the body, with a script that moves
+   * them up. The site download fetches each page as such a client and then
+   * takes every script out — so a page whose metadata came late was
+   * downloaded with its canonical link and its `og:image` in a hidden `<div>`
+   * in the body, where no search engine or link preview looks for them, and
+   * whether that happened depended on how quickly the database answered.
+   * Here metadata is two small reads, so nobody gains from the head being
+   * sent early; every client is answered with it in place.
+   */
+  htmlLimitedBots: /.*/,
   images: {
     /**
      * The image optimizer is off, because nothing here uses it.

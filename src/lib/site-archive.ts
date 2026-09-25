@@ -47,6 +47,8 @@ export const SITE_FIELDS = [
   "metaTitle",
   "metaDescription",
   "ogImage",
+  "siteUrl",
+  "businessType",
   "favicon",
   "language",
   "legal",

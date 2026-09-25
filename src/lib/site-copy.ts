@@ -26,16 +26,28 @@ import { moveSite } from "./page-links";
 /**
  * A site made from an archive, under the given name, at the first free
  * address like it; links that pointed at `fromSlug` are moved to it.
+ * `keepAddress` keeps the address the site will be hosted at, for a backup
+ * being put back rather than a site being started from another; `slug` is
+ * the address wanted in the builder, when it is not the one the name gives.
  */
 export async function createSiteFromArchive(
   archive: SiteArchive,
-  { name, fromSlug }: { name: string; fromSlug?: string },
+  {
+    name,
+    fromSlug,
+    keepAddress = false,
+    slug,
+  }: { name: string; fromSlug?: string; keepAddress?: boolean; slug?: string },
 ): Promise<{ id: string; slug: string; name: string }> {
   const site = await prisma.site.create({
     data: {
       ...siteCreateData(archive),
+      // A copy or a site made from a template is a new site, which is not
+      // going to live where the one it came from does; a backup put back is
+      // the same site, and is.
+      ...(keepAddress ? {} : { siteUrl: null }),
       name,
-      slug: await freeSiteSlug(slugify(name) || "site"),
+      slug: await freeSiteSlug(slugify(slug || name) || "site"),
       pages: { create: normalizeArchivePages(archive.pages) },
     },
     select: { id: true, slug: true, name: true },

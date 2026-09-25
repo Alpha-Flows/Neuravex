@@ -103,6 +103,27 @@ in brackets is the finding it closes.
 
 ### Added
 
+- **The site's address.** Settings → SEO takes the address the downloaded
+  site will be put at. With it the download writes each page's canonical
+  link, its other-language versions and its social picture as full
+  addresses, carries a `sitemap.xml` and names it in `robots.txt`, gives the
+  feed full links, and anchors `404.html` to the site's folder rather than
+  the root of the domain. The check before publishing asks for it while it is
+  missing.
+- **Structured data.** Once Settings → SEO says who runs the site — a bakery,
+  a shop, a practice, a person — the home page describes the business to
+  search engines as schema.org data, from the name, address, phone and email
+  in the legal details and the footer's profiles; a person's address is never
+  given. Every accordion item that asks a question is given with its answer
+  as an FAQ, which the block can turn off. The data goes into the download
+  too, the one kind of script it keeps, with its addresses moved into the
+  folder.
+- **Backups, and a way to import them.** "Back up this site" on the
+  dashboard is one zip holding every page, setting and upload the site uses,
+  with what the library knew about each file. "Import a site" beside "New
+  site" brings a backup or a JSON export back, sending each file through the
+  upload route one at a time, so a backup of any size goes in without a new
+  way into the server.
 - **A site in more than one language.** A page says which language it is
   written in, and pages that are translations of one another are linked from
   its settings, where a draft copy to translate is made in one step. Each page
@@ -379,6 +400,20 @@ in brackets is the finding it closes.
 
 ### Fixed
 
+- A downloaded page could come out with its title, canonical link and social
+  tags in a hidden element in the body instead of in the head. Next streams a
+  page's metadata after the head for any client it does not take for a
+  crawler, the download fetches pages as such a client, and the script that
+  would have moved them is removed on the way out; which pages it happened to
+  depended on how quickly the database answered. Metadata is always in the
+  head now.
+- A site imported beside the one it was exported from kept every link
+  pointing at the original's address, so its buttons led back into the other
+  site. An import moves them, as a copy of a site does.
+- Every published page reported a refused `eval` to the terminal on every
+  visit: the validator's schema library checked whether it could compile its
+  parsers, and the page's own security policy said no. It no longer asks in
+  the browser.
 - A page renamed in the editor, where nearly every page is renamed, left
   every link to it on the site's other pages pointing at its old address;
   only a rename from the dashboard moved them. Every way of renaming a page

@@ -12,6 +12,12 @@ import { SitePostsProvider } from "@/components/blocks/site-posts";
 import { PostHeader } from "@/components/public/PostHeader";
 import { homeFor, languageSwitch, pageLanguage, sameLanguage } from "@/lib/translations";
 import { srcSetsFor } from "@/lib/image-variants";
+import { businessData, faqPage, jsonLd, questionsOf } from "@/lib/structured-data";
+import { parseProfile } from "@/lib/legal/profile";
+import { normalizeLogo } from "@/lib/site-logo";
+import { normalizeFooter } from "@/lib/footer";
+import { publicOrigin } from "@/lib/self-origin";
+import { headers } from "next/headers";
 import { ImageVariantsProvider } from "@/components/blocks/image-variants";
 
 /**
@@ -43,6 +49,9 @@ export async function loadPublishedSite(slug: string) {
       id: true,
       name: true,
       slug: true,
+      description: true,
+      ogImage: true,
+      businessType: true,
       accent: true,
       fontFamily: true,
       headingFont: true,
@@ -165,6 +174,11 @@ export async function PublishedPageView({
   // blocks show, so a phone is sent a picture the size of a phone.
   const srcSets = await srcSetsFor([JSON.stringify(blocks), ...posts.map((p) => p.coverImage)]);
 
+  // What the page says to search engines in their own terms; see
+  // `lib/structured-data`. Rendered here, on the server, as data a browser
+  // never runs.
+  const structured = await structuredDataFor(site, page, blocks);
+
   return (
     <>
       {/* The site's branding, which every block without a colour of its own
@@ -181,6 +195,9 @@ export async function PublishedPageView({
         lang={language}
         style={site.headerPosition === "fixed" ? { paddingTop: headerOffset(site) } : undefined}
       >
+        {structured.map((json, i) => (
+          <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: json }} />
+        ))}
         <SiteHeader site={chrome} pages={navPages} activeSlug={page.slug} languages={languages} />
         <main>
           <ImageVariantsProvider value={srcSets}>
@@ -194,4 +211,37 @@ export async function PublishedPageView({
       </div>
     </>
   );
+}
+
+/**
+ * The page's structured data, as JSON-LD bodies: the business on the home
+ * page when the operator has said what kind it is, and the questions of the
+ * page's accordions.
+ *
+ * The legal details are read here and nowhere near the objects this page
+ * hands to client components — see `loadPublishedSite` for what happened when
+ * the whole profile was — and only the fields `businessData` picks go out.
+ */
+async function structuredDataFor(site: PublishedSite, page: PublishedPageRow, blocks: BaseBlock[]): Promise<string[]> {
+  const out: string[] = [];
+  if (page.isHome && site.businessType) {
+    const origin = publicOrigin(await headers());
+    const absolute = (src: string | null | undefined) =>
+      src ? (src.startsWith("/") ? `${origin}${src}` : /^https?:\/\//i.test(src) ? src : undefined) : undefined;
+    const legal = await prisma.site.findUnique({ where: { id: site.id }, select: { legal: true } });
+    const business = businessData({
+      type: site.businessType,
+      siteName: site.name,
+      description: site.description,
+      url: `${origin}/sites/${site.slug}`,
+      logo: absolute(normalizeLogo(site.logo)?.src),
+      image: absolute(site.ogImage),
+      legal: parseProfile(legal?.legal),
+      social: normalizeFooter(site.footer)?.social,
+    });
+    if (business) out.push(jsonLd(business));
+  }
+  const faq = faqPage(questionsOf(blocks));
+  if (faq) out.push(jsonLd(faq));
+  return out;
 }

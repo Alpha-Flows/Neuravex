@@ -21,8 +21,14 @@ import { builderLanguageName, pageLanguage, siteLanguages } from "@/lib/translat
 
 export const dynamic = "force-dynamic";
 
-export default async function SiteAdmin(props: { params: Promise<{ id: string }> }) {
+export default async function SiteAdmin(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ missing?: string | string[] }>;
+}) {
   const params = await props.params;
+  // Files an import could not bring back, named where the gaps they leave are.
+  const missingParam = (await props.searchParams).missing;
+  const missing = typeof missingParam === "string" ? missingParam.split("\n").filter(Boolean).slice(0, 20) : [];
   const site = await prisma.site.findUnique({
     where: { id: params.id },
     include: { pages: { orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }] } },
@@ -79,6 +85,13 @@ export default async function SiteAdmin(props: { params: Promise<{ id: string }>
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-10">
+        {missing.length > 0 ? (
+          <div role="alert" className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            The site was imported, but {missing.length === 1 ? "one file" : `${missing.length} files`} in the backup could not be
+            brought back, and the pages using {missing.length === 1 ? "it show" : "them show"} a gap:{" "}
+            {missing.join(", ")}.
+          </div>
+        ) : null}
         <div className="flex items-end justify-between mb-6">
           <div>
             <h1 className="text-2xl font-semibold">Pages</h1>
@@ -234,7 +247,11 @@ export default async function SiteAdmin(props: { params: Promise<{ id: string }>
         <div className="mt-10">
           <div className="flex items-center gap-4 mb-4">
             <h2 className="text-lg font-semibold">Submissions</h2>
-            <a href={`/api/sites/${site.id}/export`} className="text-xs text-fg-muted hover:text-fg underline ml-auto">Export site JSON (for re-importing into Neuravex)</a>
+            <span className="ml-auto text-xs text-fg-muted">
+              <a href={`/api/sites/${site.id}/backup`} className="hover:text-fg underline">Back up this site</a>
+              {" "}— every page, setting and picture in one .zip, to import again here or on another computer (
+              <a href={`/api/sites/${site.id}/export`} className="hover:text-fg underline">pages and settings alone, as JSON</a>)
+            </span>
           </div>
           <Card className="p-5">
             <SubmissionsViewer siteId={site.id} />

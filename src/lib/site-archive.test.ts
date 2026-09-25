@@ -78,6 +78,8 @@ const site = {
   metaDescription: "Things",
   ogImage: "/uploads/og.png",
   favicon: "/uploads/icon.png",
+  siteUrl: "https://acme.example",
+  businessType: "Store",
   language: "pt-BR",
   legal: '{"version":1,"companyName":"Acme GmbH"}',
   createdAt: new Date(),
