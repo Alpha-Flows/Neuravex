@@ -327,31 +327,42 @@ describe("the highlighter", () => {
       "x<<EOF ", "<p>it's ", "<A {", "<style>a{b:/*", "<script>/[", "$'", "`",
     ];
     const build = (unit: string, length: number) => unit.repeat(Math.ceil(length / unit.length)).slice(0, length);
-    // The quickest of a few runs, so a busy machine measures this code and
-    // not its neighbours.
-    const time = (sample: string, language: string) => {
+    const time = (sample: string, language: string, runs: number) => {
       let best = Infinity;
-      for (let run = 0; run < 3; run++) {
+      for (let run = 0; run < runs; run++) {
         const started = performance.now();
         const tokens = highlight(sample, language);
         best = Math.min(best, performance.now() - started);
-        expect(joined(tokens)).toBe(sample);
+        if (run === 0) expect(joined(tokens)).toBe(sample);
       }
       return best;
     };
+    // Twice the input may take a little over twice the time; four times is
+    // what quadratic looks like. The slack covers timer noise on runs of a
+    // millisecond or two.
+    const linear = (half: number, full: number) => full < 3 * half + 5 && full < 50;
     for (const language of LANGUAGES) {
       for (const unit of units) {
-        const half = time(build(unit, MAX_HIGHLIGHT / 2), language);
-        const full = time(build(unit, MAX_HIGHLIGHT), language);
+        const halfSample = build(unit, MAX_HIGHLIGHT / 2);
+        const fullSample = build(unit, MAX_HIGHLIGHT);
+        let half = time(halfSample, language, 1);
+        let full = time(fullSample, language, 1);
+        // Measured once, and again as the quickest of three only when that
+        // looks wrong, so a busy machine is measuring this code and not its
+        // neighbours. Timing every pair three times over made this the one
+        // test that outran the default five seconds on CI's runner, where
+        // it took six — while each call it made was a few milliseconds.
+        if (!linear(half, full)) {
+          half = time(halfSample, language, 3);
+          full = time(fullSample, language, 3);
+        }
         const label = `${language} ${JSON.stringify(unit)}: ${half.toFixed(1)} ms, then ${full.toFixed(1)} ms`;
-        // Twice the input may take a little over twice the time; four times
-        // is what quadratic looks like. The slack covers timer noise on runs
-        // of a millisecond or two.
-        expect(full, label).toBeLessThan(3 * half + 5);
-        expect(full, label).toBeLessThan(50);
+        expect(linear(half, full), label).toBe(true);
       }
     }
-  });
+    // Some 350 highlights of fifteen and thirty thousand characters: the
+    // bound on each is what the test is about, not the sum on a slow runner.
+  }, 30_000);
 
   it("colours JavaScript", () => {
     const tokens = highlight('// note\nconst total = sum(1.5, 0x1f) + "a"; /* end */', "javascript");
