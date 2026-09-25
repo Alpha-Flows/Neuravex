@@ -92,7 +92,14 @@ export function rewriteSiteLinks(
   });
 }
 
-const ASSET_DIRS = ["uploads", "stock"] as const;
+/**
+ * The builder's own folders a page can point into: the library, the stock
+ * photographs and the bundled fonts. Without `fonts` here a downloaded page
+ * would go on asking for `/fonts/inter/…`, which is nothing at all on the
+ * customer's host, and every heading would drop back to whatever the
+ * visitor's computer had.
+ */
+const ASSET_DIRS = ["uploads", "stock", "fonts"] as const;
 /**
  * A reference to one of this site's files: a path after a quote or a bracket.
  *
@@ -105,7 +112,7 @@ const ASSET_DIRS = ["uploads", "stock"] as const;
  * folder does not have, with the picture itself left out of the zip. An
  * ampersand ends the file name for the same reason.
  */
-const ASSET_REFERENCE = /(["'(]|&quot;|&#x27;|&#39;)\/(uploads|stock)\/([^"')\s&]+)/g;
+const ASSET_REFERENCE = /(["'(]|&quot;|&#x27;|&#39;)\/(uploads|stock|fonts)\/([^"')\s&]+)/g;
 
 /**
  * `edit` applied to the page's references — the addresses in every tag, and
@@ -208,7 +215,7 @@ const ATTRIBUTE = /\s([^\s"'<>/=]+)\s*=\s*("[^"]*"|'[^']*')/g;
  * the file was neither rewritten nor bundled, and the exported page advertised
  * a picture at an address that only exists on the machine that built it.
  */
-const ABSOLUTE_SELF = /(["'(])(https?:\/\/[^"')\s/]*)\/(uploads|stock)\//gi;
+const ABSOLUTE_SELF = /(["'(])(https?:\/\/[^"')\s/]*)\/(uploads|stock|fonts)\//gi;
 
 /**
  * Only the builder's own addresses, when they are known. Without the list any
@@ -242,7 +249,7 @@ export function relativizeSiteUrls(html: string, siteSlug: string): string {
   return inMarkup(html, (markup) => markup.replace(pattern, (_match, quote: string, path: string) => `${quote}${path}`));
 }
 
-/** Every bundled upload or stock photo the page points at. */
+/** Every upload, stock photo or bundled font file the page points at. */
 export function collectLocalAssets(html: string): string[] {
   const found = new Set<string>();
   const markup: string[] = [];

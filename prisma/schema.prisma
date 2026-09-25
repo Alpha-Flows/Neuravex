@@ -19,6 +19,10 @@ model Site {
   // Visual theme
   fontFamily  String?  // e.g. "Inter, sans-serif"
   headingFont String?  // e.g. "Georgia, serif"
+  /// Font files of the site's own, uploaded to the library and each given a
+  /// family name, as a JSON list (see `normalizeCustomFonts` in lib/fonts).
+  /// The body and heading fonts above name one of these or a bundled font.
+  fonts       String?
   borderRadius String? @default("0.5rem")
   /// How wide the page's content column is, as a CSS length. Empty means the
   /// standard 72rem. It governs the header, the footer, blocks placed straight

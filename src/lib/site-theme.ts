@@ -13,11 +13,14 @@
  */
 
 import { sanitizeCssValue, cssFontStack } from "./css-value";
+import { siteFontFaces } from "./fonts";
 
 export interface SiteThemeInput {
   accent?: string | null;
   fontFamily?: string | null;
   headingFont?: string | null;
+  /** The site's own font files, as stored: see `normalizeCustomFonts`. */
+  fonts?: string | null;
   borderRadius?: string | null;
   contentWidth?: string | null;
 }
@@ -111,8 +114,23 @@ export function siteThemeCss(site: SiteThemeInput, selector = ":root"): string {
     .map((h) => `${selector} ${h}`)
     .join(", ");
 
+  // The files behind the two fonts, when they are ones Neuravex has. A
+  // `@font-face` rule cannot be scoped to the canvas, and does not need to be:
+  // it names a font without applying it, and only the rules below do that.
+  const faces = siteFontFaces(site);
+
+  // On a published page the body font has to be set on `<body>` itself. The
+  // layout gives that element the builder's own sans-serif as a class, and
+  // every block inherited it from there rather than anything set on `:root`,
+  // so a body font chosen in settings showed on the canvas — whose rule sits
+  // on the canvas element — and on no published page. Only when one is set:
+  // with none, `<body>` keeps the class's font, which is the default.
+  const body = site.fontFamily && selector === ":root" ? [":root body { font-family: var(--site-font); }"] : [];
+
   return [
+    ...(faces ? [faces] : []),
     `${selector} { ${declarations.join("; ")}; font-family: var(--site-font, inherit); }`,
+    ...body,
     `${headings} { font-family: var(--site-heading-font, inherit); }`,
   ].join("\n");
 }

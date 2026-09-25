@@ -86,6 +86,7 @@ export default async function PublicSitePage(props: Props) {
       accent: true,
       fontFamily: true,
       headingFont: true,
+      fonts: true,
       borderRadius: true,
       contentWidth: true,
       customCss: true,

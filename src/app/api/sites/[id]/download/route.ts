@@ -8,6 +8,7 @@ import { buildExportCss } from "@/lib/export-css";
 import { pageFileName, prepareExportedPage } from "@/lib/static-export";
 import { robotsTxt } from "@/lib/seo";
 import { internalOrigin, publicOrigin } from "@/lib/self-origin";
+import { BUNDLED_FONTS } from "@/lib/fonts";
 
 export const dynamic = "force-dynamic";
 
@@ -110,6 +111,14 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     entries.push({ path: pageFiles.get(page.slug)!, data: Buffer.from(html, "utf8") });
   }
 
+  // A bundled font goes out with its licence. The SIL Open Font License lets
+  // anyone copy the files onto their own site on the one condition that the
+  // licence travels with them, and a download is exactly such a copy.
+  for (const rel of [...assetPaths]) {
+    const id = /^fonts\/([a-z0-9-]+)\//.exec(rel)?.[1];
+    if (id && BUNDLED_FONTS.some((font) => font.id === id)) assetPaths.add(`fonts/${id}/OFL.txt`);
+  }
+
   // Images and uploads the pages point at, copied in beside them.
   const missingAssets: string[] = [];
   for (const rel of assetPaths) {
@@ -175,6 +184,7 @@ function readme(siteName: string, files: string[], missingAssets: string[]): str
     ...files.filter((f) => f !== "index.html").map((f) => `  ${f.padEnd(18)} a page of the site`),
     "  assets/site.css    every style the pages use",
     "  uploads/, stock/   the images the pages point at",
+    "  fonts/             the typefaces the pages use, each with its licence",
     "  robots.txt         tells search engines they may read the site",
     "",
     "PUTTING IT ONLINE",
@@ -211,10 +221,11 @@ function readme(siteName: string, files: string[], missingAssets: string[]): str
 }
 
 /**
- * The file on disk behind an `uploads/…` or `stock/…` reference, or null.
+ * The file on disk behind an `uploads/…`, `stock/…` or `fonts/…` reference,
+ * or null.
  *
  * Uploads live outside `public/` (see `src/lib/uploads.ts`); the bundled stock
- * photographs are part of the application and still ship inside it.
+ * photographs and fonts are part of the application and still ship inside it.
  */
 function assetFile(rel: string): string | null {
   const slash = rel.indexOf("/");

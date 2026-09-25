@@ -26,6 +26,7 @@ export const SITE_FIELDS = [
   "accent",
   "fontFamily",
   "headingFont",
+  "fonts",
   "borderRadius",
   "contentWidth",
   "headerBackground",

@@ -58,6 +58,7 @@ export default async function PageEditorRoute(
         accent: safeAccent(site.accent),
         fontFamily: site.fontFamily,
         headingFont: site.headingFont,
+        fonts: site.fonts,
         borderRadius: site.borderRadius,
         contentWidth: site.contentWidth,
       }}

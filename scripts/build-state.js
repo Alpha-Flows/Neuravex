@@ -16,10 +16,10 @@
  * `prisma/.neuravex-state.json`, and compared on the way up.
  *
  * It is a walk of `(path, size, mtime)` rather than a hash of the contents.
- * `public/` is 53 MB against `src/`'s 1.5 MB — almost all of it the bundled
- * photographs, which never change — and reading 53 MB on every launch is a
- * visible pause on a program whose entire budget is "the browser opens". The
- * walk reads no file bodies at all.
+ * `public/` is 56 MB against `src/`'s 1.5 MB — almost all of it the bundled
+ * photographs and fonts, which never change — and reading 56 MB on every
+ * launch is a visible pause on a program whose entire budget is "the browser
+ * opens". The walk reads no file bodies at all.
  *
  * The two ways it can be wrong are not equally bad, and it errs toward the
  * harmless one. A file touched without being changed costs one unnecessary

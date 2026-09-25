@@ -20,6 +20,8 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 22 or
 - **Multi-page sites** with home page routing. A new page starts from a layout you choose, drawn in the colours, section padding and column width read off the pages the site already has — not as a blank sheet
 - **Links between your own pages** — pick a page from a list instead of typing its path, and renaming a page or the whole site moves every link that pointed at it
 - **Per-block inspector** for fine-grained control of every property (colors, sizes, alignment, spacing, etc.)
+- **A frame on any block** — room inside and around it, a border, rounded corners, a shadow and a fill, the same five controls for a heading, a quote or a picture, so a card no longer has to be a section with one block in it and spacing no longer has to be a Spacer block
+- **Fonts that go wherever the site goes** — sixteen open-licence typefaces (Inter, Roboto, Montserrat, Playfair Display, Lora, JetBrains Mono and more), each shown in itself in the picker, plus font files of your own; the files are served by the builder and copied into the download, so a visitor's screen shows the font you picked and nothing is fetched from anyone else's server
 - **Publish / unpublish** workflow — unpublished pages are drafts
 - **Download the site as files** — plain HTML, CSS and images you can open or host anywhere
 - **SQLite storage** in a single file, zero config
@@ -187,6 +189,7 @@ index.html          the home page
 about.html          one file per published page
 assets/site.css     only the styles these pages use, a few KB
 uploads/  stock/    the images the pages point at
+fonts/              the bundled fonts the pages use, each with its licence
 README.txt          what's inside, and how to host it
 ```
 

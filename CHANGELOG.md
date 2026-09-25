@@ -103,6 +103,32 @@ in brackets is the finding it closes.
 
 ### Added
 
+- **A frame on every block.** Any block can carry room inside and around it,
+  a border, rounded corners, a shadow and a fill, set from a Frame panel in
+  the inspector beside Depth. The frame sits on its own element inside the
+  block's place on the page, so a block on the page keeps its gutter and a
+  floating block keeps its position, and it is drawn by one component on the
+  canvas and the published page alike. It is stored as `box` beside `layer`,
+  repaired by the validator like everything else, and an absent one draws a
+  block exactly as before.
+- **Fonts to pick from.** The body and heading fonts are picked from sixteen
+  bundled typefaces — Inter, Roboto, Open Sans, Montserrat, Nunito, Work
+  Sans, DM Sans, Source Sans 3, Space Grotesk, Playfair Display, Lora,
+  Merriweather, Source Serif 4, EB Garamond, Oswald and JetBrains Mono — each
+  shown in itself, all under the SIL Open Font License and served from
+  `public/fonts/`, so they look the same on every visitor's screen with
+  nothing fetched from anybody else's server. A page asks only for the fonts
+  it uses, and for Latin Extended only when it has a letter from it. A site
+  written before this with one of those names typed into the font box now
+  gets the file.
+- **Fonts of your own.** A .woff2, .woff, .ttf or .otf file is uploaded from
+  the Theme tab and named — the name, weight and style are read from the file
+  name to start with — and then offered in both pickers. Two files under one
+  name are one family with two weights. The list is stored on the site as
+  `fonts`, repaired to plain names and upload paths before it goes into a
+  stylesheet.
+- A downloaded site carries the font files its pages use in `fonts/`, each
+  with its licence beside it, and the pages point at them there.
 - **Forms ask for more than text.** A form's fields can be a phone number, a
   number, a date, a dropdown, one choice of several, several choices, or a
   privacy checkbox whose sentence links the site's Datenschutzerklärung, and
@@ -251,6 +277,10 @@ in brackets is the finding it closes.
 
 ### Fixed
 
+- A body font chosen in site settings reached the editor's canvas and no
+  published page. The published layout gives `<body>` the builder's own
+  sans-serif as a class, every block inherited it from there, and the site's
+  font was set only on `:root`. It is set on the body now.
 - A form field could not be made required in the panel at all, though every
   template's form had required fields; and no label was tied to its field, so
   a screen reader named none of them. Each field's label is its field's name

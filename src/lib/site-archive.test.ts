@@ -57,6 +57,7 @@ const site = {
   accent: "#059669",
   fontFamily: "Georgia, serif",
   headingFont: null,
+  fonts: '[{"family":"Acme Sans","url":"/uploads/acme.woff2","weight":"400","style":"normal","category":"sans"}]',
   borderRadius: "1rem",
   contentWidth: "80rem",
   headerBackground: "#101010",
