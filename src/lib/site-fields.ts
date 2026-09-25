@@ -5,6 +5,9 @@ import { sanitizeHtml } from "./sanitize";
 import { normalizeCustomFonts } from "./fonts";
 import { normalizePalette } from "./palette";
 import { normalizeTextStyles } from "./text-styles";
+import { normalizeLogo } from "./site-logo";
+import { normalizeMenu } from "./menu";
+import { normalizeFooter } from "./footer";
 
 /**
  * What a site's settings are allowed to be, in one place.
@@ -122,6 +125,22 @@ export function normalizeSiteFields(
   if (has("textStyles") || complete) {
     const sizes = normalizeTextStyles(input.textStyles);
     out.textStyles = Object.keys(sizes).length > 0 ? JSON.stringify(sizes) : null;
+  }
+
+  // The header's logo and menu and the laid-out footer are drawn into every
+  // page, so they are stored as the repaired JSON, and not at all when there
+  // is nothing in them.
+  if (has("logo") || complete) {
+    const logo = normalizeLogo(input.logo);
+    out.logo = logo ? JSON.stringify(logo) : null;
+  }
+  if (has("menu") || complete) {
+    const menu = normalizeMenu(input.menu);
+    out.menu = menu.length > 0 ? JSON.stringify(menu) : null;
+  }
+  if (has("footer") || complete) {
+    const footer = normalizeFooter(input.footer);
+    out.footer = footer ? JSON.stringify(footer) : null;
   }
 
   if (has("headerBackground") || complete) out.headerBackground = safeAccent(input.headerBackground, "#ffffff");

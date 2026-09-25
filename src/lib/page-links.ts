@@ -80,6 +80,11 @@ function barePath(href: string): string {
   return href.split(/[?#]/, 1)[0];
 }
 
+/** `href` rewritten by `map`, or as it was when the mapper passes on it. */
+export function retargetHref(href: string, map: LinkMapper): string {
+  return remap(href, map) ?? href;
+}
+
 /** `href` rewritten by `map`, or null when the mapper passes on it. */
 function remap(href: string, map: LinkMapper): string | null {
   if (typeof href !== "string" || !href) return null;
@@ -187,6 +192,8 @@ export interface LinkTarget {
   published: boolean;
   /** "impressum" or "datenschutz" for a generated legal page — so a form's privacy checkbox can find the notice. */
   legalKind?: string | null;
+  /** The page's named sections, so a link can go straight to one; see `anchors.ts`. */
+  anchors?: { anchor: string; title: string }[];
 }
 
 /**

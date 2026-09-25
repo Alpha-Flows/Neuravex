@@ -8,6 +8,10 @@ import { CONTENT_WIDTHS, THEME_FALLBACK } from "@/lib/site-theme";
 import { familyOf, normalizeCustomFonts, type CustomFont } from "@/lib/fonts";
 import { FontPicker, SiteFontFiles } from "./FontPicker";
 import { PaletteEditor, TextSizeFields } from "./BrandFields";
+import { FooterEditor, LogoField, MenuEditor, type ChromePage } from "./ChromeFields";
+import { normalizeLogo, type SiteLogo } from "@/lib/site-logo";
+import { editableMenu, type MenuEntry } from "@/lib/menu";
+import { normalizeFooter, type FooterDesign } from "@/lib/footer";
 import { normalizePalette } from "@/lib/palette";
 import { normalizeTextStyles, type TextStyles } from "@/lib/text-styles";
 
@@ -19,12 +23,21 @@ interface SiteInfo {
   accent: string;
 }
 
-type Tab = "general" | "theme" | "layout" | "seo" | "advanced";
+/**
+ * The generated legal pages, which the footer carries and the menu leaves
+ * out. The same test as `isLegalKind`, written out here because the module
+ * that holds it builds the notices and has no place in the browser.
+ */
+const isLegalPage = (p: { legalKind?: string | null }) => p.legalKind === "impressum" || p.legalKind === "datenschutz";
+
+type Tab = "general" | "theme" | "layout" | "menu" | "footer" | "seo" | "advanced";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "general", label: "General" },
   { id: "theme", label: "Theme" },
-  { id: "layout", label: "Header/Footer" },
+  { id: "layout", label: "Header" },
+  { id: "menu", label: "Menu" },
+  { id: "footer", label: "Footer" },
   { id: "seo", label: "SEO" },
   { id: "advanced", label: "Advanced" },
 ];
@@ -51,6 +64,13 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
   const [headerShape, setHeaderShape] = useState<"bar" | "rounded" | "pill">("bar");
   const [headerPosition, setHeaderPosition] = useState<"static" | "sticky" | "fixed">("sticky");
   const [headerHtml, setHeaderHtml] = useState("");
+  const [logo, setLogo] = useState<SiteLogo | null>(null);
+  // The menu is sent only once it has been touched, so a site whose menu was
+  // never arranged keeps following its pages rather than a copy of them.
+  const [menu, setMenu] = useState<MenuEntry[] | null>(null);
+  const [storedMenu, setStoredMenu] = useState<string | null>(null);
+  const [menuPages, setMenuPages] = useState<ChromePage[]>([]);
+  const [footer, setFooter] = useState<FooterDesign | null>(null);
   const [footerHtml, setFooterHtml] = useState("");
   // SEO
   const [metaTitle, setMetaTitle] = useState("");
@@ -88,6 +108,20 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           setHeaderShape(s.headerShape ?? "bar");
           setHeaderPosition(s.headerPosition ?? "sticky");
           setHeaderHtml(s.headerHtml ?? "");
+          setLogo(normalizeLogo(s.logo));
+          setFooter(normalizeFooter(s.footer));
+          setStoredMenu(s.menu ?? null);
+          setMenu(null);
+          setMenuPages(
+            (Array.isArray(s.pages) ? s.pages : []).map((p: ChromePage) => ({
+              id: p.id,
+              slug: p.slug,
+              title: p.title,
+              isHome: p.isHome,
+              published: p.published,
+              legalKind: p.legalKind,
+            })),
+          );
           setFooterHtml(s.footerHtml ?? "");
           setMetaTitle(s.metaTitle ?? "");
           setMetaDescription(s.metaDescription ?? "");
@@ -117,6 +151,9 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           contentWidth,
           headerBackground, headerOpacity, headerShape, headerPosition,
           headerHtml: headerHtml || null,
+          logo,
+          footer,
+          ...(menu ? { menu } : {}),
           footerHtml: footerHtml || null,
           metaTitle: metaTitle || null,
           metaDescription: metaDescription || null,
@@ -281,14 +318,30 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                     </p>
                   </div>
                   <div className="pt-3 border-t border-bg-border">
+                    <LogoField logo={logo} onChange={setLogo} />
+                  </div>
+                  <div className="pt-3 border-t border-bg-border">
                     <Label>Custom header HTML (overrides the style controls above)</Label>
                     <Textarea rows={4} value={headerHtml} onChange={(e) => setHeaderHtml(e.target.value)} placeholder="Leave empty to use the header style controls above." />
                     <p className="text-xs text-fg-subtle mt-1">Use <code>{`{name}`}</code> for the site name, <code>{`{nav}`}</code> for the page navigation.</p>
                   </div>
-                  <div>
-                    <Label>Footer</Label>
-                    <Textarea rows={4} value={footerHtml} onChange={(e) => setFooterHtml(e.target.value)} placeholder="Leave empty for the default footer. Use HTML." />
-                    <p className="text-xs text-fg-subtle mt-1">Use <code>{`{name}`}</code> and <code>{`{year}`}</code> as placeholders.</p>
+                </div>
+              )}
+              {tab === "menu" && (
+                <MenuEditor
+                  menu={menu ?? editableMenu(storedMenu, menuPages.filter((p) => !isLegalPage(p)))}
+                  onChange={setMenu}
+                  pages={menuPages.filter((p) => !isLegalPage(p))}
+                  siteSlug={site.slug}
+                />
+              )}
+              {tab === "footer" && (
+                <div className="space-y-4">
+                  <FooterEditor design={footer} onChange={setFooter} pages={menuPages} siteSlug={site.slug} />
+                  <div className="pt-3 border-t border-bg-border">
+                    <Label>Custom footer HTML (replaces everything above)</Label>
+                    <Textarea rows={4} value={footerHtml} onChange={(e) => setFooterHtml(e.target.value)} placeholder="Leave empty to use the footer above. Use HTML." />
+                    <p className="text-xs text-fg-subtle mt-1">Use <code>{`{name}`}</code>, <code>{`{year}`}</code> and <code>{`{legal}`}</code> as placeholders.</p>
                   </div>
                 </div>
               )}

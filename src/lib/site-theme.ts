@@ -162,11 +162,21 @@ export function siteThemeCss(site: SiteThemeInput, selector = ":root"): string {
   // on the canvas element — and on no published page. Only when one is set:
   // with none, `<body>` keeps the class's font, which is the default.
   const body = site.fontFamily && selector === ":root" ? [":root body { font-family: var(--site-font); }"] : [];
+  // A link to a named section glides there rather than jumping, unless the
+  // visitor has asked for less motion. Only on a published page, since in the
+  // editor the canvas is not the document and its links are not followed —
+  // and only on a page that has a named section to glide to: set on every
+  // page, it made every scroll of the document smooth, a script's included,
+  // and a page scrolled by 3000px was still under way a quarter of a second
+  // later, on pages with nothing to link to at all.
+  const glide =
+    selector === ":root" ? ["@media (prefers-reduced-motion: no-preference) { :root:has(.nvx-anchor) { scroll-behavior: smooth; } }"] : [];
 
   return [
     ...(faces ? [faces] : []),
     `${selector} { ${declarations.join("; ")}; font-family: var(--site-font, inherit); }`,
     ...body,
+    ...glide,
     `${headings} { font-family: var(--site-heading-font, inherit); }`,
     ...(sizes ? [sizes] : []),
   ].join("\n");

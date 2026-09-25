@@ -15,6 +15,8 @@ import { sanitizeInlineHtml, sanitizeHtml } from "./sanitize";
 import { cssColor, cssLength } from "./css-value";
 import { normalizeLayer } from "./block-layer";
 import { normalizeBox } from "./block-box";
+import { normalizeMotion } from "./block-motion";
+import { cleanAnchor } from "./anchors";
 import { normalizeAngle } from "./block-style";
 import { resolveIconName } from "./icon-names";
 import { MAX_SOCIAL_HREF, MAX_SOCIAL_LINKS, normaliseSocialHref } from "./social-links";
@@ -354,6 +356,7 @@ const PROPS: Record<string, z.ZodType> = {
     paddingX: lengthProp(24),
     maxWidth: z.enum(["site", "full", "7xl", "6xl", "5xl", "4xl"]).catch("site"),
     align,
+    anchor: z.unknown().optional().transform((v) => cleanAnchor(v) || undefined),
   }),
 
   columns: z.object({
@@ -754,6 +757,8 @@ function normalizeNode(node: unknown, depth: number, budget: Budget): BaseBlock 
   if (layer) out.layer = layer;
   const box = normalizeBox(raw.box);
   if (box) out.box = box;
+  const motion = normalizeMotion(raw.motion);
+  if (motion) out.motion = motion;
 
   budget.bytes += JSON.stringify(out.props).length + out.type.length + out.id.length;
   return out;

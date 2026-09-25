@@ -66,6 +66,9 @@ const site = {
   headerOpacity: 65,
   headerShape: "pill",
   headerPosition: "fixed",
+  logo: '{"src":"/uploads/logo.png","height":32,"withName":false}',
+  menu: '[{"kind":"link","label":"Shop","href":"https://shop.example.com"}]',
+  footer: '{"about":"Things since 1990.","columns":[],"contact":{"address":"","phone":"","email":""},"social":[],"copyright":"","background":""}',
   headerHtml: "<div>{name}</div>",
   footerHtml: null,
   customCss: ".x { color: red }",
@@ -104,6 +107,15 @@ describe("serializeSite", () => {
       expect(archive.site[f], f).toEqual((site as Record<string, unknown>)[f]);
     }
     expect(archive.pages[0].metaTitle).toBe("Home | Acme");
+  });
+
+  it("names the menu's pages by slug, since an import gives every page a new id", () => {
+    const withMenu = { ...site, menu: JSON.stringify([{ kind: "page", page: "p1", label: "Start" }, { kind: "link", label: "Shop", href: "https://shop.example.com" }]) };
+    const archived = JSON.parse(serializeSite(withMenu).site.menu as string);
+    expect(archived).toEqual([
+      { kind: "page", page: "index", label: "Start" },
+      { kind: "link", label: "Shop", href: "https://shop.example.com" },
+    ]);
   });
 
   it("keeps a generated legal page tied to its kind", () => {

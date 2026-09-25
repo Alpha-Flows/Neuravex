@@ -50,6 +50,11 @@ export interface BaseBlock {
    * how every block authored before this was drawn.
    */
   box?: BlockBox;
+  /**
+   * How the block comes into view as the page scrolls to it, drawn with CSS
+   * alone — see `src/lib/block-motion.ts`. Absent means it is simply there.
+   */
+  motion?: "fade" | "rise" | "left" | "right" | "zoom";
 }
 
 /**
@@ -77,6 +82,8 @@ export interface SectionProps {
   maxWidth: "site" | "full" | "7xl" | "6xl" | "5xl" | "4xl";
   /** Where the content sits inside the page's column, not inside the window. */
   align: "left" | "center" | "right";
+  /** A name links can go straight to, as `#c-<anchor>`; see `src/lib/anchors.ts`. */
+  anchor?: string;
 }
 
 /**

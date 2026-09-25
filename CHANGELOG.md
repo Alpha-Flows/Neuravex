@@ -103,6 +103,34 @@ in brackets is the finding it closes.
 
 ### Added
 
+- **A logo in the header.** A picture from the library takes the place of
+  the coloured square, at a height chosen in the Header tab, with the site's
+  name beside it or not. Alone, the picture is read out as the site's name.
+- **A menu arranged by hand.** A Menu tab lists every page: each can be given
+  a shorter label, left out of the menu, moved, or filed under another entry,
+  which the header opens as a dropdown — on hover and from the keyboard, in
+  CSS alone, so it works in the download — and lists indented in the phone
+  menu. Links to other sites, to a page here or to a named section can be
+  added, and a heading with no address only opens its dropdown. A page made
+  later is added at the end. Pages are named by id, so a rename leaves the
+  menu as it was; links in it follow a rename like every other link.
+- **A laid-out footer.** A Footer tab builds one from a line about the site,
+  an address, phone and email, the site's profiles, up to four columns of
+  links, a copyright line with `{year}` and `{name}`, and a background whose
+  text colour follows it. The legal links are drawn beneath it on every
+  page. Custom footer HTML still wins where there is some, and a site with
+  neither keeps the one-line footer.
+- **Links to a named section.** A section can be given a name, which it
+  carries as its id; every link field lists the named sections of this page
+  and of the site's other pages, and the header clears the section it lands
+  on. A published page scrolls there smoothly unless the visitor has asked
+  for less motion. A `#name` typed on a button or in the menu reaches the
+  section too, as one typed into text always would have.
+- **Scroll-in motion.** Any block can fade in, rise, come from either side or
+  grow as it scrolls into view, done with a scroll-driven CSS animation, so
+  the published page and the download run no script for it. Browsers without
+  scroll-driven animations, and visitors who ask for less motion, see the
+  block as it is. It plays in Preview and not while editing.
 - **A site palette.** Up to six brand colours beside the accent, set in the
   site's settings and offered as swatches in every colour field and in the
   text toolbar. A block given one stores a reference to its slot, so changing

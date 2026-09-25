@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { TOKEN, readableTextFor, readableTextOn } from "@/lib/site-theme";
 import { cssColor } from "@/lib/css-value";
 import { isSafeHref } from "@/lib/url-safety";
+import { fragmentLink } from "@/lib/anchors";
 
 interface Props {
   props: ButtonProps;
@@ -61,7 +62,9 @@ export function ButtonBlock({ props, onChange, disabled }: Props) {
    * existed is still in people's databases, and this is the element visitors
    * click most. On the exported site there is no CSP behind it.
    */
-  const href = isSafeHref(props.href);
+  // A typed `#prices` is put in the page's id space, where named sections are.
+  const safe = isSafeHref(props.href);
+  const href = safe ? fragmentLink(safe) : safe;
 
   const inner = (
     <Editable

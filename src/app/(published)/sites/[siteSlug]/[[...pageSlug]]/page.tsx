@@ -98,6 +98,9 @@ export default async function PublicSitePage(props: Props) {
       headerOpacity: true,
       headerShape: true,
       headerPosition: true,
+      logo: true,
+      menu: true,
+      footer: true,
       pages: {
         where: { published: true },
         orderBy: [{ sortOrder: "asc" }, { isHome: "desc" }],
@@ -124,7 +127,7 @@ export default async function PublicSitePage(props: Props) {
     .map((p) => ({ slug: p.slug, title: p.title }));
   const navPages = site.pages
     .filter((p) => !isLegalKind(p.legalKind))
-    .map((p) => ({ slug: p.slug, title: p.title, isHome: p.isHome }));
+    .map((p) => ({ id: p.id, slug: p.slug, title: p.title, isHome: p.isHome }));
 
   const chrome = {
     name: site.name,
@@ -136,6 +139,8 @@ export default async function PublicSitePage(props: Props) {
     headerOpacity: site.headerOpacity,
     headerShape: site.headerShape,
     headerPosition: site.headerPosition,
+    logo: site.logo,
+    menu: site.menu,
   };
 
   // The tree is validated on the way in now; this is the layer under that, for
@@ -161,7 +166,7 @@ export default async function PublicSitePage(props: Props) {
         <main>
           <PublicBlocks blocks={blocks} pageId={page.id} />
         </main>
-        <SiteFooter site={{ name: chrome.name, slug: chrome.slug, footerHtml: chrome.footerHtml }} legal={legal} />
+        <SiteFooter site={{ name: chrome.name, slug: chrome.slug, footerHtml: chrome.footerHtml, footer: site.footer }} legal={legal} />
       </div>
     </>
   );

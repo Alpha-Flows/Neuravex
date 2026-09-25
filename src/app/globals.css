@@ -134,6 +134,52 @@ html, body {
   }
 }
 
+/* A dropdown in the header's menu, opened by hovering over its entry or by
+ * the keyboard reaching it — CSS alone, because a published page runs no
+ * script of its own and the download none at all. The gap above it is
+ * padding on the dropdown rather than margin, so the pointer crossing it on
+ * the way down is still over the group and the dropdown stays open. */
+.nvx-menu-drop { display: none; z-index: 30; }
+.nvx-menu-group:hover > .nvx-menu-drop,
+.nvx-menu-group:focus-within > .nvx-menu-drop { display: block; }
+
+/* A named section, landed on by a link (see src/lib/anchors.ts). The room
+ * above it is what a sticky header takes, so the header does not cover the
+ * top of the section it just scrolled to: 4rem for a bar, 5rem for a pill
+ * on its margin, and a little air. */
+.nvx-anchor { scroll-margin-top: 6rem; }
+
+/* ---------------------------------------------------------------------
+ * A block's scroll-in motion (see src/lib/block-motion.ts).
+ *
+ * Scroll-driven, so it runs with no script on the published page and in the
+ * download. Everything is inside @supports and a reduced-motion query: a
+ * browser that cannot drive an animation from scrolling, or a visitor who
+ * has asked for less motion, gets the block standing where it always stood.
+ * The range ends when the block is fully in view or 14rem into it,
+ * whichever is first, so a tall block is not read half-faded and a short
+ * one at the foot of an unscrollable page is not left faded for good.
+ * ------------------------------------------------------------------- */
+@keyframes nvx-reveal-fade { from { opacity: 0; } }
+@keyframes nvx-reveal-rise { from { opacity: 0; transform: translateY(2.5rem); } }
+@keyframes nvx-reveal-left { from { opacity: 0; transform: translateX(-2.5rem); } }
+@keyframes nvx-reveal-right { from { opacity: 0; transform: translateX(2.5rem); } }
+@keyframes nvx-reveal-zoom { from { opacity: 0; transform: scale(0.92); } }
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .nvx-reveal {
+      animation: nvx-reveal-fade linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry min(100%, 14rem);
+    }
+    .nvx-reveal[data-reveal="rise"] { animation-name: nvx-reveal-rise; }
+    .nvx-reveal[data-reveal="left"] { animation-name: nvx-reveal-left; }
+    .nvx-reveal[data-reveal="right"] { animation-name: nvx-reveal-right; }
+    .nvx-reveal[data-reveal="zoom"] { animation-name: nvx-reveal-zoom; }
+  }
+}
+
 /* ---------------------------------------------------------------------
  * Columns: responsive layout.
  *

@@ -20,6 +20,9 @@ import { MapPanel } from "./inspectors/MapPanel";
 import { CodePanel } from "./inspectors/CodePanel";
 import { FormPanel } from "./inspectors/FormPanel";
 import { FramePanel } from "./FramePanel";
+import { MotionPanel } from "./MotionPanel";
+import { usePageAnchors } from "./page-anchors";
+import { MAX_ANCHOR, anchorHref, cleanAnchor } from "@/lib/anchors";
 import { VideoPanel } from "./inspectors/VideoPanel";
 import type { ContainerChoice } from "@/lib/containers";
 
@@ -91,6 +94,7 @@ export function BlockInspector({ block, onChange, onClose, placement, levels, co
         {placement ? <ColumnPlacement placement={placement} /> : null}
         <InspectorBody block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />
         <FramePanel block={block} onChange={onChange} />
+        <MotionPanel block={block} onChange={onChange} />
         <DepthPanel block={block} onChange={onChange} levels={levels ?? { min: 0, max: 0 }} containers={containers} />
         {onSaveForReuse ? <SaveForReuse block={block} onSave={onSaveForReuse} /> : null}
       </div>
@@ -534,6 +538,7 @@ function InspectorBody({
       const p = block.props as SectionProps;
       return (
         <>
+          <SectionNameField blockId={block.id} value={p.anchor ?? ""} onChange={(v) => set("anchor", v || undefined)} />
           <Field label="Background image">
             <BackgroundImageField value={p.backgroundImage} onChange={(v) => set("backgroundImage", v)} />
           </Field>
@@ -674,6 +679,39 @@ function InspectorBody({
     default:
       return <div className="text-xs text-fg-muted">No inspector for this block type.</div>;
   }
+}
+
+/**
+ * The name links use to reach a section.
+ *
+ * Kept as typed while it is typed — cleaning each keystroke turned the space
+ * in "our team" into a dash and then took the trailing dash away, so the
+ * space could never be typed — and shown beside it as the address it
+ * becomes. A name another section on this page already has is pointed out,
+ * since a link lands on the first and the second can never be reached.
+ */
+function SectionNameField({ blockId, value, onChange }: { blockId: string; value: string; onChange: (v: string) => void }) {
+  const anchors = usePageAnchors();
+  const clean = cleanAnchor(value);
+  // The page's own list names each section once, with the first section to
+  // have the name, so a name is taken when that section is another one.
+  const taken = anchors.some((a) => a.anchor === clean && a.blockId !== blockId);
+  return (
+    <Field label="Name for links">
+      <Input aria-label="Name for links" value={value} maxLength={MAX_ANCHOR + 20} placeholder="e.g. prices" onChange={(e) => onChange(e.target.value)} />
+      {taken ? (
+        <p className="text-[11px] text-amber-400 mt-1">
+          Another section on this page is already called &quot;{clean}&quot;. A link goes to the first of the two.
+        </p>
+      ) : (
+        <p className="text-[11px] text-fg-subtle mt-1">
+          {clean
+            ? `Pick it in any link field, or type #${clean}. Its address is ${anchorHref(clean)}.`
+            : "Give it a name, and a button or a menu link can go straight to it."}
+        </p>
+      )}
+    </Field>
+  );
 }
 
 /**

@@ -180,7 +180,8 @@ test.describe("The link picker", () => {
     const inspector = page.locator("aside").last();
     const picker = inspector.locator("select").first();
     await expect(picker).toBeVisible();
-    await picker.selectOption("contact");
+    // Each choice is the address the link will store.
+    await picker.selectOption(`/sites/${site.slug}/contact`);
 
     await expect(inspector.locator("input").nth(1)).toHaveValue(`/sites/${site.slug}/contact`);
     // The page is a draft, and saying so now is cheaper than a visitor finding out.

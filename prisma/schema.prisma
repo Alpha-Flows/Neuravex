@@ -40,6 +40,15 @@ model Site {
   headerOpacity    Int     @default(80)
   headerShape      String  @default("bar")    // "bar" | "rounded" | "pill"
   headerPosition   String  @default("sticky") // "static" | "sticky" | "fixed"
+  /// The picture at the start of the default header, as JSON (see
+  /// `normalizeLogo` in lib/site-logo).
+  logo        String?
+  /// The header menu's arrangement — pages, links, labels, dropdowns — as JSON
+  /// (see `normalizeMenu` in lib/menu). Empty means every published page.
+  menu        String?
+  /// A footer laid out from settings, as JSON (see `normalizeFooter` in
+  /// lib/footer). Custom footer HTML still wins where there is some.
+  footer      String?
   // Editable header / footer (plain text that replaces hardcoded defaults)
   headerHtml  String?
   footerHtml  String?

@@ -40,21 +40,7 @@ export function SocialPanel({ block, onChange, linkTargets, siteSlug }: BlockPan
   return (
     <>
       <Field label="Links">
-        <ListEditor<SocialLink>
-          items={links}
-          onChange={(next) => set("links", next)}
-          newItem={() => ({ network: nextSocialNetwork(links), href: "" })}
-          addLabel="Add a link"
-          max={MAX_SOCIAL_LINKS}
-          itemLabel={(link, i) => {
-            const name = SOCIAL_ICONS[link.network]?.label ?? "Link";
-            // Two links to the same network would both be "Move Website up"
-            // to a screen reader; the position tells them apart.
-            const twin = links.filter((l) => l.network === link.network).length > 1;
-            return twin ? `${name} (${i + 1})` : name;
-          }}
-          renderItem={(link, update) => <LinkRow link={link} update={update} linkTargets={linkTargets} siteSlug={siteSlug} />}
-        />
+        <SocialLinksEditor links={links} onChange={(next) => set("links", next)} linkTargets={linkTargets} siteSlug={siteSlug} />
       </Field>
       <Field label="Size">
         <Select
@@ -82,6 +68,42 @@ export function SocialPanel({ block, onChange, linkTargets, siteSlug }: BlockPan
         <ColorInput value={p.color} onChange={(v) => set("color", v)} inherit="Page text colour" />
       </Field>
     </>
+  );
+}
+
+/**
+ * The list of profiles, on its own — the block's panel and the site footer's
+ * settings both keep one, and each is finished and checked the same way.
+ */
+export function SocialLinksEditor({
+  links,
+  onChange,
+  linkTargets,
+  siteSlug,
+  max = MAX_SOCIAL_LINKS,
+}: {
+  links: SocialLink[];
+  onChange: (next: SocialLink[]) => void;
+  linkTargets?: BlockPanelProps["linkTargets"];
+  siteSlug?: string;
+  max?: number;
+}) {
+  return (
+    <ListEditor<SocialLink>
+      items={links}
+      onChange={onChange}
+      newItem={() => ({ network: nextSocialNetwork(links), href: "" })}
+      addLabel="Add a link"
+      max={max}
+      itemLabel={(link, i) => {
+        const name = SOCIAL_ICONS[link.network]?.label ?? "Link";
+        // Two links to the same network would both be "Move Website up"
+        // to a screen reader; the position tells them apart.
+        const twin = links.filter((l) => l.network === link.network).length > 1;
+        return twin ? `${name} (${i + 1})` : name;
+      }}
+      renderItem={(link, update) => <LinkRow link={link} update={update} linkTargets={linkTargets} siteSlug={siteSlug} />}
+    />
   );
 }
 
