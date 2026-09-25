@@ -103,6 +103,33 @@ in brackets is the finding it closes.
 
 ### Added
 
+- **A blog.** Any page can be a post, with a date, an author, a summary, a
+  cover and tags, set in its page settings; the dashboard lists posts apart
+  from pages and makes new ones. A post is headed with its details, kept out
+  of the menu, and listed newest first by a new Blog posts block — cards or a
+  list, all posts or one tag — which reads the site's posts each time it is
+  drawn, so a new post appears without the page being touched. The first post
+  of a site brings a draft Blog page with that block on it. The site gains an
+  Atom feed at `/sites/<site>/feed.xml`, linked from every page, and the
+  download carries it as `feed.xml` with addresses that work wherever the
+  folder is put.
+- **Synced blocks.** "Save for reuse" can keep every copy the same. A copy
+  changed on any page is written into every other copy, on every page, when
+  that page is saved; a copy placed twice on one page is edited as one; and
+  an editor left open on an old copy catches up rather than putting the old
+  words back. A synced copy is marked on the canvas and in the inspector,
+  and can be detached to become its own.
+- **Templates of one's own.** A site can be kept as a template from its
+  dashboard — every page, setting, menu and footer — and a page from its page
+  settings. Both are offered, and can be deleted, where new sites and new
+  pages are made, and what is made from them has its links moved to its own
+  address.
+- **Duplicate a site.** The dashboard copies a whole site, pages and settings,
+  to a new address, with every link inside it pointed at the copy.
+- **A site's own 404 page.** Any page can be the one shown, with the site's
+  header and footer and a 404 status, at an address that finds nothing. It is
+  kept out of the menu and the sitemap, and the download carries it as
+  `404.html`, the name static hosts look for.
 - **A logo in the header.** A picture from the library takes the place of
   the coloured square, at a height chosen in the Header tab, with the site's
   name beside it or not. Alone, the picture is read out as the site's name.

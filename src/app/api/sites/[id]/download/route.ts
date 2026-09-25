@@ -9,8 +9,15 @@ import { pageFileName, prepareExportedPage } from "@/lib/static-export";
 import { robotsTxt } from "@/lib/seo";
 import { internalOrigin, publicOrigin } from "@/lib/self-origin";
 import { BUNDLED_FONTS } from "@/lib/fonts";
+import { postItems } from "@/lib/posts";
+import { atomFeed } from "@/lib/feed";
 
 export const dynamic = "force-dynamic";
+
+/** The name static hosts look for when an address finds nothing. */
+const NOT_FOUND_FILE = "404.html";
+/** The site's feed of posts, beside its pages. */
+const FEED_FILE = "feed.xml";
 
 const STYLESHEET_PATH = "assets/site.css";
 
@@ -42,9 +49,18 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   }
 
   // File name per page, kept unique in case a slug collides with index.html.
+  // The site's "not found" page is 404.html, which is the name Netlify, GitHub
+  // Pages, Cloudflare Pages and most plain servers look for; it is claimed
+  // first, so a page that happens to be called "404" cannot take it.
   const taken = new Set<string>();
   const pageFiles = new Map<string, string>();
+  const notFound = site.pages.find((p) => p.isNotFound && !p.isHome);
+  if (notFound) {
+    taken.add(NOT_FOUND_FILE);
+    pageFiles.set(notFound.slug, NOT_FOUND_FILE);
+  }
   for (const page of site.pages) {
+    if (page === notFound) continue;
     let name = pageFileName(page.slug, page.isHome);
     if (taken.has(name)) {
       const base = name.replace(/\.html$/, "");
@@ -106,6 +122,15 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
         { status: 502 },
       );
     }
+    // A host shows 404.html at whatever address went nowhere, however deep —
+    // `/shop/old/thing` — and every address in it is relative to the folder,
+    // so from there its stylesheet and pictures would be looked for under
+    // `/shop/old/`. Anchored to the root, they are found wherever it is
+    // shown, which is right for a site at the root of its address.
+    if (page === notFound) html = html.replace(/<head(\s[^>]*)?>/i, (head) => `${head}<base href="/">`);
+    // The page's link to the feed names the builder's address for it; in the
+    // folder the feed sits beside the page.
+    html = html.split(`/sites/${site.slug}/feed.xml`).join(FEED_FILE);
     assets.forEach((a) => assetPaths.add(a));
     documents.push(html);
     entries.push({ path: pageFiles.get(page.slug)!, data: Buffer.from(html, "utf8") });
@@ -142,6 +167,21 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     }
   }
 
+  // The feed, when the site has posts: Atom, which resolves its links against
+  // its own address, so the same file works wherever the folder is put.
+  const posts = postItems(site.pages, site.slug);
+  if (posts.length > 0) {
+    const xml = atomFeed({
+      siteId: site.id,
+      siteName: site.name,
+      homeHref: "index.html",
+      selfHref: FEED_FILE,
+      hrefOf: (post) => pageFiles.get(post.slug) ?? "index.html",
+      posts,
+    });
+    entries.push({ path: FEED_FILE, data: Buffer.from(xml, "utf8") });
+  }
+
   const css = await buildExportCss(documents);
   entries.push({ path: STYLESHEET_PATH, data: Buffer.from(css, "utf8") });
   // A crawler looks for this the moment the folder is hosted. The sitemap is
@@ -150,7 +190,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   entries.push({ path: "robots.txt", data: Buffer.from(robotsTxt(true), "utf8") });
   entries.push({
     path: "README.txt",
-    data: Buffer.from(readme(site.name, [...pageFiles.values()], missingAssets), "utf8"),
+    data: Buffer.from(readme(site.name, [...pageFiles.values()], missingAssets, posts.length > 0), "utf8"),
   });
 
   const zip = zipStream(entries);
@@ -173,7 +213,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   });
 }
 
-function readme(siteName: string, files: string[], missingAssets: string[]): string {
+function readme(siteName: string, files: string[], missingAssets: string[], hasFeed = false): string {
   const lines = [
     `${siteName}`,
     `Exported from Neuravex on ${new Date().toISOString().slice(0, 10)}`,
@@ -181,11 +221,15 @@ function readme(siteName: string, files: string[], missingAssets: string[]): str
     "WHAT'S IN HERE",
     "",
     "  index.html         your home page — double-click it to view the site",
-    ...files.filter((f) => f !== "index.html").map((f) => `  ${f.padEnd(18)} a page of the site`),
+    ...files.filter((f) => f !== "index.html" && f !== NOT_FOUND_FILE).map((f) => `  ${f.padEnd(18)} a page of the site`),
     "  assets/site.css    every style the pages use",
     "  uploads/, stock/   the images the pages point at",
     "  fonts/             the typefaces the pages use, each with its licence",
     "  robots.txt         tells search engines they may read the site",
+    ...(hasFeed ? ["  feed.xml           the blog's posts, newest first, for a feed reader"] : []),
+    ...(files.includes(NOT_FOUND_FILE)
+      ? ["  404.html           what a visitor sees at an address that finds nothing;", "                     most hosts pick it up by its name"]
+      : []),
     "",
     "PUTTING IT ONLINE",
     "",
@@ -203,6 +247,13 @@ function readme(siteName: string, files: string[], missingAssets: string[]): str
     "  - Images added by URL rather than uploaded still load from wherever",
     "    they live, so those pages need an internet connection.",
     "  - Only published pages are exported. Drafts stay in the builder.",
+    ...(files.includes(NOT_FOUND_FILE)
+      ? [
+          "  - 404.html finds its stylesheet and pictures from the root of the",
+          "    address, so it looks right when the site is at the root of its",
+          "    domain (example.com/), not in a folder under it (example.com/site/).",
+        ]
+      : []),
     "  - A sitemap is not included: its entries must be full addresses, and",
     "    the address this folder ends up on is not known yet. Neuravex serves",
     "    one at /sites/<site>/sitemap.xml while you are building.",

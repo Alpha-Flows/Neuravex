@@ -5,6 +5,7 @@ import { PageEditor } from "@/components/editor/PageEditor";
 import { BaseBlock } from "@/types";
 import { normalizeBlockTree } from "@/lib/block-tree";
 import { sectionAnchors } from "@/lib/anchors";
+import { postDateInput, postItems } from "@/lib/posts";
 import { isLegalKind } from "@/lib/legal/pages";
 import { headers } from "next/headers";
 import { safeAccent } from "@/lib/site-fields";
@@ -26,7 +27,21 @@ export default async function PageEditorRoute(
       pages: {
         where: { published: true },
         orderBy: [{ sortOrder: "asc" }, { isHome: "desc" }],
-        select: { id: true, slug: true, title: true, isHome: true, legalKind: true },
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          isHome: true,
+          legalKind: true,
+          isNotFound: true,
+          isPost: true,
+          postDate: true,
+          author: true,
+          excerpt: true,
+          coverImage: true,
+          tags: true,
+          createdAt: true,
+        },
       },
     },
   });
@@ -93,7 +108,14 @@ export default async function PageEditorRoute(
         // The same split the visitor gets: the legal pages sit in the footer
         // rather than in the nav, and the canvas has to show that or it is
         // showing a header nobody gets.
-        pages: site.pages.filter((p) => !isLegalKind(p.legalKind)),
+        // And the "not found" page and the posts are in neither.
+        pages: site.pages
+          .filter((p) => !isLegalKind(p.legalKind) && !p.isNotFound && !p.isPost)
+          .map(({ id, slug, title, isHome }) => ({ id, slug, title, isHome })),
+        // The published posts, for the posts blocks on the canvas, and the
+        // language their dates are written in.
+        posts: postItems(site.pages, site.slug),
+        language: site.language,
         legal: site.pages
           .filter((p) => isLegalKind(p.legalKind))
           .map((p) => ({ slug: p.slug, title: p.title })),
@@ -112,6 +134,15 @@ export default async function PageEditorRoute(
         slug: page.slug,
         isHome: page.isHome,
         published: page.published,
+        details: {
+          isNotFound: page.isNotFound,
+          isPost: page.isPost,
+          postDate: postDateInput(page.postDate),
+          author: page.author ?? "",
+          excerpt: page.excerpt ?? "",
+          coverImage: page.coverImage ?? "",
+          tags: page.tags ?? "",
+        },
         metaTitle: page.metaTitle ?? "",
         metaDescription: page.metaDescription ?? "",
         ogImage: page.ogImage ?? "",

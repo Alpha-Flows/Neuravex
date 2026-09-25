@@ -24,11 +24,14 @@ interface SiteInfo {
 }
 
 /**
- * The generated legal pages, which the footer carries and the menu leaves
- * out. The same test as `isLegalKind`, written out here because the module
- * that holds it builds the notices and has no place in the browser.
+ * The pages the menu leaves out: the generated legal pages, which the footer
+ * carries, the "not found" page, which is what a missing address shows, and
+ * blog posts, which the posts block lists.
+ * The legal test is `isLegalKind`'s, written out here because the module that
+ * holds it builds the notices and has no place in the browser.
  */
-const isLegalPage = (p: { legalKind?: string | null }) => p.legalKind === "impressum" || p.legalKind === "datenschutz";
+const leftOutOfMenu = (p: { legalKind?: string | null; isNotFound?: boolean; isPost?: boolean }) =>
+  p.legalKind === "impressum" || p.legalKind === "datenschutz" || p.isNotFound === true || p.isPost === true;
 
 type Tab = "general" | "theme" | "layout" | "menu" | "footer" | "seo" | "advanced";
 
@@ -120,6 +123,8 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
               isHome: p.isHome,
               published: p.published,
               legalKind: p.legalKind,
+              isNotFound: p.isNotFound,
+              isPost: p.isPost,
             })),
           );
           setFooterHtml(s.footerHtml ?? "");
@@ -329,9 +334,9 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
               )}
               {tab === "menu" && (
                 <MenuEditor
-                  menu={menu ?? editableMenu(storedMenu, menuPages.filter((p) => !isLegalPage(p)))}
+                  menu={menu ?? editableMenu(storedMenu, menuPages.filter((p) => !leftOutOfMenu(p)))}
                   onChange={setMenu}
-                  pages={menuPages.filter((p) => !isLegalPage(p))}
+                  pages={menuPages.filter((p) => !leftOutOfMenu(p))}
                   siteSlug={site.slug}
                 />
               )}

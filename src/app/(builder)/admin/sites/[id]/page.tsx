@@ -4,12 +4,15 @@ import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { NewPageButton } from "@/components/admin/NewPageButton";
+import { NewPostButton } from "@/components/admin/NewPostButton";
 import { SiteSettings } from "@/components/admin/SiteSettings";
 import { DeletePageButton } from "@/components/admin/DeletePageButton";
 import { DuplicatePageButton } from "@/components/admin/DuplicatePageButton";
 import { MovePageButton } from "@/components/admin/MovePageButton";
 import { SubmissionsViewer } from "@/components/admin/SubmissionsViewer";
 import { DownloadSiteButton } from "@/components/admin/DownloadSiteButton";
+import { DuplicateSiteButton } from "@/components/admin/DuplicateSiteButton";
+import { SaveAsTemplateButton } from "@/components/admin/SaveAsTemplateButton";
 import { LegalFlow } from "@/components/admin/LegalFlow";
 import { isLegalKind } from "@/lib/legal/pages";
 import { safeAccent } from "@/lib/site-fields";
@@ -24,7 +27,12 @@ export default async function SiteAdmin(props: { params: Promise<{ id: string }>
   });
   if (!site) notFound();
 
-  const pages = site.pages;
+  // Posts get a list of their own below, newest first, so the pages stay a
+  // short list of what the site is made of.
+  const pages = site.pages.filter((p) => !p.isPost);
+  const posts = site.pages
+    .filter((p) => p.isPost)
+    .sort((a, b) => (b.postDate ?? b.createdAt).getTime() - (a.postDate ?? a.createdAt).getTime());
 
   return (
     <div className="min-h-screen">
@@ -42,7 +50,9 @@ export default async function SiteAdmin(props: { params: Promise<{ id: string }>
           <div className="flex items-center gap-2">
             <SiteSettings site={{ id: site.id, name: site.name, slug: site.slug, description: site.description, accent: site.accent }} />
             <LegalFlow siteId={site.id} siteSlug={site.slug} />
-            <DownloadSiteButton siteId={site.id} disabled={!pages.some((p) => p.published)} />
+            <DownloadSiteButton siteId={site.id} disabled={!site.pages.some((p) => p.published)} />
+            <DuplicateSiteButton siteId={site.id} />
+            <SaveAsTemplateButton siteId={site.id} defaultName={site.name} label="Save as template" />
             {pages.find((p) => p.isHome && p.published) ? (
               <Link href={`/sites/${site.slug}`} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline">View site ↗</Button>
@@ -99,6 +109,14 @@ export default async function SiteAdmin(props: { params: Promise<{ id: string }>
                           details behind it change, which is worth saying before
                           somebody spends an afternoon on it.
                         */}
+                        {p.isNotFound ? (
+                          <span
+                            title="Shown when an address on the site finds nothing, and downloaded as 404.html."
+                            className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-bg-soft text-fg-subtle border border-bg-border"
+                          >
+                            404
+                          </span>
+                        ) : null}
                         {isLegalKind(p.legalKind) ? (
                           <span
                             title="Generated from your legal details. Running the flow again rewrites it; the old version is kept in this page's history."
@@ -142,6 +160,54 @@ export default async function SiteAdmin(props: { params: Promise<{ id: string }>
             </tbody>
           </table>
         </Card>
+
+        <div className="mt-10">
+          <div className="flex items-end justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold">Posts</h2>
+              <p className="text-fg-muted text-sm mt-1">
+                Listed newest first by any page with a Blog posts block, and in the site&apos;s feed.
+              </p>
+            </div>
+            <NewPostButton siteId={site.id} />
+          </div>
+          <Card>
+            {posts.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-fg-muted">
+                No posts yet. A post is a page with a date, an author, a cover and tags.
+              </p>
+            ) : (
+              <table className="w-full text-sm" aria-label="Posts">
+                <tbody>
+                  {posts.map((p) => (
+                    <tr key={p.id} className="border-b border-bg-border last:border-0">
+                      <td className="px-4 py-3 font-medium">{p.title}</td>
+                      <td className="px-3 py-3 text-fg-muted">{(p.postDate ?? p.createdAt).toISOString().slice(0, 10)}</td>
+                      <td className="px-3 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${p.published ? "bg-emerald-500/15 text-emerald-300" : "bg-bg-soft text-fg-muted"}`}>
+                          {p.published ? "Published" : "Draft"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          <Link href={`/admin/sites/${site.id}/pages/${p.id}`}>
+                            <Button size="sm" variant="outline">Edit</Button>
+                          </Link>
+                          {p.published ? (
+                            <Link href={`/sites/${site.slug}/${p.slug}`} target="_blank" rel="noopener noreferrer">
+                              <Button size="sm" variant="ghost">View</Button>
+                            </Link>
+                          ) : null}
+                          <DeletePageButton pageId={p.id} pageTitle={p.title} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Card>
+        </div>
 
         <div className="mt-10">
           <div className="flex items-center gap-4 mb-4">

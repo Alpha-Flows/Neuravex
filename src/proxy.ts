@@ -164,6 +164,10 @@ export function proxy(req: NextRequest) {
   const headers = new Headers(req.headers);
   headers.set("x-nonce", nonce);
   headers.set("Content-Security-Policy", csp);
+  // The path, for the published 404 boundary, which is given no route params
+  // and has to know which site's "not found" page to draw. Set here, over
+  // anything a request arrived with, so it is always this request's own.
+  headers.set("x-nvx-path", req.nextUrl.pathname);
 
   const res = NextResponse.next({ request: { headers } });
   res.headers.set("Content-Security-Policy", csp);

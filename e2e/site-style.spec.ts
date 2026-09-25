@@ -70,8 +70,8 @@ test.describe("The site palette", () => {
     await page.getByRole("button", { name: "Take away site colour 1" }).click();
     await page.getByRole("button", { name: "Add colour 3" }).click();
     await page.getByLabel("Site colour 3, as hex").fill("#123456");
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
 
     const stored = await (await request.get(`/api/sites/${site.id}`)).json();
     expect(JSON.parse(stored.palette)).toEqual(["", "#f59e0b", "#123456"]);
@@ -86,8 +86,8 @@ test.describe("The site's text sizes", () => {
     await openSettings(page, site.id, "Theme");
     await page.getByLabel("Heading 1", { exact: true }).fill("40");
     await page.getByLabel("Body text", { exact: true }).fill("20");
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
 
     await page.goto(`/sites/${site.slug}`);
     expect(await css(page.getByRole("heading", { name: "Top heading" }), "fontSize")).toBe("40px");

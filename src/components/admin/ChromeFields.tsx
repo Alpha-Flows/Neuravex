@@ -18,6 +18,10 @@ export interface ChromePage {
   isHome: boolean;
   published: boolean;
   legalKind?: string | null;
+  /** The site's "not found" page, which the menu leaves out. */
+  isNotFound?: boolean;
+  /** A blog post, which the menu leaves out too. */
+  isPost?: boolean;
 }
 
 // ---------------------------------------------------------------------------

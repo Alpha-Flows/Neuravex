@@ -23,7 +23,8 @@ export type BlockType =
   | "table"
   | "pricing"
   | "map"
-  | "code";
+  | "code"
+  | "posts";
 
 export interface BaseBlock {
   id: string;
@@ -55,6 +56,12 @@ export interface BaseBlock {
    * alone — see `src/lib/block-motion.ts`. Absent means it is simply there.
    */
   motion?: "fade" | "rise" | "left" | "right" | "zoom";
+  /**
+   * The saved block this is a copy of, when that block is kept in sync on
+   * every page — see `src/lib/synced-blocks.ts`. Only on the copy's
+   * outermost block.
+   */
+  synced?: string;
 }
 
 /**
@@ -412,6 +419,23 @@ export interface MapProps {
   googleLink: boolean;
   /** The words on that link; empty reads as "Open in Google Maps". */
   googleLabel: string;
+}
+
+/**
+ * A list of the site's blog posts, newest first — see `src/lib/posts.ts`.
+ * The posts themselves are not stored here: they are read from the site's
+ * pages each time the page is drawn, so a new post appears without anyone
+ * opening this block.
+ */
+export interface PostsProps {
+  /** How many to show. */
+  count: number;
+  layout: "list" | "grid";
+  /** Only posts with this tag; empty for every post. */
+  tag: string;
+  showCover: boolean;
+  showExcerpt: boolean;
+  showDate: boolean;
 }
 
 export interface CodeProps {

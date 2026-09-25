@@ -18,7 +18,9 @@ export async function GET(req: NextRequest, props: { params: Promise<{ siteSlug:
     where: { slug: params.siteSlug },
     include: {
       pages: {
-        where: { published: true },
+        // The "not found" page is what a missing address shows, not a page
+        // of the site to be indexed on its own.
+        where: { published: true, isNotFound: false },
         orderBy: [{ isHome: "desc" }, { sortOrder: "asc" }],
         select: { slug: true, isHome: true, updatedAt: true },
       },

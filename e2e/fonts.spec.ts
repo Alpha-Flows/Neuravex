@@ -52,8 +52,8 @@ test.describe("The site's fonts", () => {
     await openTheme(page, site.id);
     await pick(page, "Body font", "Lora");
     await pick(page, "Heading font", "Oswald");
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
 
     // A browser of its own, as a visitor's is: the settings page has already
     // loaded every font to show it, and this one must fetch what it uses.
@@ -99,8 +99,8 @@ test.describe("The site's fonts", () => {
     await page.getByRole("button", { name: "Add font" }).click();
     await expect(page.getByRole("button", { name: "Take away House Grotesk Bold" })).toBeVisible();
     await pick(page, "Heading font", "House Grotesk");
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
 
     const saved = await (await request.get(`/api/sites/${site.id}`)).json();
     const fonts = JSON.parse(saved.fonts);

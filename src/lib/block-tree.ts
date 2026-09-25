@@ -16,6 +16,7 @@ import { cssColor, cssLength } from "./css-value";
 import { normalizeLayer } from "./block-layer";
 import { normalizeBox } from "./block-box";
 import { normalizeMotion } from "./block-motion";
+import { normalizeSyncedId } from "./synced-blocks";
 import { cleanAnchor } from "./anchors";
 import { normalizeAngle } from "./block-style";
 import { resolveIconName } from "./icon-names";
@@ -626,6 +627,17 @@ const PROPS: Record<string, z.ZodType> = {
     wrap: flag(false),
     lineNumbers: flag(false),
   }),
+
+  // The posts are read from the site's pages at render, never stored here:
+  // only how many, how laid out, and which tag.
+  posts: z.object({
+    count: z.coerce.number().int().min(1).max(24).catch(6),
+    layout: z.enum(["grid", "list"]).catch("grid"),
+    tag: z.unknown().optional().transform((v) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, 40) : "")),
+    showCover: flag(true),
+    showExcerpt: flag(true),
+    showDate: flag(true),
+  }),
 };
 
 export const BLOCK_TYPES = Object.keys(PROPS);
@@ -759,6 +771,8 @@ function normalizeNode(node: unknown, depth: number, budget: Budget): BaseBlock 
   if (box) out.box = box;
   const motion = normalizeMotion(raw.motion);
   if (motion) out.motion = motion;
+  const synced = normalizeSyncedId(raw.synced);
+  if (synced) out.synced = synced;
 
   budget.bytes += JSON.stringify(out.props).length + out.type.length + out.id.length;
   return out;

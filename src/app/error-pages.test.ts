@@ -102,10 +102,14 @@ describe("what the boundaries say", () => {
     expect(read("src", "components", "ui", "Fallback.tsx")).toContain("public-canvas");
   });
 
-  it("does not read the database to draw a visitor's 404", () => {
+  it("reads the site's own 404 page only inside a try, and falls back to the plain message", () => {
     // `not-found.tsx` gets no route params, and the read may be the very
-    // thing that failed.
+    // thing that failed. It reads the site's designed "not found" page now,
+    // so the read is guarded, and any failure draws the plain message.
     expect(publishedNotFound).not.toContain("prisma");
+    const guarded = publishedNotFound.slice(publishedNotFound.indexOf("async function sitesOwnNotFoundPage"));
+    expect(guarded).toMatch(/\{\s*try \{[\s\S]*loadPublishedSite[\s\S]*\} catch \{\s*return null;/);
+    expect(publishedNotFound).toContain('<Fallback title="Page not found" tone="light">');
   });
 });
 

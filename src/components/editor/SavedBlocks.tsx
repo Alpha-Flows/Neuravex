@@ -11,6 +11,8 @@ export interface SavedBlockRow {
   name: string;
   type: string;
   content: string;
+  /** Kept the same on every page it is placed on; see `lib/synced-blocks.ts`. */
+  synced?: boolean;
 }
 
 interface Props {
@@ -53,8 +55,10 @@ export function SavedBlocks({ refreshKey, onInsert }: Props) {
     }
     const checked = normalizeBlockTree([stored]);
     if (!checked.ok || checked.tree.length === 0) return;
-    // Fresh ids: the same saved block may already be on this page.
-    onInsert(withFreshIds(cloneTree(checked.tree[0])));
+    // Fresh ids: the same saved block may already be on this page. A synced
+    // one is marked as a copy of it, which is what keeps it in step.
+    const block = withFreshIds(cloneTree(checked.tree[0]));
+    onInsert(row.synced ? { ...block, synced: row.id } : block);
   }
 
   async function forget(row: SavedBlockRow) {
@@ -100,6 +104,11 @@ export function SavedBlocks({ refreshKey, onInsert }: Props) {
                 {getBlockDefinition(row.type as never)?.icon ?? "▫"}
               </span>
               <span className="text-[12px] text-fg truncate">{row.name}</span>
+              {row.synced ? (
+                <span title="Synced: the same on every page it is on" className="text-[10px] text-brand shrink-0">
+                  ⟳ synced
+                </span>
+              ) : null}
             </button>
             <button
               onClick={() => forget(row)}
