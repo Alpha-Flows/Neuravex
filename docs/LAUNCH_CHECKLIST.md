@@ -182,7 +182,7 @@ The state column says what the repository does today; the security review holds 
 - ☐ **Nice** — `docs/PRODUCT_REVIEW.md` moves under `docs/internal/` or gets a banner saying every P0 and P1 in it is resolved; `docs/README.md` indexes the user guide. *Today:* neither.
 - ☐ **Nice** — Issue and PR templates (OS, Node version, how the app was started, port, the `[neuravex]` log lines) and a `CODE_OF_CONDUCT.md`. *Today:* `.github/` holds only `dependabot.yml` and `workflows/ci.yml`.
 - ☐ **Nice** — A FAQ: where are my sites, why no login, how do I put the site online, forms on a static host, custom domains. *Today:* none.
-- ☑ **Nice** — Feature counts in README are right: 13 block types, 28 templates (11 multi-page), 74 bundled photographs. Verified.
+- ☑ **Nice** — Feature counts in README are right: 23 block types, 28 templates (11 multi-page), 74 bundled photographs. Verified.
 - ☑ **Nice** — README's "Using the editor" and URL scheme match the UI; `.env.example` is accurate. Verified.
 
 ---
@@ -195,7 +195,7 @@ The state column says what the repository does today; the security review holds 
 - ☐ **Should** — The licence is declared consistently and the owner is named. *Today:* Partly: `LICENSE:189` names Alpha Flows and `package.json:5` declares Apache-2.0. README still has no licence section.
 - ☑ **Should** — The runtime dependency inventory is right. *Today:* done — `tailwindcss` (`package.json:43`) and `autoprefixer` (`:33`) are runtime dependencies, so `npm ci --omit=dev` no longer breaks downloads.
 - ☐ **Should** — Someone has read the Unsplash Licence's "no competing service" clause against shipping 74 Unsplash photographs as a searchable, categorised picker, and recorded the conclusion in `public/stock/README.md`. *Today:* attribution and provenance are complete; the clause is unexamined.
-- ☐ **Should** — Embeds use privacy-preserving variants where they exist (`youtube-nocookie.com`, Vimeo `dnt=1`), or README says embeds contact third parties and a consent facade is the operator's job. *Today:* Partly: `youtube-nocookie.com` is in the allowlist (`src/lib/embed-hosts.ts:24`). Nothing rewrites a pasted URL to it, and README says nothing.
+- ☐ **Should** — Embeds use privacy-preserving variants where they exist (`youtube-nocookie.com`, Vimeo `dnt=1`), or README says embeds contact third parties and a consent facade is the operator's job. *Today:* Partly: the Video block turns a pasted YouTube or Vimeo link into the `youtube-nocookie.com` or `dnt=1` player (`src/lib/video-embed.ts:227`), the privacy audit names that host, and the Datenschutzerklärung names the provider (`src/lib/legal/datenschutz.ts:357`); README says so. An iframe written into a Custom HTML block is still kept as pasted, and there is no consent facade — the download carries no script to make one.
 - ☑ **Should** — Operators can answer a DSGVO subject request for form data: full listing, CSV export and deletion all exist (see §4).
 - ☐ **Should** — README states the legal feature is German-law only, is not legal advice, and produces German text. *Today:* `README.md:28` describes the feature without any of the three.
 - ☐ **Nice** — Generated legal pages carry a "Stand: <Monat Jahr>" line. *Today:* no "Stand:" line anywhere in `src/lib/legal/*.ts`.

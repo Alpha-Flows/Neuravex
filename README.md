@@ -9,7 +9,10 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 22 or
 - **Visual editor** with live preview of your changes
 - **Drag & drop** blocks from the palette onto the page, or reorder existing blocks
 - **Inline text editing** — click any text on the page to edit it directly
-- **13 block types** out of the box: Heading, Text, Image, Button, Video, Quote, List, Divider, Spacer, Section, Columns, Form, and Custom HTML
+- **23 block types** out of the box: Heading, Text, Image, Button, Video, Quote, List, Divider, Spacer, Section, Columns, Form, Custom HTML, Gallery, Slider, Audio, Map, Accordion, Icon, Social links, Table, Pricing, and Code
+- **Blocks that work without a script** — a gallery whose pictures open large, a slider with arrows and dots, and questions that open one at a time are plain HTML and CSS, so they work the same in the downloaded site, which carries no JavaScript
+- **YouTube and Vimeo** — paste a link into a Video block and it plays from `youtube-nocookie.com`, or from Vimeo with "do not track" set; the privacy notice names whichever one the site uses
+- **Maps that ask nothing of anyone** — a Map block draws a card with a link to OpenStreetMap by default, and embeds a live map only if you choose to
 - **Container blocks** (Section, Columns) with their own drag-and-droppable child lists
 - **Responsive columns** — published pages stack columns on phones and halve 3/4-column
   layouts on tablets, and each block stays in the column you put it in
@@ -226,6 +229,14 @@ Neuravex has no sign-in and no access control — it's meant to run locally on y
 - Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) are set on all responses
 
 ## Known limitations (V1)
+
+- A downloaded site carries no JavaScript, so the gallery's lightbox and the slider move by
+  following links: each picture opened and each slide shown is an entry in the browser's
+  history, Escape does not close a picture, and the gallery cannot trap focus in an open
+  picture beyond hiding the page behind it.
+- A Map block cannot look an address up — Neuravex makes no network calls of its own — so a
+  map is placed by pasting a map link or coordinates, and a shortened link such as
+  `maps.app.goo.gl` cannot be read.
 
 - No custom domains — sites served by the builder live under `/sites/:slug`. Use **Download files** to put a site on a host of your own.
 - Page history keeps the newest 50 revisions per page; older ones are dropped.
