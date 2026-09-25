@@ -14,8 +14,10 @@ import { DownloadSiteButton } from "@/components/admin/DownloadSiteButton";
 import { DuplicateSiteButton } from "@/components/admin/DuplicateSiteButton";
 import { SaveAsTemplateButton } from "@/components/admin/SaveAsTemplateButton";
 import { LegalFlow } from "@/components/admin/LegalFlow";
+import { PrepublishCheck } from "@/components/admin/PrepublishCheck";
 import { isLegalKind } from "@/lib/legal/pages";
 import { safeAccent } from "@/lib/site-fields";
+import { builderLanguageName, pageLanguage, siteLanguages } from "@/lib/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +35,19 @@ export default async function SiteAdmin(props: { params: Promise<{ id: string }>
   const posts = site.pages
     .filter((p) => p.isPost)
     .sort((a, b) => (b.postDate ?? b.createdAt).getTime() - (a.postDate ?? a.createdAt).getTime());
+  // A site in one language has nothing to tell apart; one in several shows
+  // each page's language beside its title, since a page and its translation
+  // are often called the same until someone gets round to the title.
+  const multilingual = siteLanguages(site.pages, site.language).length > 1;
+  const languageBadge = (p: { language: string | null }) =>
+    multilingual ? (
+      <span
+        title={builderLanguageName(pageLanguage(p, site.language))}
+        className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-bg-soft text-fg-subtle border border-bg-border"
+      >
+        {pageLanguage(p, site.language)}
+      </span>
+    ) : null;
 
   return (
     <div className="min-h-screen">
@@ -50,6 +65,7 @@ export default async function SiteAdmin(props: { params: Promise<{ id: string }>
           <div className="flex items-center gap-2">
             <SiteSettings site={{ id: site.id, name: site.name, slug: site.slug, description: site.description, accent: site.accent }} />
             <LegalFlow siteId={site.id} siteSlug={site.slug} />
+            <PrepublishCheck siteId={site.id} />
             <DownloadSiteButton siteId={site.id} disabled={!site.pages.some((p) => p.published)} />
             <DuplicateSiteButton siteId={site.id} />
             <SaveAsTemplateButton siteId={site.id} defaultName={site.name} label="Save as template" />
@@ -103,6 +119,7 @@ export default async function SiteAdmin(props: { params: Promise<{ id: string }>
                       <div className="flex items-center gap-2">
                         {p.isHome ? <span title="Home page" className="text-amber-400">★</span> : null}
                         {p.title}
+                        {languageBadge(p)}
                         {/*
                           A generated legal page. It is an ordinary page and can
                           be edited like one, but it is rewritten whenever the
@@ -181,7 +198,12 @@ export default async function SiteAdmin(props: { params: Promise<{ id: string }>
                 <tbody>
                   {posts.map((p) => (
                     <tr key={p.id} className="border-b border-bg-border last:border-0">
-                      <td className="px-4 py-3 font-medium">{p.title}</td>
+                      <td className="px-4 py-3 font-medium">
+                        <span className="inline-flex items-center gap-2">
+                          {p.title}
+                          {languageBadge(p)}
+                        </span>
+                      </td>
                       <td className="px-3 py-3 text-fg-muted">{(p.postDate ?? p.createdAt).toISOString().slice(0, 10)}</td>
                       <td className="px-3 py-3">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${p.published ? "bg-emerald-500/15 text-emerald-300" : "bg-bg-soft text-fg-muted"}`}>

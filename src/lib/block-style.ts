@@ -5,6 +5,7 @@
  * with an optional tint over it for legibility — so they build it here rather
  * than each growing their own copy that drifts.
  */
+import { cleanFocus } from "./focus-point";
 import type { CSSProperties } from "react";
 import type { BackgroundGradient } from "@/types";
 import { parseHex, readableTextFor, readableTextOn } from "./site-theme";
@@ -33,6 +34,8 @@ export interface BackgroundLayer {
   backgroundImage?: string;
   /** rgba() tint layered over the image so text stays readable. */
   backgroundOverlay?: string;
+  /** What of the image stays in view as the box crops it; see `focus-point`. */
+  backgroundFocus?: string;
 }
 
 /** The directions offered for a gradient, as the angle CSS reads. */
@@ -121,7 +124,9 @@ export function backgroundStyle(layer: BackgroundLayer | undefined): CSSProperti
     return {
       backgroundImage: overlay ? `linear-gradient(${overlay}, ${overlay}), ${image}` : image,
       backgroundSize: "cover",
-      backgroundPosition: "center",
+      // The point the author chose stays in view as the window reshapes the
+      // box; without one the crop falls around the middle, as it always did.
+      backgroundPosition: cleanFocus(layer.backgroundFocus) ?? "center",
     };
   }
   const gradient = gradientCss(layer.backgroundGradient);

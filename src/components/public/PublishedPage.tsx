@@ -10,6 +10,9 @@ import { normalizeBlockTree } from "@/lib/block-tree";
 import { postItems } from "@/lib/posts";
 import { SitePostsProvider } from "@/components/blocks/site-posts";
 import { PostHeader } from "@/components/public/PostHeader";
+import { homeFor, languageSwitch, pageLanguage, sameLanguage } from "@/lib/translations";
+import { srcSetsFor } from "@/lib/image-variants";
+import { ImageVariantsProvider } from "@/components/blocks/image-variants";
 
 /**
  * A published page, drawn: the site's branding, its header, the page's
@@ -77,6 +80,8 @@ export async function loadPublishedSite(slug: string) {
           coverImage: true,
           tags: true,
           createdAt: true,
+          language: true,
+          translationGroup: true,
         },
       },
     },
@@ -86,7 +91,7 @@ export async function loadPublishedSite(slug: string) {
 export type PublishedSite = NonNullable<Awaited<ReturnType<typeof loadPublishedSite>>>;
 export type PublishedPageRow = PublishedSite["pages"][number];
 
-export function PublishedPageView({
+export async function PublishedPageView({
   site,
   page,
   nonce,
@@ -110,9 +115,31 @@ export function PublishedPageView({
   // feed, and a menu with every post in it is not a menu.
   const navPages = site.pages
     .filter((p) => !isLegalKind(p.legalKind) && !p.isNotFound && !p.isPost)
-    .map((p) => ({ id: p.id, slug: p.slug, title: p.title, isHome: p.isHome }));
-  // Small objects again, and only the published posts, for the posts blocks.
-  const posts = postItems(site.pages, site.slug);
+    .map((p) => ({ id: p.id, slug: p.slug, title: p.title, isHome: p.isHome, language: p.language, translationGroup: p.translationGroup }));
+  // The page's own language, and the ways to it in the site's others. Posts
+  // have translations as much as pages do, so the switcher is offered from
+  // every page a reader chooses a language on: not the legal pages, and not
+  // the "not found" page.
+  const language = pageLanguage(page, site.language);
+  const switchable = site.pages
+    .filter((p) => !isLegalKind(p.legalKind) && !p.isNotFound)
+    .map((p) => ({ id: p.id, slug: p.slug, title: p.title, isHome: p.isHome, language: p.language, translationGroup: p.translationGroup }));
+  const links = languageSwitch(page, switchable, site.language, site.slug);
+  const home = links.length ? homeFor(language, navPages, site.language) : undefined;
+  const languages = links.length
+    ? {
+        code: language,
+        siteLanguage: site.language,
+        links,
+        homeHref: home ? (home.isHome ? `/sites/${site.slug}` : `/sites/${site.slug}/${home.slug}`) : undefined,
+      }
+    : undefined;
+  // Small objects again, and only the published posts in this page's
+  // language, for the posts blocks: a German blog page lists German posts.
+  const posts = postItems(
+    site.pages.filter((p) => sameLanguage(pageLanguage(p, site.language), language)),
+    site.slug,
+  );
   const post = page.isPost ? posts.find((p) => p.id === page.id) : undefined;
 
   const chrome = {
@@ -134,6 +161,10 @@ export function PublishedPageView({
   const checked = normalizeBlockTree(page.content || "[]");
   const blocks: BaseBlock[] = checked.ok ? checked.tree : [];
 
+  // The smaller copies of the pictures on this page and the covers its posts
+  // blocks show, so a phone is sent a picture the size of a phone.
+  const srcSets = await srcSetsFor([JSON.stringify(blocks), ...posts.map((p) => p.coverImage)]);
+
   return (
     <>
       {/* The site's branding, which every block without a colour of its own
@@ -145,13 +176,19 @@ export function PublishedPageView({
       {/* A fixed header leaves the flow, so without this the first block on
           every page starts underneath it and its top is unreadable. The pill
           shape floats on a 1rem margin, so it needs that much more. */}
-      <div className="public-canvas" style={site.headerPosition === "fixed" ? { paddingTop: headerOffset(site) } : undefined}>
-        <SiteHeader site={chrome} pages={navPages} activeSlug={page.slug} />
+      <div
+        className="public-canvas"
+        lang={language}
+        style={site.headerPosition === "fixed" ? { paddingTop: headerOffset(site) } : undefined}
+      >
+        <SiteHeader site={chrome} pages={navPages} activeSlug={page.slug} languages={languages} />
         <main>
-          <SitePostsProvider posts={posts} language={site.language}>
-            {post ? <PostHeader post={post} language={site.language} /> : null}
-            <PublicBlocks blocks={blocks} pageId={page.id} />
-          </SitePostsProvider>
+          <ImageVariantsProvider value={srcSets}>
+            <SitePostsProvider posts={posts} language={language}>
+              {post ? <PostHeader post={post} language={language} coverSrcSet={post.coverImage ? srcSets[post.coverImage] : undefined} /> : null}
+              <PublicBlocks blocks={blocks} pageId={page.id} />
+            </SitePostsProvider>
+          </ImageVariantsProvider>
         </main>
         <SiteFooter site={{ name: chrome.name, slug: chrome.slug, footerHtml: chrome.footerHtml, footer: site.footer }} legal={legal} />
       </div>

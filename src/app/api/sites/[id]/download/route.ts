@@ -5,12 +5,13 @@ import { existingUploadPath } from "@/lib/uploads";
 import { prisma } from "@/lib/prisma";
 import { zipStream, MAX_ZIP_BYTES, type ZipEntry, type ZipFileEntry } from "@/lib/zip";
 import { buildExportCss } from "@/lib/export-css";
-import { pageFileName, prepareExportedPage } from "@/lib/static-export";
+import { forwardingPage, pageFileName, prepareExportedPage } from "@/lib/static-export";
 import { robotsTxt } from "@/lib/seo";
 import { internalOrigin, publicOrigin } from "@/lib/self-origin";
 import { BUNDLED_FONTS } from "@/lib/fonts";
 import { postItems } from "@/lib/posts";
 import { atomFeed } from "@/lib/feed";
+import { pageLanguage } from "@/lib/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -136,6 +137,29 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
     entries.push({ path: pageFiles.get(page.slug)!, data: Buffer.from(html, "utf8") });
   }
 
+  // A page renamed after it was published leaves a forwarding page at its
+  // old file name, for the links to it that the rename could not reach. Only
+  // where the old name is free: a page that has since taken the address is
+  // the one a visitor should find there.
+  const forwards: string[] = [];
+  const formerAddresses = await prisma.pageRedirect.findMany({
+    where: { siteId: site.id },
+    orderBy: { createdAt: "desc" },
+    select: { fromSlug: true, pageId: true },
+  });
+  for (const former of formerAddresses) {
+    const target = site.pages.find((p) => p.id === former.pageId);
+    const to = target ? pageFiles.get(target.slug) : undefined;
+    if (!target || !to) continue;
+    const name = pageFileName(former.fromSlug, false);
+    if (taken.has(name)) continue;
+    taken.add(name);
+    forwards.push(name);
+    // In the language of the page it sends a visitor to, as that page is.
+    const html = forwardingPage({ to, title: target.title, language: pageLanguage(target, site.language || "en") });
+    entries.push({ path: name, data: Buffer.from(html, "utf8") });
+  }
+
   // A bundled font goes out with its licence. The SIL Open Font License lets
   // anyone copy the files onto their own site on the one condition that the
   // licence travels with them, and a download is exactly such a copy.
@@ -190,7 +214,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   entries.push({ path: "robots.txt", data: Buffer.from(robotsTxt(true), "utf8") });
   entries.push({
     path: "README.txt",
-    data: Buffer.from(readme(site.name, [...pageFiles.values()], missingAssets, posts.length > 0), "utf8"),
+    data: Buffer.from(readme(site.name, [...pageFiles.values()], missingAssets, posts.length > 0, forwards), "utf8"),
   });
 
   const zip = zipStream(entries);
@@ -213,7 +237,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   });
 }
 
-function readme(siteName: string, files: string[], missingAssets: string[], hasFeed = false): string {
+function readme(siteName: string, files: string[], missingAssets: string[], hasFeed = false, forwards: string[] = []): string {
   const lines = [
     `${siteName}`,
     `Exported from Neuravex on ${new Date().toISOString().slice(0, 10)}`,
@@ -230,6 +254,7 @@ function readme(siteName: string, files: string[], missingAssets: string[], hasF
     ...(files.includes(NOT_FOUND_FILE)
       ? ["  404.html           what a visitor sees at an address that finds nothing;", "                     most hosts pick it up by its name"]
       : []),
+    ...forwards.map((f) => `  ${f.padEnd(18)} a page's old address, forwarding to where it is now`),
     "",
     "PUTTING IT ONLINE",
     "",

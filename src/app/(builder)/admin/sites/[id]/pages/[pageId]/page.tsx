@@ -9,15 +9,22 @@ import { postDateInput, postItems } from "@/lib/posts";
 import { isLegalKind } from "@/lib/legal/pages";
 import { headers } from "next/headers";
 import { safeAccent } from "@/lib/site-fields";
+import { formerSlugs } from "@/lib/page-rename";
+import { findBlock } from "@/lib/tree-utils";
+import { homeFor, languageSwitch, pageLanguage, sameLanguage } from "@/lib/translations";
+import { translationState } from "@/lib/translations-store";
 
 export const dynamic = "force-dynamic";
 
 export default async function PageEditorRoute(
   props: {
     params: Promise<{ id: string; pageId: string }>;
+    searchParams: Promise<{ block?: string | string[] }>;
   }
 ) {
   const params = await props.params;
+  // The block the check before publishing sent somebody here to fix.
+  const wanted = (await props.searchParams).block;
   const page = await prisma.page.findUnique({ where: { id: params.pageId } });
   const site = await prisma.site.findUnique({
     where: { id: params.id },
@@ -41,6 +48,8 @@ export default async function PageEditorRoute(
           coverImage: true,
           tags: true,
           createdAt: true,
+          language: true,
+          translationGroup: true,
         },
       },
     },
@@ -74,6 +83,24 @@ export default async function PageEditorRoute(
   // only when it is not a block list at all.
   const checked = normalizeBlockTree(page.content || "[]");
   const blocks: BaseBlock[] = checked.ok ? checked.tree : [];
+
+  // The language the page is in, and the header's switcher as a visitor will
+  // meet it: drawn from the published pages, with this one among them even
+  // while it is a draft, since it is the page on the canvas.
+  const language = pageLanguage(page, site.language);
+  const reachable = site.pages
+    .filter((p) => !isLegalKind(p.legalKind) && !p.isNotFound)
+    .map(({ id, slug, title, isHome, language, translationGroup }) => ({ id, slug, title, isHome, language, translationGroup }));
+  const switchLinks = languageSwitch(
+    { id: page.id, slug: page.slug, title: page.title, isHome: page.isHome, language: page.language, translationGroup: page.translationGroup },
+    reachable,
+    site.language,
+    site.slug,
+  );
+  const navPages = site.pages
+    .filter((p) => !isLegalKind(p.legalKind) && !p.isNotFound && !p.isPost)
+    .map(({ id, slug, title, isHome, language, translationGroup }) => ({ id, slug, title, isHome, language, translationGroup }));
+  const languageHome = switchLinks.length ? homeFor(language, navPages, site.language) : undefined;
 
   return (
     <PageEditor
@@ -109,13 +136,19 @@ export default async function PageEditorRoute(
         // rather than in the nav, and the canvas has to show that or it is
         // showing a header nobody gets.
         // And the "not found" page and the posts are in neither.
-        pages: site.pages
-          .filter((p) => !isLegalKind(p.legalKind) && !p.isNotFound && !p.isPost)
-          .map(({ id, slug, title, isHome }) => ({ id, slug, title, isHome })),
-        // The published posts, for the posts blocks on the canvas, and the
-        // language their dates are written in.
-        posts: postItems(site.pages, site.slug),
-        language: site.language,
+        pages: navPages,
+        languages: switchLinks.length
+          ? {
+              code: language,
+              siteLanguage: site.language,
+              links: switchLinks,
+              homeHref: languageHome ? (languageHome.isHome ? `/sites/${site.slug}` : `/sites/${site.slug}/${languageHome.slug}`) : undefined,
+            }
+          : undefined,
+        // The published posts in the page's language, for the posts blocks
+        // on the canvas, and the language their dates are written in.
+        posts: postItems(site.pages.filter((p) => sameLanguage(pageLanguage(p, site.language), language)), site.slug),
+        language,
         legal: site.pages
           .filter((p) => isLegalKind(p.legalKind))
           .map((p) => ({ slug: p.slug, title: p.title })),
@@ -135,6 +168,7 @@ export default async function PageEditorRoute(
         isHome: page.isHome,
         published: page.published,
         details: {
+          language: page.language ?? "",
           isNotFound: page.isNotFound,
           isPost: page.isPost,
           postDate: postDateInput(page.postDate),
@@ -147,6 +181,9 @@ export default async function PageEditorRoute(
         metaDescription: page.metaDescription ?? "",
         ogImage: page.ogImage ?? "",
         blocks,
+        formerSlugs: await formerSlugs(page.id),
+        selectedId: typeof wanted === "string" && findBlock(blocks, wanted) ? wanted : null,
+        translations: await translationState(page.id),
       }}
     />
   );

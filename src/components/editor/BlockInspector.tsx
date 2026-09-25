@@ -7,7 +7,8 @@ import { Input, Label, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { getBlockDefinition } from "@/lib/blocks";
 import type { LinkTarget } from "@/lib/page-links";
-import { BackgroundFill, BackgroundImageField, ColorInput, Field, LinkField, OVERLAY_PRESETS, SegBtns, Select, Toggle } from "./inspector-fields";
+import { BackgroundFill, BackgroundImageField, ColorInput, Field, FocusPicker, LinkField, OVERLAY_PRESETS, SegBtns, Select, Toggle } from "./inspector-fields";
+import { IMAGE_SHAPES } from "@/lib/focus-point";
 import { GalleryPanel } from "./inspectors/GalleryPanel";
 import { AccordionPanel } from "./inspectors/AccordionPanel";
 import { SliderPanel } from "./inspectors/SliderPanel";
@@ -534,6 +535,18 @@ function InspectorBody({
               { value: "full", label: "Pill" },
             ]} />
           </Field>
+          <Field label="Shape">
+            <Select
+              value={p.shape ?? "original"}
+              onChange={(v) => set("shape", v === "original" ? undefined : v)}
+              options={IMAGE_SHAPES.map((shape) => ({ value: shape.value, label: shape.label }))}
+            />
+          </Field>
+          {p.src && p.shape && p.shape !== "original" ? (
+            <Field label="Keep in view">
+              <FocusPicker src={p.src} value={p.focus} onChange={(v) => set("focus", v)} />
+            </Field>
+          ) : null}
         </>
       );
     }
@@ -592,6 +605,11 @@ function InspectorBody({
           <Field label="Background image">
             <BackgroundImageField value={p.backgroundImage} onChange={(v) => set("backgroundImage", v)} />
           </Field>
+          {p.backgroundImage ? (
+            <Field label="Keep in view">
+              <FocusPicker src={p.backgroundImage} value={p.backgroundFocus} onChange={(v) => set("backgroundFocus", v)} />
+            </Field>
+          ) : null}
           {p.backgroundImage ? (
             <Field label="Overlay">
               <Select
@@ -842,6 +860,11 @@ function ColumnBackground({ props, onChange }: { props: ColumnsProps; onChange: 
       <Field label="Background image">
         <BackgroundImageField value={style.backgroundImage} onChange={(v) => set("backgroundImage", v)} />
       </Field>
+      {style.backgroundImage ? (
+        <Field label="Keep in view">
+          <FocusPicker src={style.backgroundImage} value={style.backgroundFocus} onChange={(v) => set("backgroundFocus", v)} />
+        </Field>
+      ) : null}
       {style.backgroundImage ? (
         <Field label="Overlay">
           <Select

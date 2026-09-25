@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { matchesQuery } from "@/lib/media";
 import { ACCEPT, extensionList, libraryFor, mediaKindOf, type PickableKind } from "@/lib/media-kind";
 import { Overlay } from "@/components/ui/Overlay";
-import { sendUpload } from "@/lib/send-upload";
+import { optimisingPictures, sendPicture, sendUpload, setOptimisingPictures } from "@/lib/send-upload";
 
 export interface PickedImage {
   /** The picture's own pixel size, when it could be read. */
@@ -170,6 +170,8 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
   const [tab, setTab] = useState<"uploads" | "stock">("uploads");
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
+  /** Whether a picture is made lighter on its way in; remembered by this browser. */
+  const [optimise, setOptimise] = useState(() => optimisingPictures());
   /** Why the last upload did not become a choice, in the words the server used. */
   const [uploadError, setUploadError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -232,7 +234,9 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
     setUploadError(null);
     setUploading(true);
     try {
-      const sent = await sendUpload(file);
+      // A picture is made lighter first, and sent with smaller copies of
+      // itself for the page to offer a phone; see `sendPicture`.
+      const sent = kind === "image" ? await sendPicture(file, optimise) : await sendUpload(file);
       if (sent.ok) {
         setFiles((f) => [...f, { url: sent.url, name: sent.name, alt: "" }]);
         onSelect(sent.url, { naturalWidth: sent.width, naturalHeight: sent.height });
@@ -396,6 +400,19 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
             <div className="flex items-center gap-2">
               {showingUploads ? (
                 <>
+                  {kind === "image" ? (
+                    <label
+                      className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer"
+                      title="Pictures are kept no wider than 2400 pixels and saved as WebP, with smaller copies that phones are sent instead. Turn this off to keep every pixel of the file as it is."
+                    >
+                      <input
+                        type="checkbox"
+                        checked={optimise}
+                        onChange={(e) => { setOptimise(e.target.checked); setOptimisingPictures(e.target.checked); }}
+                      />
+                      Make pictures lighter
+                    </label>
+                  ) : null}
                   <input ref={inputRef} type="file" accept={ACCEPT[kind]} onChange={handleUpload} className="hidden" />
                   <Button size="sm" variant="outline" onClick={() => inputRef.current?.click()} loading={uploading}>
                     Upload

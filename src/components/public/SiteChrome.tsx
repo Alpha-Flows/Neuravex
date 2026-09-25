@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { safeAccent } from "@/lib/site-fields";
 import { normalizeLogo } from "@/lib/site-logo";
 import { resolveMenu, type MenuItem } from "@/lib/menu";
+import { menuForLanguage, type LanguageLink } from "@/lib/translations";
 import { footerCopyright, footerLinkHref, mailHref, normalizeFooter, telHref } from "@/lib/footer";
 import { readableTextFor } from "@/lib/site-theme";
 import { SocialLinks } from "@/components/blocks/SocialLinks";
@@ -43,6 +44,24 @@ export interface NavPage {
   slug: string;
   title: string;
   isHome: boolean;
+  /** Empty for the site's own language; see `lib/translations`. */
+  language?: string | null;
+  translationGroup?: string | null;
+}
+
+/**
+ * The language of the page the header is drawn on, and the ways to the same
+ * page in the site's other languages. Absent for a site in one language.
+ */
+export interface HeaderLanguages {
+  /** The page's language. */
+  code: string;
+  /** The site's own language, which the menu was arranged in. */
+  siteLanguage: string;
+  /** One per language, from `languageSwitch`. Empty draws no switcher. */
+  links: LanguageLink[];
+  /** Where the logo goes: the home page in this language. */
+  homeHref?: string;
 }
 
 /**
@@ -112,10 +131,12 @@ export function SiteHeader({
   pages,
   activeSlug,
   contained,
+  languages,
 }: {
   site: SiteChrome;
   pages: NavPage[];
   activeSlug: string;
+  languages?: HeaderLanguages;
   /**
    * True in the editor, where the canvas is a panel rather than the page. A
    * fixed header there is fixed to the *window*: it covered the builder's own
@@ -125,8 +146,12 @@ export function SiteHeader({
   contained?: boolean;
 }) {
   // What the menu holds: the site's own arrangement of its pages and links,
-  // with every page it does not mention yet at the end.
-  const menu = resolveMenu(site.menu, pages, { slug: escapeUrlPart(site.slug) }, activeSlug);
+  // with every page it does not mention yet at the end — in this page's
+  // language, when the site is written in more than one.
+  const local = languages ? menuForLanguage(site.menu, pages, languages.code, languages.siteLanguage) : { menu: site.menu, pages };
+  const menu = resolveMenu(local.menu, local.pages, { slug: escapeUrlPart(site.slug) }, activeSlug);
+  const switcher = languages?.links.length ? languages.links : null;
+  const homeHref = languages?.homeHref ?? `/sites/${site.slug}`;
 
   // Custom header overrides the default
   if (site.headerHtml) {
@@ -140,12 +165,30 @@ export function SiteHeader({
         return `<a href="${escapeHtml(item.href!)}"${active}>${escapeHtml(item.label)}</a>`;
       })
       .join("");
+    const languagesHtml = switcher ? languageLinksHtml(switcher) : "";
+    const placed = /\{languages\}/.test(site.headerHtml);
     const html = substitute(
-      substitute(site.headerHtml, /\{name\}/g, escapeHtml(site.name)),
-      /\{nav\}/g,
-      navHtml,
+      substitute(
+        substitute(site.headerHtml, /\{name\}/g, escapeHtml(site.name)),
+        /\{nav\}/g,
+        navHtml,
+      ),
+      /\{languages\}/g,
+      languagesHtml,
     );
-    return <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />;
+    return (
+      <>
+        <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />
+        {/* A written header that never mentions `{languages}` would leave a
+            reader with no way into their own language, so the switcher is
+            put under it instead, as the legal links are under a footer. */}
+        {switcher && !placed ? (
+          <div className="nvx-site-column py-2 flex justify-end">
+            <LanguageSwitcher links={switcher} className="text-slate-600" />
+          </div>
+        ) : null}
+      </>
+    );
   }
 
   const dark = isDarkColor(site.headerBackground);
@@ -209,7 +252,7 @@ export function SiteHeader({
       style={{ background: hexToRgba(site.headerBackground, site.headerOpacity) }}
     >
       <div className="nvx-site-column h-16 flex items-center gap-6">
-        <Link href={`/sites/${site.slug}`} className="flex items-center gap-2 font-semibold tracking-tight">
+        <Link href={homeHref} className="flex items-center gap-2 font-semibold tracking-tight">
           {logo ? (
             // The name is the picture's text when the picture stands alone,
             // and nothing when the name is written beside it — said twice,
@@ -251,7 +294,11 @@ export function SiteHeader({
           )}
         </nav>
 
-        <details className="nvx-nav-toggle ml-auto sm:hidden relative">
+        {switcher ? (
+          <LanguageSwitcher links={switcher} className={cn("ml-auto sm:ml-2", dark ? "text-slate-300" : "text-slate-600")} />
+        ) : null}
+
+        <details className={cn("nvx-nav-toggle sm:hidden relative", switcher ? "ml-1" : "ml-auto")}>
           <summary
             aria-label="Menu"
             className={`w-9 h-9 rounded-md flex items-center justify-center text-lg ${dark ? "text-white hover:bg-white/10" : "text-slate-900 hover:bg-slate-100"}`}
@@ -281,6 +328,44 @@ export function SiteHeader({
       </div>
     </header>
   );
+}
+
+/**
+ * The switcher: each language by its code, with its own name for itself as
+ * the link's name, in that language — so a screen reader says "Deutsch" the
+ * way a German speaker would. Visible at every width, since a reader on a
+ * phone needs it as much as anyone.
+ */
+function LanguageSwitcher({ links, className }: { links: LanguageLink[]; className?: string }) {
+  return (
+    <nav aria-label="Language" data-nav="languages" className={cn("flex items-center gap-0.5 text-xs font-semibold", className)}>
+      {links.map((l) => (
+        <a
+          key={l.language}
+          href={l.href}
+          hrefLang={l.language}
+          lang={l.language}
+          aria-label={l.label}
+          title={l.label}
+          aria-current={l.current ? "true" : undefined}
+          className={cn("px-1.5 py-1 rounded uppercase tracking-wide", l.current ? "underline underline-offset-4" : "opacity-70 hover:opacity-100")}
+        >
+          {l.language}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+/** The switcher as anchors, for a custom header written as HTML. */
+function languageLinksHtml(links: LanguageLink[]): string {
+  return links
+    .map((l) => {
+      const current = l.current ? ' aria-current="true" class="active"' : "";
+      const lang = escapeHtml(l.language);
+      return `<a href="${escapeHtml(l.href)}" hreflang="${lang}" lang="${lang}" title="${escapeHtml(l.label)}"${current}>${escapeHtml(l.language.toUpperCase())}</a>`;
+    })
+    .join(" ");
 }
 
 /** The legal links as anchors, for a custom footer written as HTML. */

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { slugify } from "@/lib/utils";
 import { trashPage, pageDeletionCost } from "@/lib/trash";
-import { movePath, pagePath } from "@/lib/page-links";
-import { relinkSite } from "@/lib/relink";
+import { afterRename, freePageSlug } from "@/lib/page-rename";
 import { normalizeBlockTreeJson, clampSortOrder } from "@/lib/block-tree";
 import { readJsonObject } from "@/lib/request-body";
 
@@ -77,18 +75,7 @@ export async function PATCH(req: NextRequest, props: Params) {
   }
 
   if (typeof body.slug === "string" && body.slug.trim()) {
-    let newSlug = slugify(body.slug);
-    let suffix = 0;
-    const base = newSlug;
-    while (true) {
-      const existing = await prisma.page.findUnique({
-        where: { siteId_slug: { siteId: page.siteId, slug: newSlug } },
-      });
-      if (!existing || existing.id === params.id) break;
-      suffix += 1;
-      newSlug = `${base}-${suffix}`;
-    }
-    data.slug = newSlug;
+    data.slug = await freePageSlug(page.siteId, body.slug, page.id);
   }
 
   const updated = await prisma.page.update({ where: { id: params.id }, data });
@@ -96,32 +83,11 @@ export async function PATCH(req: NextRequest, props: Params) {
   // A renamed page takes its links with it. Changing an address used to leave
   // every link written to the old one pointing at a 404, silently and site-
   // wide — the nav was rebuilt from the pages so it survived, and nothing an
-  // author had typed by hand did.
-  let relinked = 0;
-  if (typeof data.slug === "string" && data.slug !== page.slug) {
-    relinked = await retargetSiteLinks(page.siteId, page.slug, updated.slug, updated.isHome);
-  }
+  // author had typed by hand did. The old address is kept forwarding, too,
+  // for the links nobody here can rewrite; see `afterRename`.
+  const relinked = typeof data.slug === "string" ? await afterRename(page, data.slug) : 0;
 
   return NextResponse.json(relinked ? { ...updated, relinked } : updated);
-}
-
-/**
- * Move every link in a site from a page's old address to its new one, and say
- * how many moved.
- *
- * A home page is addressed as the bare site URL, so renaming its slug moves
- * nothing — there was no old address to leave behind.
- */
-async function retargetSiteLinks(
-  siteId: string,
-  oldSlug: string,
-  newSlug: string,
-  isHome: boolean,
-): Promise<number> {
-  if (isHome) return 0;
-  const site = await prisma.site.findUnique({ where: { id: siteId }, select: { slug: true } });
-  if (!site) return 0;
-  return relinkSite(siteId, movePath(pagePath(site.slug, oldSlug, false), pagePath(site.slug, newSlug, false)));
 }
 
 export async function DELETE(req: NextRequest, props: Params) {

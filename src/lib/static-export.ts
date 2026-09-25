@@ -387,6 +387,42 @@ export function disableExportedForms(html: string): string {
   });
 }
 
+/** Text for an HTML document written by hand, not by React. */
+function escapeText(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * The file left at a renamed page's old address, sending a visitor on to the
+ * page where it is now.
+ *
+ * A static host has no redirects of its own that every host understands —
+ * Netlify reads `_redirects`, Apache `.htaccess`, GitHub Pages neither — so
+ * this is a page: a refresh after no seconds, which browsers follow and which
+ * search engines treat as a permanent move, the new address as its canonical,
+ * and a link for the reader whose browser does neither. No script, like
+ * every other page in the download.
+ */
+export function forwardingPage({ to, title, language }: { to: string; title: string; language: string }): string {
+  const href = escapeText(to);
+  const name = escapeText(title);
+  return [
+    "<!DOCTYPE html>",
+    `<html lang="${escapeText(language)}">`,
+    "<head>",
+    '<meta charset="utf-8">',
+    `<title>${name}</title>`,
+    `<meta http-equiv="refresh" content="0; url=${href}">`,
+    `<link rel="canonical" href="${href}">`,
+    '<meta name="robots" content="noindex">',
+    EXPORT_CSP,
+    "</head>",
+    `<body><p>This page has moved to <a href="${href}">${name}</a>.</p></body>`,
+    "</html>",
+    "",
+  ].join("\n");
+}
+
 export interface PreparePageOptions {
   siteSlug: string;
   /** Page slug to file name, for every page included in this export. */

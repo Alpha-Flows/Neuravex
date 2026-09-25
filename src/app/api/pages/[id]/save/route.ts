@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { slugify } from "@/lib/utils";
 import { snapshotRevision } from "@/lib/revisions";
 import { normalizeBlockTree } from "@/lib/block-tree";
 import { settleSyncedBlocks, type SyncedOutcome } from "@/lib/synced-store";
 import { normalizePostFields } from "@/lib/posts";
 import { readJsonObject } from "@/lib/request-body";
+import { afterRename, formerSlugs, freePageSlug } from "@/lib/page-rename";
+import { cleanLanguage } from "@/lib/translations";
+import { languageChange } from "@/lib/translations-store";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,8 @@ interface SaveBody {
   ogImage?: string | null;
   /** "manual" for Cmd+S / the Save button, "autosave" for the timer. */
   reason?: "manual" | "autosave";
+  /** The page's language, empty for the site's own; see `lib/translations`. */
+  language?: string | null;
   /** The version of each synced block the editor started from; see `settleSyncedBlocks`. */
   syncedBase?: Record<string, string>;
 }
@@ -55,10 +59,6 @@ export async function PUT(req: NextRequest, props: Params) {
       });
     }
   }
-  // The editor sends the slug on every save. It used to be declared here and
-  // then dropped on the floor, so renaming a page's URL in the editor did
-  // nothing at all — the status line said "Saved" and the address reverted on
-  // the next load, with "View live" pointing at a page that was not there.
   if (typeof body.isNotFound === "boolean") {
     data.isNotFound = body.isNotFound;
     if (body.isNotFound) {
@@ -68,21 +68,13 @@ export async function PUT(req: NextRequest, props: Params) {
       });
     }
   }
+  // The editor sends the slug on every save. It used to be declared here and
+  // then dropped on the floor, so renaming a page's URL in the editor did
+  // nothing at all — the status line said "Saved" and the address reverted on
+  // the next load, with "View live" pointing at a page that was not there.
   if (typeof body.slug === "string" && body.slug.trim()) {
-    let newSlug = slugify(body.slug);
-    if (newSlug && newSlug !== page.slug) {
-      let suffix = 0;
-      const base = newSlug;
-      while (true) {
-        const existing = await prisma.page.findUnique({
-          where: { siteId_slug: { siteId: page.siteId, slug: newSlug } },
-        });
-        if (!existing || existing.id === page.id) break;
-        suffix += 1;
-        newSlug = `${base}-${suffix}`;
-      }
-      data.slug = newSlug;
-    }
+    const newSlug = await freePageSlug(page.siteId, body.slug, page.id);
+    if (newSlug !== page.slug) data.slug = newSlug;
   }
   // The one description of what a block tree may be. Nothing checked this
   // before, so a mistyped prop was a durable 500 on the editor and the public
@@ -100,6 +92,12 @@ export async function PUT(req: NextRequest, props: Params) {
     content = JSON.stringify(synced.tree);
     data.content = content;
   }
+  // A language the page's translations already have takes it out of their
+  // group; see `languageChange`. Anything that is not a language code is the
+  // site's language, as an empty field is.
+  if (body.language !== undefined) {
+    Object.assign(data, await languageChange(page, cleanLanguage(body.language)));
+  }
   // Per-page SEO. Empty means "fall back to the site default", so it is
   // stored as null rather than an empty string.
   // A post's details, repaired: see `normalizePostFields`.
@@ -112,6 +110,14 @@ export async function PUT(req: NextRequest, props: Params) {
 
   const updated = await prisma.page.update({ where: { id: params.id }, data });
 
+  // The editor is where most pages are renamed, and this route used to take
+  // the new slug and do nothing else: every link to the page's old address,
+  // on every other page, went on pointing at it. See `afterRename`.
+  let renamed: { relinked: number; formerSlugs: string[] } | undefined;
+  if (typeof data.slug === "string") {
+    renamed = { relinked: await afterRename(page, data.slug), formerSlugs: await formerSlugs(page.id) };
+  }
+
   if (body.content !== undefined || typeof body.title === "string") {
     await snapshotRevision(page.id, {
       title: (typeof body.title === "string" ? body.title.trim() : page.title) || "Untitled",
@@ -120,6 +126,11 @@ export async function PUT(req: NextRequest, props: Params) {
     });
   }
 
-  // The synced blocks brought up to date here, so the editor can show them.
-  return NextResponse.json(synced && Object.keys(synced.refreshed).length > 0 ? { ...updated, syncedRefreshed: synced.refreshed } : updated);
+  // The synced blocks brought up to date here, so the editor can show them,
+  // and after a rename the addresses the page now answers to as well.
+  return NextResponse.json({
+    ...updated,
+    ...(synced && Object.keys(synced.refreshed).length > 0 ? { syncedRefreshed: synced.refreshed } : {}),
+    ...(renamed ?? {}),
+  });
 }

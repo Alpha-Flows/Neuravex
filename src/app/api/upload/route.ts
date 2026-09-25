@@ -5,7 +5,7 @@ import { join } from "path";
 import { gate } from "@/proxy";
 import { validateUploadFile, isDangerousExtension, sanitizeSvg, isRenderableSvg } from "@/lib/security";
 import { imageSize } from "@/lib/image-size";
-import { matchesType, stripImageMetadata, uploadDir } from "@/lib/uploads";
+import { existingUploadPath, matchesType, stripImageMetadata, uploadDir } from "@/lib/uploads";
 import { prisma } from "@/lib/prisma";
 import { cleanName, fileNameFromUrl } from "@/lib/media";
 import { mediaKindOf, tooLargeMessage, uploadLimitFor } from "@/lib/media-kind";
@@ -17,9 +17,9 @@ import { readBodyBytes } from "@/lib/request-body";
  * library listed "mu59seflqpe0.png" and the customer's own name for the
  * picture was thrown away at the door.
  */
-async function remember(url: string, original: string) {
+async function remember(url: string, original: string, size?: { width: number; height: number } | null) {
   const name = cleanName(original) || fileNameFromUrl(url);
-  await prisma.mediaFile.create({ data: { url, name } }).catch(() => {
+  await prisma.mediaFile.create({ data: { url, name, ...(size ? { width: size.width, height: size.height } : {}) } }).catch(() => {
     // A library entry is a convenience; an upload that cannot be described
     // is still an upload, and the file is already on disk.
   });
@@ -117,6 +117,20 @@ async function fromStream(req: NextRequest): Promise<NextResponse> {
     return refused("That upload was cut off before it finished.");
   }
 
+  // A smaller copy of a picture already in the library, made in the
+  // browser; see `sendPicture`. Named by the picture it is a copy of, which
+  // has to be there, and a picture itself, and not a copy of another.
+  const variantOf = req.headers.get("x-variant-of");
+  let copyOf: string | undefined;
+  if (variantOf !== null) {
+    const found = await variantTarget(variantOf, validation.ext);
+    if (!found.ok) {
+      await unlink(partial).catch(() => {});
+      return refused(found.error);
+    }
+    copyOf = found.url;
+  }
+
   const kind = mediaKindOf(name);
   if (kind === "audio" || kind === "video") {
     // Nothing is rewritten in a sound or a video, so the file is checked by
@@ -136,8 +150,26 @@ async function fromStream(req: NextRequest): Promise<NextResponse> {
   // whole, exactly as a form upload is.
   const bytes = await readFile(partial);
   await unlink(partial).catch(() => {});
-  return store(bytes, name, validation.ext);
+  return store(bytes, name, validation.ext, copyOf);
 }
+
+/** Picture formats a copy may be in: the ones a browser encodes. */
+const VARIANT_EXTENSIONS = new Set(["webp", "jpg", "jpeg", "png"]);
+
+async function variantTarget(value: string, ext: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  if (!VARIANT_EXTENSIONS.has(ext)) return { ok: false, error: "A smaller copy has to be a picture." };
+  const url = value.trim();
+  const match = /^\/uploads\/([^/]+)$/.exec(url);
+  if (!match || !existingUploadPath(match[1])) return { ok: false, error: "The picture this is a copy of is not in the library." };
+  const record = await prisma.mediaFile.findUnique({ where: { url }, select: { variantOf: true } });
+  if (!record || record.variantOf) return { ok: false, error: "The picture this is a copy of is not in the library." };
+  const copies = await prisma.mediaFile.count({ where: { variantOf: url } });
+  if (copies >= MAX_VARIANTS) return { ok: false, error: "That picture has all the copies it can have." };
+  return { ok: true, url };
+}
+
+/** More copies of one picture than the widths it is ever drawn at is a mistake, or worse. */
+const MAX_VARIANTS = 6;
 
 /**
  * A multipart form, as older scripts and the test suite send one. Read in
@@ -180,7 +212,7 @@ async function fromForm(req: NextRequest): Promise<NextResponse> {
 }
 
 /** A picture or a document, checked, cleaned and written. */
-async function store(bytes: Buffer, original: string, ext: string): Promise<NextResponse> {
+async function store(bytes: Buffer, original: string, ext: string, variantOf?: string): Promise<NextResponse> {
   const dir = uploadDir();
   await mkdir(dir, { recursive: true });
 
@@ -222,10 +254,36 @@ async function store(bytes: Buffer, original: string, ext: string): Promise<Next
   await writeFile(imagePath, clean, { mode: 0o600 });
 
   const url = `/uploads/${filename}`;
-  await remember(url, original);
-  // The size travels with the picture so a page can reserve its space.
+  // The size travels with the picture so a page can reserve its space, and
+  // is kept, so that a page offering its copies can say how wide each is.
   const size = imageSize(clean);
+  if (variantOf) {
+    // A copy is known by the picture it copies, and only listed as part of it.
+    if (!size) {
+      await unlink(imagePath).catch(() => {});
+      return refused("That copy is not a picture the library can read.");
+    }
+    await prisma.mediaFile.create({
+      data: { url, name: cleanName(original) || filename, width: size.width, height: size.height, variantOf },
+    });
+    await rememberSize(variantOf);
+    return NextResponse.json({ url, name: cleanName(original) || filename, ...size });
+  }
+  await remember(url, original, size);
   return NextResponse.json({ url, name: cleanName(original) || filename, ...(size ?? {}) });
+}
+
+/**
+ * The size of a picture uploaded before sizes were kept, read from its file
+ * when a copy of it arrives: without it the picture cannot stand in its own
+ * `srcset` beside its copies.
+ */
+async function rememberSize(url: string) {
+  const record = await prisma.mediaFile.findUnique({ where: { url }, select: { width: true } });
+  if (!record || record.width) return;
+  const path = existingUploadPath(url.slice("/uploads/".length));
+  const size = path ? imageSize(await readFile(path).catch(() => Buffer.alloc(0))) : null;
+  if (size) await prisma.mediaFile.update({ where: { url }, data: { width: size.width, height: size.height } });
 }
 
 function mismatch(ext: string) {

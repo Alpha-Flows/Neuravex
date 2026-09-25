@@ -28,14 +28,15 @@ import { scopeCss } from "@/lib/scope-css";
 import { readClipboard, writeClipboard, pasteable, subscribeClipboard, clipboardLabel as readClipboardLabel, clipboardServerLabel } from "@/lib/clipboard";
 import { containerChoices } from "@/lib/containers";
 import { railsSnapshot, railsServerSnapshot, subscribeRails, setRails, RailState } from "@/lib/rails";
-import { SiteHeader, SiteFooter, SiteChrome, NavPage, LegalPage } from "@/components/public/SiteChrome";
+import { SiteHeader, SiteFooter, SiteChrome, NavPage, LegalPage, type HeaderLanguages } from "@/components/public/SiteChrome";
+import type { TranslationState } from "@/lib/translations-store";
 import { mapBlocks, findBlock, cloneTree, updateContainer, removeFromContainer, insertIntoContainer, applyOrder, resolveDrop, groupIntoColumns, columnCount, removeBlock, withFreshIds } from "@/lib/tree-utils";
 import { isFloating, layerOf, levelRange, withLayer } from "@/lib/block-layer";
 import { BlockPalette } from "./BlockPalette";
 import { BlockOutline } from "./BlockOutline";
 import { SavedBlocks } from "./SavedBlocks";
 import { BlockInspector } from "./BlockInspector";
-import type { LinkTarget } from "@/lib/page-links";
+import { movePath, pagePath, retargetLinks, type LinkTarget } from "@/lib/page-links";
 import { RevisionsPanel } from "./RevisionsPanel";
 import { PageSettingsPanel, PageSeo, type PageDetails } from "./PageSettingsPanel";
 import { SortableContainer } from "../blocks/Sortable";
@@ -59,6 +60,8 @@ interface Props {
     /** The site's published posts, for the posts blocks, and the language of their dates. */
     posts: PostItem[];
     language: string;
+    /** The page's language and the header's switcher, for a site in several. */
+    languages?: HeaderLanguages;
   };
   /** The request nonce, so the canvas stylesheets satisfy `style-src-elem`. */
   nonce?: string;
@@ -75,6 +78,12 @@ interface Props {
     metaDescription: string;
     ogImage: string;
     blocks: BaseBlock[];
+    /** The addresses the page had before, still forwarding to it. */
+    formerSlugs: string[];
+    /** The page's versions in other languages; see `translationState`. */
+    translations: TranslationState | null;
+    /** A block to open selected, as the check before publishing asks. */
+    selectedId?: string | null;
   };
 }
 
@@ -134,6 +143,10 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
   const [blocks, setBlocks] = useState<BaseBlock[]>(initial.blocks);
   const [title, setTitle] = useState(initial.title);
   const [slug, setSlug] = useState(initial.slug);
+  // The slug the server last settled on, which is what links and redirects
+  // were written against.
+  const savedSlugRef = useRef(initial.slug);
+  const [formerSlugs, setFormerSlugs] = useState<string[]>(initial.formerSlugs);
   const [isHome, setIsHome] = useState(initial.isHome);
   const [details, setDetails] = useState<PageDetails>(initial.details);
   // The version of each synced block this editor started from, sent with every
@@ -146,7 +159,13 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     metaDescription: initial.metaDescription,
     ogImage: initial.ogImage,
   });
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initial.selectedId ?? null);
+  // Opened on a block the check before publishing found something in: it is
+  // selected, and brought into view, since it may be far down the page.
+  useEffect(() => {
+    if (!initial.selectedId) return;
+    document.querySelector(".public-canvas .is-selected")?.scrollIntoView({ block: "center" });
+  }, [initial.selectedId]);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -230,7 +249,13 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title, slug, isHome, published: willPublish, content: blocks, ...seo, ...details, reason,
+          title, isHome, published: willPublish, content: blocks, ...seo, ...details, reason,
+          // Not while it is being typed. Every autosave landed a rename, and
+          // a rename now leaves the old address forwarding — so typing
+          // "about-us" with a pause in it left "about-" behind as an address
+          // of the page. The field sends what it holds once it is left, or
+          // on a save somebody asked for.
+          ...(reason === "manual" || document.activeElement !== slugInputRef.current ? { slug } : {}),
           syncedBase: syncedBaseRef.current,
         }),
       });
@@ -247,6 +272,21 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
       if (saved?.slug && saved.slug !== slug && document.activeElement !== slugInputRef.current) {
         setSlug(saved.slug);
       }
+      // A rename moved every link in the site to the new address, this
+      // page's own among them; the copy here follows, or the next save would
+      // put the old ones back.
+      const before = savedSlugRef.current;
+      if (typeof saved?.slug === "string" && saved.slug !== before) {
+        savedSlugRef.current = saved.slug;
+        if (!isHome) {
+          const map = movePath(pagePath(siteSlug, before, false), pagePath(siteSlug, saved.slug, false));
+          setBlocks((current) => {
+            const moved = retargetLinks(current, map);
+            return moved.changed ? moved.blocks : current;
+          });
+        }
+      }
+      if (Array.isArray(saved?.formerSlugs)) setFormerSlugs(saved.formerSlugs);
       // Synced blocks another page changed since this one was opened: shown
       // as they now are, and not as an edit to undo.
       const refreshed = saved?.syncedRefreshed as Record<string, BaseBlock> | undefined;
@@ -267,7 +307,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     } finally {
       setSaving(false);
     }
-  }, [pageId, title, slug, isHome, published, blocks, seo, details]);
+  }, [pageId, siteSlug, title, slug, isHome, published, blocks, seo, details]);
 
   // Memo-ize save so the key event listener closure always has the latest
   const saveRef = useRef(saveFn);
@@ -763,8 +803,8 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     // was drawn out of the flow. It is sticky in here now and takes its own
     // room — the padding on top of that put the first block lower than the
     // published page puts it.
-    <div className="public-canvas relative">
-      <SiteHeader site={chrome.site} pages={chrome.pages} activeSlug={slug} contained />
+    <div className="public-canvas relative" lang={chrome.language}>
+      <SiteHeader site={chrome.site} pages={chrome.pages} activeSlug={slug} contained languages={chrome.languages} />
       <main>
         <SitePostsProvider posts={chrome.posts} language={chrome.language}>
           {/* A post's header, drawn from its details as they are typed. */}
@@ -818,7 +858,13 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
               ref={slugInputRef}
               value={slug}
               onChange={(e) => { setSlug(e.target.value); setDirty(true); }}
-              onBlur={() => { const clean = slugify(slug); if (slug.trim() && clean !== slug) setSlug(clean); }}
+              onBlur={() => {
+                const clean = slugify(slug);
+                if (slug.trim() && clean !== slug) setSlug(clean);
+                // Held back while it was typed; see the save. Leaving the
+                // field is what sends it.
+                if (slug.trim() && clean !== savedSlugRef.current) setDirty(true);
+              }}
               className="h-7 w-28 text-xs"
               aria-label="Page URL"
             />
@@ -1080,6 +1126,11 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
                 details={details}
                 isHome={isHome}
                 pageId={pageId}
+                siteSlug={siteSlug}
+                formerSlugs={formerSlugs}
+                onFormerSlugsChange={setFormerSlugs}
+                siteId={siteId}
+                translations={initial.translations}
                 onDetailsChange={(next) => { setDetails(next); setDirty(true); }}
               />
               <RevisionsPanel pageId={pageId} refreshKey={savedAt?.getTime() ?? 0} onRestore={() => window.location.reload()} />

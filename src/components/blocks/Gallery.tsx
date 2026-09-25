@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import { useSrcSets } from "./image-variants";
+import { cleanFocus } from "@/lib/focus-point";
 import type { GalleryProps, MediaItem } from "@/types";
 import { cn } from "@/lib/utils";
 import { domId } from "@/lib/dom-id";
@@ -58,6 +60,7 @@ const noop = () => {};
  */
 export function Gallery({ props, onChange, disabled, blockId }: Props) {
   const [picking, setPicking] = useState(false);
+  const srcSets = useSrcSets();
   const editing = !disabled && !!onChange;
   const images: MediaItem[] = Array.isArray(props.images) ? props.images : [];
 
@@ -129,6 +132,10 @@ export function Gallery({ props, onChange, disabled, blockId }: Props) {
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={image.src}
+                srcSet={srcSets[image.src]}
+                // A column of the grid: a share of the 72rem page, or of the
+                // window on a phone, where the grid is two across or one.
+                sizes={srcSets[image.src] ? `(max-width: 300px) 100vw, (max-width: 480px) 50vw, ${Math.ceil(72 / props.columns)}rem` : undefined}
                 alt={image.alt || ""}
                 // The file's own size, as an image block gives it: with it the
                 // browser holds each tile's space before the bytes arrive, and
@@ -137,6 +144,8 @@ export function Gallery({ props, onChange, disabled, blockId }: Props) {
                 height={image.naturalHeight || undefined}
                 loading="lazy"
                 decoding="async"
+                // A tile cut square keeps the part of the picture chosen for it.
+                style={image.focus ? { objectPosition: cleanFocus(image.focus) } : undefined}
                 className="nvx-gallery-img"
               />
             ) : (
@@ -211,6 +220,8 @@ export function Gallery({ props, onChange, disabled, blockId }: Props) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={image.src}
+                  srcSet={srcSets[image.src]}
+                  sizes={srcSets[image.src] ? "100vw" : undefined}
                   alt={image.alt || ""}
                   width={image.naturalWidth || undefined}
                   height={image.naturalHeight || undefined}

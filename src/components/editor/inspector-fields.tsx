@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { BackgroundGradient, BaseBlock } from "@/types";
 import { Input, Label } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +11,7 @@ import { isDarkColor } from "@/lib/site-theme";
 import { SiteSwatches, useSiteColors } from "./site-colors";
 import { usePageAnchors } from "./page-anchors";
 import { anchorHref, anchorOfHref } from "@/lib/anchors";
+import { CENTRE, focusAt, focusValue, parseFocus, type FocusPoint } from "@/lib/focus-point";
 
 /**
  * The controls every block's panel is built from.
@@ -60,6 +61,103 @@ export function BackgroundImageField({ value, onChange }: { value?: string; onCh
       )}
       <MediaPicker open={open} onClose={() => setOpen(false)} onSelect={(url) => { onChange(url); setOpen(false); }} />
     </>
+  );
+}
+
+/**
+ * Where a cropped picture keeps its point: the picture, whole, with the point
+ * marked on it, moved by clicking where it should be or with the arrow keys.
+ * See `lib/focus-point`.
+ *
+ * The picture is shown whole rather than as the crop, because the crop is
+ * not one shape: a section is cut one way on a phone and another on a wide
+ * screen, and the point is what holds across all of them.
+ */
+export function FocusPicker({
+  src,
+  value,
+  onChange,
+  label = "Keep in view",
+}: {
+  src: string;
+  value?: string;
+  onChange: (next: string | undefined) => void;
+  label?: string;
+}) {
+  const frame = useRef<HTMLSpanElement>(null);
+  const point = parseFocus(value);
+  const move = (next: FocusPoint) => onChange(focusValue(next));
+  const step = (dx: number, dy: number) => move({ x: point.x + dx, y: point.y + dy });
+
+  return (
+    <div data-focus-picker="">
+      <button
+        type="button"
+        aria-label={`${label}: ${point.x}% across, ${point.y}% down. Click the picture where it should be, or move it with the arrow keys.`}
+        onClick={(e) => {
+          const rect = frame.current?.getBoundingClientRect();
+          if (rect) move(focusAt(rect, e.clientX, e.clientY));
+        }}
+        onKeyDown={(e) => {
+          const by = e.shiftKey ? 10 : 2;
+          const moves: Record<string, [number, number]> = { ArrowLeft: [-by, 0], ArrowRight: [by, 0], ArrowUp: [0, -by], ArrowDown: [0, by] };
+          if (moves[e.key]) {
+            e.preventDefault();
+            step(...moves[e.key]);
+          } else if (e.key === "Home") {
+            e.preventDefault();
+            move(CENTRE);
+          }
+        }}
+        className="w-full flex justify-center rounded-md border border-bg-border bg-bg-soft p-1 cursor-crosshair focus:outline-none focus-visible:border-brand/60"
+      >
+        {/* Shrink-wrapped round the picture, so the point's percentages are
+            of the picture and not of the box it is centred in. */}
+        <span ref={frame} className="relative inline-block max-w-full">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt="" draggable={false} className="block max-w-full max-h-48 w-auto h-auto" />
+          <span
+            aria-hidden="true"
+            className="absolute w-4 h-4 -ml-2 -mt-2 rounded-full border-2 border-white shadow-[0_0_0_2px_rgba(0,0,0,0.45)] pointer-events-none"
+            style={{ left: `${point.x}%`, top: `${point.y}%` }}
+          />
+        </span>
+      </button>
+      <div className="flex items-start justify-between gap-2 mt-1">
+        <p className="text-[11px] text-fg-subtle">The part that stays in view when the picture is cut to fit.</p>
+        {value ? (
+          <button type="button" onClick={() => onChange(undefined)} className="shrink-0 text-[11px] text-fg-muted hover:text-fg underline">
+            Centre
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * `FocusPicker` behind a button, for a row of a list: sixty pictures, each
+ * drawn whole in the panel at once, would be a long scroll and sixty full-size
+ * downloads before anybody had asked for one.
+ */
+export function FocusDisclosure({ src, value, onChange, label }: { src: string; value?: string; onChange: (next: string | undefined) => void; label: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="text-[11px] text-fg-muted hover:text-fg underline"
+      >
+        {open ? "Done" : value ? `${label} — chosen` : label}
+      </button>
+      {open ? (
+        <div className="mt-1.5">
+          <FocusPicker src={src} value={value} onChange={onChange} label={label} />
+        </div>
+      ) : null}
+    </div>
   );
 }
 

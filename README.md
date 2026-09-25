@@ -18,7 +18,8 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 22 or
   layouts on tablets, and each block stays in the column you put it in
 - **28 starter templates**, plus any site or page you keep as your own, across landing, portfolio, business, blog, and minimal, filterable by category — 11 of them multi-page, with their pages already linked to each other
 - **Multi-page sites** with home page routing. A new page starts from a layout you choose, drawn in the colours, section padding and column width read off the pages the site already has — not as a blank sheet
-- **Links between your own pages** — pick a page from a list instead of typing its path, and renaming a page or the whole site moves every link that pointed at it
+- **Links between your own pages** — pick a page from a list instead of typing its path, and renaming a page or the whole site moves every link that pointed at it; a published page's old address goes on forwarding to it, in the builder and in the download
+- **A site in more than one language** — link a page to its translations, or make a draft copy to translate in one step; each page gets its own `lang`, a language switcher in the header, a menu of its own language's pages, and `hreflang` links for search engines
 - **Per-block inspector** for fine-grained control of every property (colors, sizes, alignment, spacing, etc.)
 - **A frame on any block** — room inside and around it, a border, rounded corners, a shadow and a fill, the same five controls for a heading, a quote or a picture, so a card no longer has to be a section with one block in it and spacing no longer has to be a Spacer block
 - **A palette, text sizes and gradients for the whole site** — up to six brand colours offered in every colour field, heading and body sizes set once, and two-colour gradient fills for sections and columns; change a palette colour or a size in settings and every block that uses it follows
@@ -37,6 +38,8 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 22 or
 - **Autosave** with `Cmd/Ctrl+S` shortcut
 - **Page history** — revisions with preview and restore; autosaves within five minutes of each other share one entry, and Cmd/Ctrl+S saves are kept separately
 - **A picture library you can search** — uploads keep the name they arrived with, can be renamed and described in place, and are found by either; the 74 bundled photographs are searchable by what they show
+- **Pictures the size of the screen** — a photograph is made lighter in your browser as it is uploaded (no wider than 2400 px, saved as WebP), with smaller copies that phones are sent instead; and any cropped picture keeps the point you choose in view
+- **A check before publishing** — pictures with no description, buttons that go nowhere, links to drafts or to pages that are gone, missing search descriptions, headings that skip a level and pictures heavier than they need to be, each one a click from the block it is in
 - **Forms with the fields people ask for** — text, email, phone, number, date, dropdowns, one or several choices, and a privacy checkbox that links the Datenschutzerklärung — with placeholders and help text, submissions stored in the CMS and viewable per page, and a hidden trap and a minimum fill time to keep programs out
 - **Per-page and per-site SEO** — search title, description, and social image
 - **German legal pages** — a guided flow collects what § 5 DDG and Art. 13 DSGVO ask for, writes an Impressum and a Datenschutzerklärung as editable pages, and links both in the footer of every page and subpage. The privacy notice describes what your site actually does: the builder reads your pages and only mentions third-party content it finds
@@ -201,6 +204,7 @@ uploads/  stock/    the images the pages point at
 fonts/              the bundled fonts the pages use, each with its licence
 feed.xml            the blog's posts, for a feed reader (when the site has posts)
 404.html            the site's own "not found" page (when it has one)
+old-name.html       a renamed page's old address, forwarding to where it is now
 README.txt          what's inside, and how to host it
 ```
 
