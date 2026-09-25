@@ -25,10 +25,12 @@ function schemaFields(model: string): string[] {
     .map((line) => line.split(/\s+/)[0]);
 }
 
-// Ids, timestamps and relations are rebuilt rather than carried.
+// Ids, timestamps and relations are rebuilt rather than carried. A page's old
+// addresses are the served site's, not the page's: a copy or an import lives
+// at an address of its own, which nobody outside has written down yet.
 const NOT_CARRIED = new Set([
   "id", "siteId", "site", "pageId", "page", "createdAt", "updatedAt",
-  "pages", "revisions", "submissions",
+  "pages", "revisions", "submissions", "redirects",
 ]);
 
 describe("the archive keeps up with the schema", () => {

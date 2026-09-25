@@ -83,6 +83,13 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
   const [language, setLanguage] = useState("en");
   // Advanced
   const [customCss, setCustomCss] = useState("");
+  // The menu is arranged in the site's own language. A page in another
+  // language takes the place of the page it translates in that language's
+  // menu, and is not arranged here; see `menuForLanguage`.
+  const [savedLanguage, setSavedLanguage] = useState("en");
+  const arrangeable = menuPages.filter(
+    (p) => !leftOutOfMenu(p) && (!p.language || p.language.toLowerCase() === savedLanguage.toLowerCase()),
+  );
   // State
   const [saving, setSaving] = useState(false);
   const [asking, setAsking] = useState(false);
@@ -125,6 +132,7 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
               legalKind: p.legalKind,
               isNotFound: p.isNotFound,
               isPost: p.isPost,
+              language: p.language ?? null,
             })),
           );
           setFooterHtml(s.footerHtml ?? "");
@@ -133,6 +141,7 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
           setOgImage(s.ogImage ?? "");
           setFavicon(s.favicon ?? "");
           setLanguage(s.language ?? "en");
+          setSavedLanguage(s.language ?? "en");
           setCustomCss(s.customCss ?? "");
           setLoaded(true);
         })
@@ -328,15 +337,15 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                   <div className="pt-3 border-t border-bg-border">
                     <Label>Custom header HTML (overrides the style controls above)</Label>
                     <Textarea rows={4} value={headerHtml} onChange={(e) => setHeaderHtml(e.target.value)} placeholder="Leave empty to use the header style controls above." />
-                    <p className="text-xs text-fg-subtle mt-1">Use <code>{`{name}`}</code> for the site name, <code>{`{nav}`}</code> for the page navigation.</p>
+                    <p className="text-xs text-fg-subtle mt-1">Use <code>{`{name}`}</code> for the site name, <code>{`{nav}`}</code> for the page navigation and, on a site in more than one language, <code>{`{languages}`}</code> for the language switcher.</p>
                   </div>
                 </div>
               )}
               {tab === "menu" && (
                 <MenuEditor
-                  menu={menu ?? editableMenu(storedMenu, menuPages.filter((p) => !leftOutOfMenu(p)))}
+                  menu={menu ?? editableMenu(storedMenu, arrangeable)}
                   onChange={setMenu}
-                  pages={menuPages.filter((p) => !leftOutOfMenu(p))}
+                  pages={arrangeable}
                   siteSlug={site.slug}
                 />
               )}

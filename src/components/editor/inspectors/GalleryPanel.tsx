@@ -7,7 +7,7 @@ import { MediaPicker } from "../MediaPicker";
 import { withPicture } from "@/lib/media-item";
 import { GALLERY_MAX_PICTURES } from "@/lib/gallery-lightbox";
 import { editedText, hasFormatting, plainText } from "@/lib/inline-text";
-import { Field, ListEditor, SegBtns, Select, Toggle, type BlockPanelProps } from "../inspector-fields";
+import { Field, FocusDisclosure, ListEditor, SegBtns, Select, Toggle, type BlockPanelProps } from "../inspector-fields";
 
 const COLUMNS = ["2", "3", "4"] as const;
 
@@ -93,6 +93,15 @@ export function GalleryPanel({ block, onChange }: BlockPanelProps) {
                 />
               </label>
               {hasFormatting(item.caption ?? "") ? <p className="text-[11px] text-fg-subtle">{FORMATTING_NOTE}</p> : null}
+              {/* A tile in its picture's own shape has nothing cut away. */}
+              {item.src && p.aspect !== "natural" ? (
+                <FocusDisclosure
+                  src={item.src}
+                  value={item.focus}
+                  onChange={(focus) => update({ ...item, focus })}
+                  label="What stays in view in the tile"
+                />
+              ) : null}
             </div>
           )}
         />

@@ -96,6 +96,9 @@ import { trashSite, trashPage } from "./src/lib/trash";
 import { PAGE_STARTERS, startingContent } from "./src/lib/page-starters";
 import { normalizeBlockTreeJson } from "./src/lib/block-tree";
 import { resolveSiteToken } from "./src/lib/page-links";
+import { afterRename, freePageSlug } from "./src/lib/page-rename";
+import { cleanLanguage } from "./src/lib/translations";
+import { languageChange } from "./src/lib/translations-store";
 import { applyLegalPages } from "./src/lib/legal/apply";
 import { auditSite } from "./src/lib/legal/audit";
 import { isLegalKind } from "./src/lib/legal/pages";
@@ -446,9 +449,10 @@ server.tool(
     slug: z.string().optional().describe("New URL slug"),
     published: z.boolean().optional().describe("Set to true to publish the page"),
     isHome: z.boolean().optional().describe("Set to true to make this the home page"),
+    language: z.string().optional().describe("The language the page is written in, as a code like 'de', when it is not the site's own. An empty string means the site's language."),
     blocks: z.string().optional().describe("Full block tree as a JSON string. Each block has: id, type, props, and optional children. Call get_block_reference for every block type, its props and the values each one accepts."),
   },
-  async ({ pageId, title, slug, published, isHome, blocks }) => {
+  async ({ pageId, title, slug, published, isHome, language, blocks }) => {
     const page = await prisma.page.findUnique({ where: { id: pageId } });
     if (!page) return { content: [{ type: "text", text: "Page not found." }] };
 
@@ -464,17 +468,12 @@ server.tool(
         });
       }
     }
-    if (slug !== undefined) {
-      let s = slugify(slug);
-      let suffix = 0;
-      const base = s;
-      while (true) {
-        const e = await prisma.page.findUnique({ where: { siteId_slug: { siteId: page.siteId, slug: s } } });
-        if (!e || e.id === pageId) break;
-        suffix += 1;
-        s = `${base}-${suffix}`;
-      }
-      data.slug = s;
+    // As the editor's save does it: a language the page's translations
+    // already have takes it out of their group.
+    if (language !== undefined) Object.assign(data, await languageChange(page, cleanLanguage(language)));
+    if (slug !== undefined && slug.trim()) {
+      const free = await freePageSlug(page.siteId, slug, page.id);
+      if (free !== page.slug) data.slug = free;
     }
     if (blocks !== undefined) {
       // The same validator every other writer uses: per-type prop schemas,
@@ -488,6 +487,9 @@ server.tool(
       data.content = tree.json;
     }
     const updated = await prisma.page.update({ where: { id: pageId }, data });
+    // The same as a rename anywhere else: the site's links follow the page,
+    // and its old address forwards to the new one.
+    const relinked = typeof data.slug === "string" ? await afterRename(page, data.slug) : 0;
 
     // Save a revision
     if (blocks !== undefined || title !== undefined) {
@@ -503,6 +505,7 @@ server.tool(
           id: updated.id, title: updated.title, slug: updated.slug,
           isHome: updated.isHome, published: updated.published,
           saved: true,
+          ...(relinked ? { relinked } : {}),
         }, null, 2),
       }],
     };

@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import type { MediaItem, SliderProps } from "@/types";
+import { useSrcSets } from "./image-variants";
+import { cleanFocus } from "@/lib/focus-point";
 import { cn } from "@/lib/utils";
 import { domId } from "@/lib/dom-id";
 import { withPicture } from "@/lib/media-item";
@@ -71,6 +73,7 @@ export function Slider({ props, onChange, disabled, blockId }: Props) {
   const editing = !disabled && !!onChange;
   const trackRef = useRef<HTMLDivElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const srcSets = useSrcSets();
   // The slide to bring into view once a picture added from the canvas has been
   // drawn. It cannot be scrolled to from the picker's callback: the new slide
   // does not exist until the page has rendered again.
@@ -216,6 +219,9 @@ export function Slider({ props, onChange, disabled, blockId }: Props) {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={slide.src}
+                    srcSet={srcSets[slide.src]}
+                    // A slide is as wide as the block, which is at most the page.
+                    sizes={srcSets[slide.src] ? "(max-width: 72rem) 100vw, 72rem" : undefined}
                     alt={slide.alt || ""}
                     // Only a ratio here — the slide's shape decides the size —
                     // but it is the picture's own, so the browser can decode it
@@ -226,6 +232,7 @@ export function Slider({ props, onChange, disabled, blockId }: Props) {
                     // wait until the strip comes near them.
                     loading={position === 0 ? undefined : "lazy"}
                     decoding="async"
+                    style={slide.focus ? { objectPosition: cleanFocus(slide.focus) } : undefined}
                     className="nvx-slider-picture"
                   />
                 ) : (

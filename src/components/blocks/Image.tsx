@@ -4,6 +4,8 @@ import { ImageProps } from "@/types";
 import { cn } from "@/lib/utils";
 import { MediaPicker } from "@/components/editor/MediaPicker";
 import { InlineEdit } from "@/components/ui/InlineEdit";
+import { useSrcSet } from "./image-variants";
+import { cleanFocus, shapeRatio } from "@/lib/focus-point";
 
 interface Props {
   props: ImageProps;
@@ -33,10 +35,20 @@ const PLACEHOLDER =
       "</svg>",
   );
 const widthClass = { small: "max-w-sm", medium: "max-w-xl", large: "max-w-3xl", full: "max-w-full" } as const;
+/**
+ * How wide each width is drawn, for `sizes`: the widths above in rem, and the
+ * page's content column for "full". Below those, the width of the window.
+ */
+const drawnWidth = { small: "24rem", medium: "36rem", large: "48rem", full: "72rem" } as const;
 
 export function Image({ props, onChange, disabled }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editingUrl, setEditingUrl] = useState(false);
+  const srcSet = useSrcSet(props.src);
+  // Cut to a shape, the picture fills it and keeps its chosen point in view;
+  // in its own shape there is nothing cut away, and the point has no work.
+  const ratio = shapeRatio(props.shape);
+  const cropped = ratio ? { aspectRatio: ratio, objectFit: "cover" as const, objectPosition: cleanFocus(props.focus) ?? "center" } : undefined;
 
   return (
     // `relative` so the editor's own controls can hang over the picture rather
@@ -46,6 +58,8 @@ export function Image({ props, onChange, disabled }: Props) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={props.src || PLACEHOLDER}
+        srcSet={srcSet}
+        sizes={srcSet ? `(max-width: ${drawnWidth[props.width]}) 100vw, ${drawnWidth[props.width]}` : undefined}
         alt={props.alt || ""}
         // Given the picture's own size, the browser holds its space before the
         // bytes arrive. Without it the page shifts under the reader as each
@@ -56,6 +70,7 @@ export function Image({ props, onChange, disabled }: Props) {
         // off the main thread keeps a long page scrolling smoothly.
         loading="lazy"
         decoding="async"
+        style={cropped}
         className={cn("w-full h-auto block", roundedClass[props.rounded], !disabled && "cursor-pointer hover:opacity-95")}
       />
       {!disabled && onChange ? (

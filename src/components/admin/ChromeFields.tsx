@@ -22,6 +22,8 @@ export interface ChromePage {
   isNotFound?: boolean;
   /** A blog post, which the menu leaves out too. */
   isPost?: boolean;
+  /** Empty for the site's language; a page in another is in that language's menu. */
+  language?: string | null;
 }
 
 // ---------------------------------------------------------------------------

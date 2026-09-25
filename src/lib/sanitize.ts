@@ -160,7 +160,9 @@ export function sanitizeHtml(dirty: string): string {
       "iframe",
     ],
     allowedAttributes: {
-      a: ["href", "title", "target", "rel"],
+      // The language of a link and of the page it goes to, which is how a
+      // written header's `{languages}` switcher says "Deutsch" in German.
+      a: ["href", "title", "target", "rel", "hreflang", "lang", "aria-current"],
       img: ["src", "alt", "width", "height", "loading"],
       video: ["src", "controls", "autoplay", "muted", "loop", "playsinline", "poster", "width", "height"],
       source: ["src", "type"],

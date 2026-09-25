@@ -103,6 +103,33 @@ in brackets is the finding it closes.
 
 ### Added
 
+- **A site in more than one language.** A page says which language it is
+  written in, and pages that are translations of one another are linked from
+  its settings, where a draft copy to translate is made in one step. Each page
+  carries its own `<html lang>`; a switcher in the header goes to the same
+  page in every other language, or to that language's home page; the menu
+  shows each language its own pages under their own titles; and every version
+  names the others to search engines with `hreflang`. A written header places
+  the switcher with `{languages}`.
+- **Old addresses keep working.** A published page renamed leaves its old
+  address forwarding to the new one, in the builder and in the download,
+  where a small page under the old file name sends visitors on. The page's
+  settings list its old addresses, and each can be let go.
+- **Lighter pictures.** A photograph uploaded is redrawn in the browser no
+  wider than 2400 pixels and saved as WebP, with smaller copies at 480, 960
+  and 1600 pixels that a published page offers as `srcset`, so a phone is
+  sent a picture its size. Nothing is installed for it, and it can be turned
+  off in the library for a picture that should keep every pixel. The copies
+  go into the download and are deleted with their picture.
+- **Crops that keep what matters.** An image block can be cut to a square,
+  landscape, wide or portrait shape, and a point chosen on any cropped
+  picture — an image block, a section's or a column's background, a gallery
+  tile, a slide — stays in view whatever shape the window cuts it to.
+- **A check before publishing.** "Check the site" on the dashboard lists
+  pictures with no description, buttons that go nowhere, links to drafts, to
+  pages that do not exist and to section names no page has, pages with no
+  search description, headings that skip a level, and pictures heavier than
+  a page needs. Each finding opens its page with the block selected.
 - **A blog.** Any page can be a post, with a date, an author, a summary, a
   cover and tags, set in its page settings; the dashboard lists posts apart
   from pages and makes new ones. A post is headed with its details, kept out
@@ -352,6 +379,10 @@ in brackets is the finding it closes.
 
 ### Fixed
 
+- A page renamed in the editor, where nearly every page is renamed, left
+  every link to it on the site's other pages pointing at its old address;
+  only a rename from the dashboard moved them. Every way of renaming a page
+  moves them now, the MCP server's included.
 - A body font chosen in site settings reached the editor's canvas and no
   published page. The published layout gives `<body>` the builder's own
   sans-serif as a class, every block inherited it from there, and the site's

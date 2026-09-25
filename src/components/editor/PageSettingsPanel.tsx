@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/Button";
 import { MediaPicker } from "./MediaPicker";
 import { Toggle } from "./inspector-fields";
 import { SaveAsTemplateButton } from "@/components/admin/SaveAsTemplateButton";
+import { TranslationsPanel } from "./TranslationsPanel";
+import type { TranslationState } from "@/lib/translations-store";
 
 export interface PageSeo {
   metaTitle: string;
@@ -14,6 +16,8 @@ export interface PageSeo {
 
 /** What the page is for, beside its content: a blog post, or the site's "not found" page. */
 export interface PageDetails {
+  /** The page's language code, empty for the site's own. */
+  language: string;
   isNotFound: boolean;
   isPost: boolean;
   /** `2026-09-25`, as the date field has it. */
@@ -36,6 +40,13 @@ interface Props {
   isHome: boolean;
   /** For keeping the page as a template of one's own. */
   pageId: string;
+  siteSlug: string;
+  /** Addresses the page had before a rename, still forwarding to it. */
+  formerSlugs: string[];
+  onFormerSlugsChange: (next: string[]) => void;
+  siteId: string;
+  /** Null when the page could not be read, which leaves the section out. */
+  translations: TranslationState | null;
 }
 
 /**
@@ -44,7 +55,20 @@ interface Props {
  * These fields were already read when rendering a published page, but nothing
  * could set them: there was no UI and the page API dropped them on the floor.
  */
-export function PageSettingsPanel({ seo, onChange, fallbackTitle, details, onDetailsChange, isHome, pageId }: Props) {
+export function PageSettingsPanel({
+  seo,
+  onChange,
+  fallbackTitle,
+  details,
+  onDetailsChange,
+  isHome,
+  pageId,
+  siteSlug,
+  formerSlugs,
+  onFormerSlugsChange,
+  siteId,
+  translations,
+}: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [coverPicking, setCoverPicking] = useState(false);
   const set = (key: keyof PageSeo, value: string) => onChange({ ...seo, [key]: value });
@@ -113,6 +137,15 @@ export function PageSettingsPanel({ seo, onChange, fallbackTitle, details, onDet
         onClose={() => setCoverPicking(false)}
         onSelect={(url) => { post("coverImage", url); setCoverPicking(false); }}
       />
+      {translations && !details.isNotFound ? (
+        <TranslationsPanel
+          pageId={pageId}
+          siteId={siteId}
+          initial={translations}
+          language={details.language}
+          onLanguageChange={(language) => post("language", language)}
+        />
+      ) : null}
       {isHome || details.isPost ? null : (
         <div className="mb-5 pb-5 border-b border-bg-border">
           <Toggle
@@ -123,6 +156,9 @@ export function PageSettingsPanel({ seo, onChange, fallbackTitle, details, onDet
           />
         </div>
       )}
+      {formerSlugs.length > 0 ? (
+        <FormerAddresses pageId={pageId} siteSlug={siteSlug} slugs={formerSlugs} onChange={onFormerSlugsChange} />
+      ) : null}
       <div className="text-xs uppercase tracking-wide text-fg-muted font-semibold mb-3">Page SEO</div>
       <div className="space-y-3">
         <div>
@@ -173,6 +209,67 @@ export function PageSettingsPanel({ seo, onChange, fallbackTitle, details, onDet
         onClose={() => setPickerOpen(false)}
         onSelect={(url) => { set("ogImage", url); setPickerOpen(false); }}
       />
+    </div>
+  );
+}
+
+/**
+ * The addresses this page had before it was renamed, each still sending
+ * visitors here, and a way to stop one. Listed only once there is one, which
+ * is after a published page has been renamed.
+ */
+function FormerAddresses({
+  pageId,
+  siteSlug,
+  slugs,
+  onChange,
+}: {
+  pageId: string;
+  siteSlug: string;
+  slugs: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function stop(from: string) {
+    setBusy(from);
+    try {
+      const res = await fetch(`/api/pages/${pageId}/redirects`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from }),
+      });
+      const body = await res.json().catch(() => null);
+      if (res.ok && Array.isArray(body?.formerSlugs)) onChange(body.formerSlugs);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="mb-5 pb-5 border-b border-bg-border space-y-2" data-former-addresses="">
+      <div className="text-xs uppercase tracking-wide text-fg-muted font-semibold">Old addresses</div>
+      <ul className="space-y-1">
+        {slugs.map((from) => (
+          <li key={from} className="flex items-center gap-2 text-xs">
+            <code className="flex-1 min-w-0 truncate text-fg-muted" title={`/sites/${siteSlug}/${from}`}>/{from}</code>
+            <span className="text-fg-subtle shrink-0">forwards here</span>
+            <button
+              type="button"
+              onClick={() => stop(from)}
+              disabled={busy === from}
+              aria-label={`Stop forwarding /${from}`}
+              className="shrink-0 w-6 h-6 rounded text-fg-muted hover:text-fg hover:bg-bg-card disabled:opacity-40"
+            >
+              ✕
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-fg-subtle">
+        Links inside the site moved with the page. These catch the ones outside it — bookmarks, search results,
+        other sites — and the download leaves a small page at each that sends visitors on.
+      </p>
     </div>
   );
 }

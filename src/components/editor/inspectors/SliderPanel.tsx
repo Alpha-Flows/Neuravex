@@ -4,7 +4,7 @@ import type { MediaItem, SliderProps } from "@/types";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { MediaPicker } from "../MediaPicker";
-import { Field, ListEditor, SegBtns, Select, Toggle, type BlockPanelProps } from "../inspector-fields";
+import { Field, FocusDisclosure, ListEditor, SegBtns, Select, Toggle, type BlockPanelProps } from "../inspector-fields";
 import { withPicture } from "@/lib/media-item";
 import { MAX_SLIDES, SLIDE_ALT_MAX, SLIDER_RATIOS, SLIDER_RATIO_NAME } from "@/lib/slider-nav";
 import { editedText, hasFormatting, plainText } from "@/lib/inline-text";
@@ -92,6 +92,14 @@ export function SliderPanel({ block, onChange }: BlockPanelProps) {
                 />
               </label>
               {hasFormatting(slide.caption ?? "") ? <p className="text-[11px] text-fg-subtle">{FORMATTING_NOTE}</p> : null}
+              {slide.src ? (
+                <FocusDisclosure
+                  src={slide.src}
+                  value={slide.focus}
+                  onChange={(focus) => update({ ...slide, focus })}
+                  label="What stays in view on the slide"
+                />
+              ) : null}
             </div>
           )}
         />

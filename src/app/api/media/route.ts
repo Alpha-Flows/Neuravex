@@ -63,7 +63,13 @@ async function uploadNames(): Promise<string[]> {
 // GET /api/media — the library: every uploaded file, what it is called, what
 // it shows, and the pages using it.
 export async function GET() {
-  const files = await uploadNames();
+  const all = await uploadNames();
+  // A picture's smaller copies are part of it, not pictures of their own to
+  // choose: listed, each would be the same photograph three more times.
+  const copies = new Set(
+    (await prisma.mediaFile.findMany({ where: { variantOf: { not: null } }, select: { url: true } })).map((r) => r.url),
+  );
+  const files = all.filter((f) => !copies.has(`/uploads/${f}`));
   const urls = files.map((f) => `/uploads/${f}`);
   const [usage, records] = await Promise.all([
     usageByUrl(urls),
@@ -132,9 +138,14 @@ export async function DELETE(req: NextRequest) {
 
   const url: string = (parsed.body.url ?? "").toString();
   if (!isUploadUrl(url)) return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
-  const filepath = existingUploadPath(url.slice("/uploads/".length));
-  if (filepath) await unlink(filepath).catch(() => {});
+  // Its smaller copies go with it: nothing else points at them, and a page
+  // offering them in a `srcset` offers them beside this.
+  const copies = await prisma.mediaFile.findMany({ where: { variantOf: url }, select: { url: true } });
+  for (const target of [url, ...copies.map((c) => c.url)]) {
+    const filepath = existingUploadPath(target.slice("/uploads/".length));
+    if (filepath) await unlink(filepath).catch(() => {});
+  }
   // What was known about the file goes with the file.
-  await prisma.mediaFile.deleteMany({ where: { url } });
+  await prisma.mediaFile.deleteMany({ where: { OR: [{ url }, { variantOf: url }] } });
   return NextResponse.json({ ok: true });
 }

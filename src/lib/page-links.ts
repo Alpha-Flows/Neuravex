@@ -169,6 +169,33 @@ export function retargetLinks(blocks: BaseBlock[], map: LinkMapper): { blocks: B
 }
 
 /**
+ * Every link a block holds in its own props, as written — its children's are
+ * their own. The same places `retargetLinks` looks, read rather than
+ * rewritten, so the check before publishing cannot miss a link a rename
+ * would have moved.
+ */
+export function linksOf(block: BaseBlock): string[] {
+  const out: string[] = [];
+  const take = (href: unknown) => {
+    if (typeof href === "string" && href) out.push(href);
+  };
+  const props = block.props;
+  for (const key of LINK_PROPS[block.type] ?? []) take(props?.[key]);
+  for (const [listKey, field] of NESTED_LINK_PROPS[block.type] ?? []) {
+    const list = props?.[listKey];
+    if (!Array.isArray(list)) continue;
+    for (const entry of list) if (entry && typeof entry === "object") take((entry as Record<string, unknown>)[field]);
+  }
+  const inHtml = (html: string) => {
+    for (const match of html.matchAll(/href\s*=\s*("|')([^"']*)\1/gi)) take(match[2]);
+    return html;
+  };
+  if (block.type === "html" && typeof props?.html === "string") inHtml(props.html);
+  if (props && typeof props === "object") mapRichText(block.type, props, inHtml);
+  return out;
+}
+
+/**
  * The same, over one page's stored JSON. Content that will not parse is left
  * exactly as it is — a rename is no moment to rewrite something we cannot read.
  */

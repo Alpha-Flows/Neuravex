@@ -18,6 +18,7 @@ import { normalizeBox } from "./block-box";
 import { normalizeMotion } from "./block-motion";
 import { normalizeSyncedId } from "./synced-blocks";
 import { cleanAnchor } from "./anchors";
+import { cleanFocus } from "./focus-point";
 import { normalizeAngle } from "./block-style";
 import { resolveIconName } from "./icon-names";
 import { MAX_SOCIAL_HREF, MAX_SOCIAL_LINKS, normaliseSocialHref } from "./social-links";
@@ -270,6 +271,12 @@ const formField = z
     ...(hasChoices(type) ? { options: options.length > 0 ? options : STARTER_OPTIONS.slice() } : {}),
   }));
 
+/**
+ * What of a cropped picture stays in view: two percentages or nothing. It is
+ * written into a `style` attribute, so it is never more than that.
+ */
+const focusProp = z.unknown().optional().transform((v) => cleanFocus(v)).optional();
+
 /** One picture in a gallery or a slider, checked the way an image block's is. */
 const mediaItem = z.object({
   src: z.unknown().optional().transform((v) => safeMediaSrc(v) ?? ""),
@@ -278,6 +285,7 @@ const mediaItem = z.object({
   naturalWidth: z.coerce.number().int().min(0).max(100_000).optional().catch(undefined),
   naturalHeight: z.coerce.number().int().min(0).max(100_000).optional().catch(undefined),
   altFromLibrary: z.boolean().optional().catch(undefined),
+  focus: focusProp,
 });
 
 const MAX_GALLERY_IMAGES = 60;
@@ -324,6 +332,8 @@ const PROPS: Record<string, z.ZodType> = {
     naturalWidth: z.coerce.number().int().min(0).max(100_000).optional().catch(undefined),
     naturalHeight: z.coerce.number().int().min(0).max(100_000).optional().catch(undefined),
     altFromLibrary: z.boolean().optional().catch(undefined),
+    shape: z.enum(["original", "1/1", "4/3", "3/2", "16/9", "3/4"]).optional().catch(undefined),
+    focus: focusProp,
   }),
 
   button: z.object({
@@ -353,6 +363,7 @@ const PROPS: Record<string, z.ZodType> = {
     backgroundImage: z.unknown().optional().transform((v) => safeMediaSrc(v)).optional(),
     backgroundOverlay: colorProp.optional(),
     backgroundGradient: gradientProp,
+    backgroundFocus: focusProp,
     paddingY: lengthProp(64),
     paddingX: lengthProp(24),
     maxWidth: z.enum(["site", "full", "7xl", "6xl", "5xl", "4xl"]).catch("site"),
@@ -370,6 +381,7 @@ const PROPS: Record<string, z.ZodType> = {
           backgroundImage: z.unknown().optional().transform((v) => safeMediaSrc(v)).optional(),
           backgroundOverlay: colorProp.optional(),
           backgroundGradient: gradientProp,
+          backgroundFocus: focusProp,
           padding: lengthProp(0).optional(),
           radius: lengthProp(0).optional(),
         }).catch({}),

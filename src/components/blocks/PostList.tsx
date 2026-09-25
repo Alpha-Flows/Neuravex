@@ -3,6 +3,7 @@ import type { PostsProps } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatPostDate } from "@/lib/posts";
 import { useSitePosts } from "./site-posts";
+import { useSrcSets } from "./image-variants";
 
 interface Props {
   props: PostsProps;
@@ -19,6 +20,7 @@ interface Props {
  */
 export function PostList({ props, disabled }: Props) {
   const { posts, language } = useSitePosts();
+  const srcSets = useSrcSets();
   const tag = props.tag.trim().toLowerCase();
   const shown = posts.filter((p) => !tag || p.tags.some((t) => t.toLowerCase() === tag)).slice(0, props.count);
 
@@ -41,7 +43,16 @@ export function PostList({ props, disabled }: Props) {
           {props.showCover && post.coverImage ? (
             <a href={post.href} tabIndex={-1} aria-hidden="true" className={cn("block shrink-0", props.layout === "list" ? "sm:w-56 mb-3 sm:mb-0" : "mb-3")}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={post.coverImage} alt="" loading="lazy" className="w-full aspect-[16/10] object-cover rounded-lg" />
+              <img
+                src={post.coverImage}
+                srcSet={srcSets[post.coverImage]}
+                // A third of the column in a grid, 14rem in a list, the width
+                // of a phone below either.
+                sizes={srcSets[post.coverImage] ? (props.layout === "grid" ? "(max-width: 640px) 100vw, 24rem" : "(max-width: 640px) 100vw, 14rem") : undefined}
+                alt=""
+                loading="lazy"
+                className="w-full aspect-[16/10] object-cover rounded-lg"
+              />
             </a>
           ) : null}
           <div className="min-w-0">

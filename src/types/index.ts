@@ -79,6 +79,8 @@ export interface SectionProps {
   backgroundImage?: string; // optional image URL, takes priority over background
   backgroundOverlay?: string; // optional rgba() tint layered over backgroundImage for legibility
   backgroundGradient?: BackgroundGradient; // drawn instead of `background` when there is no image
+  /** What of the background image stays in view, as `"30% 20%"`; see `src/lib/focus-point.ts`. */
+  backgroundFocus?: string;
   paddingY: number; // px
   paddingX: number; // px
   /**
@@ -103,6 +105,8 @@ export interface ColumnStyle {
   backgroundImage?: string; // optional image URL, takes priority over background
   backgroundOverlay?: string; // optional rgba() tint layered over backgroundImage for legibility
   backgroundGradient?: BackgroundGradient; // drawn instead of `background` when there is no image
+  /** What of the background image stays in view; see `src/lib/focus-point.ts`. */
+  backgroundFocus?: string;
   padding?: number; // px of space between the column's edge and its blocks
   radius?: number; // px corner rounding
 }
@@ -166,6 +170,13 @@ export interface ImageProps {
    * author's own words alone.
    */
   altFromLibrary?: boolean;
+  /**
+   * A shape to cut the picture to, as a CSS aspect ratio ("16/9"), and the
+   * point of it that stays in view when it is cut; see
+   * `src/lib/focus-point.ts`. Absent keeps the picture's own shape.
+   */
+  shape?: "original" | "1/1" | "4/3" | "3/2" | "16/9" | "3/4";
+  focus?: string;
 }
 
 export interface ButtonProps {
@@ -263,6 +274,8 @@ export interface MediaItem {
   naturalWidth?: number;
   naturalHeight?: number;
   altFromLibrary?: boolean;
+  /** What stays in view when a tile or a slide crops it; see `src/lib/focus-point.ts`. */
+  focus?: string;
 }
 
 export interface GalleryProps {

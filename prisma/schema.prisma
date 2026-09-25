@@ -97,6 +97,14 @@ model Page {
   /// Comma-separated.
   tags            String?
   sortOrder       Int       @default(0)
+  /// The language the page is written in, as a code like "de", when it is not
+  /// the site's own. Empty means the site's language, so changing that
+  /// changes every page that never said otherwise.
+  language        String?
+  /// Pages that are translations of one another carry the same key: the id
+  /// of the page the first translation was made from, which means nothing
+  /// beyond "these belong together". One page per language in a group.
+  translationGroup String?
   /// Set on a page this app generated and still owns: "impressum" or
   /// "datenschutz". It is what lets the footer find them, keeps them out of
   /// the header nav where they would crowd the real pages, and lets the
@@ -111,9 +119,30 @@ model Page {
 
   revisions   Revision[]
   submissions Submission[]
+  redirects   PageRedirect[]
 
   @@unique([siteId, slug])
   @@index([siteId])
+}
+
+/// An address a page used to have, kept so that a link to it still arrives.
+/// Renaming a published page moved every link inside the site with it, and
+/// none of the ones outside it: a search result, a bookmark, a flyer, another
+/// site's link. Each of those became a 404 the moment the page was renamed.
+/// The builder forwards the old address to wherever the page is now, and the
+/// download leaves a small forwarding page under the old file name.
+model PageRedirect {
+  id        String   @id @default(cuid())
+  siteId    String
+  /// The slug the page had.
+  fromSlug  String
+  /// The page it belongs to, by id, so a second rename needs no second row.
+  pageId    String
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([siteId, fromSlug])
+  @@index([pageId])
 }
 
 /// A block someone kept to use again — a section they built once and want on
@@ -214,6 +243,17 @@ model MediaFile {
   /// What the picture shows, for a reader who cannot see it. It travels with
   /// the picture onto the page, the way a bundled photograph's does.
   alt       String   @default("")
+  /// The picture's size in pixels, read from the file when it arrived.
+  width     Int?
+  height    Int?
+  /// Set on a smaller copy of another picture, made in the browser as that
+  /// one was uploaded: the address of the picture it is a copy of. A page
+  /// offers the copies to the browser as `srcset`, so a phone downloads the
+  /// 480-pixel copy rather than the 2400-pixel original. Copies are not
+  /// listed in the library, and go when their picture goes.
+  variantOf String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([variantOf])
 }

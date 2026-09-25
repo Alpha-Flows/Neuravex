@@ -17,6 +17,7 @@ import { normalizeBlockTreeJson, clampSortOrder } from "./block-tree";
 import { slugify } from "./utils";
 import { menuForArchive } from "./menu";
 import { normalizePostFields } from "./posts";
+import { cleanGroup, cleanLanguage } from "./translations";
 
 export const ARCHIVE_VERSION = 3;
 
@@ -65,6 +66,8 @@ export const PAGE_FIELDS = [
   "excerpt",
   "coverImage",
   "tags",
+  "language",
+  "translationGroup",
   "sortOrder",
   "metaTitle",
   "metaDescription",
@@ -201,6 +204,9 @@ export interface PageCreateData {
   excerpt: string | null;
   coverImage: string | null;
   tags: string | null;
+  /** The page's language when not the site's, and its translations' key; see `lib/translations`. */
+  language: string | null;
+  translationGroup: string | null;
   sortOrder: number;
   metaTitle: string | null;
   metaDescription: string | null;
@@ -245,6 +251,11 @@ export function pageCreateData(page: Row): PageCreateData {
       coverImage: page.coverImage ?? null,
       tags: page.tags ?? null,
     }) as Pick<PageCreateData, "postDate" | "author" | "excerpt" | "coverImage" | "tags">),
+    // A key means nothing outside the site it came from, so an archive's is
+    // kept as it is: its pages still share it, and nothing else in the new
+    // site can.
+    language: cleanLanguage(page.language),
+    translationGroup: cleanGroup(page.translationGroup),
     sortOrder: clampSortOrder(Number(page.sortOrder ?? 0)) ?? 0,
     metaTitle: optional(page.metaTitle, 1000),
     metaDescription: optional(page.metaDescription, 1000),
