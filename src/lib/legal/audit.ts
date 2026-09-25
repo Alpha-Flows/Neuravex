@@ -23,6 +23,8 @@
 import { Parser } from "htmlparser2";
 import { BaseBlock } from "@/types";
 import { sanitizeHtml, sanitizeInlineHtml } from "@/lib/sanitize";
+import { VIDEO_PROVIDER_NAME, videoEmbed, videoSiteOf } from "@/lib/video-embed";
+import { osmEmbedUrl, osmTileHosts } from "@/lib/map-location";
 
 export type FindingKind =
   /** A form that can take personal data from a visitor. */
@@ -82,20 +84,34 @@ export interface SiteAudit {
   selfContained: boolean;
 }
 
-/** The host of an absolute URL, or null for a path on this same site. */
+/**
+ * A host no address can really name, standing in for this site.
+ *
+ * `.invalid` is reserved for exactly this (RFC 2606): nothing an author writes
+ * can resolve to it, so an address that comes back with it as its host was a
+ * path on this site all along.
+ */
+const THIS_SITE = "https://self.invalid/";
+
+/**
+ * The host of an address somebody else serves, or null for one on this site.
+ *
+ * The address is resolved the way a browser resolves it, against a stand-in
+ * for this site, rather than sorted by what it starts with. Sorting by prefix
+ * read `//fonts.gstatic.com/x.woff2` as a path until it was taught otherwise,
+ * and it still read `/\cdn.example/clip.mp4` and `\\cdn.example\clip.mp4` as
+ * paths: a browser treats a backslash in an http address as a slash, so both
+ * are somebody else's server, and a video block pointing at one loaded it for
+ * every visitor while the privacy notice said the site loaded nothing.
+ */
 export function remoteHost(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const url = value.trim();
-  if (!url) return null;
-  // A protocol-relative address is still somebody else's server, and it has to
-  // be tested before the leading-slash check or `//fonts.gstatic.com/x.woff2`
-  // reads as a path on this site.
-  const protocolRelative = url.startsWith("//");
-  if (!protocolRelative && (url.startsWith("/") || url.startsWith("#") || url.startsWith("data:"))) return null;
-  const withProtocol = protocolRelative ? `https:${url}` : url;
+  if (!url || url.startsWith("#") || /^data:/i.test(url)) return null;
   try {
-    const parsed = new URL(withProtocol);
-    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.host : null;
+    const parsed = new URL(url, THIS_SITE);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed.host === new URL(THIS_SITE).host ? null : parsed.host;
   } catch {
     return null;
   }
@@ -219,12 +235,51 @@ const MAX_AUDIT_DEPTH = 32;
  * The rendered form is what gets scanned, not the stored source: what matters
  * is what the browser is handed.
  */
-const TEXT_PROPS = ["text", "label", "caption", "author", "role", "submitLabel", "successMessage", "title"];
+const TEXT_PROPS = ["text", "label", "caption", "author", "role", "submitLabel", "successMessage", "title", "description", "address"];
 
-function richTextIn(props: Record<string, unknown>): string[] {
+/** The records in a list prop, skipping anything that is not one. */
+function recordsIn(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.filter((v): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v))
+    : [];
+}
+
+/**
+ * Rich text a block keeps inside a list rather than in a prop of its own — an
+ * accordion's answers, a table's cells, a plan's features, a slide's caption.
+ * `TEXT_PROPS` only looks at the top level, and every one of these renders
+ * through the same sanitiser a Text block does.
+ */
+function nestedRichText(type: string, props: Record<string, unknown>): unknown[] {
+  switch (type) {
+    case "accordion":
+      return recordsIn(props.items).flatMap((item) => [item.title, item.body]);
+    case "table":
+      return Array.isArray(props.rows) ? props.rows.flatMap((row) => (Array.isArray(row) ? row : [])) : [];
+    case "pricing":
+      return recordsIn(props.plans).flatMap((plan) => [
+        plan.name, plan.price, plan.period, plan.description, plan.badge, plan.buttonLabel,
+        ...(Array.isArray(plan.features) ? plan.features : []),
+      ]);
+    case "gallery":
+      return recordsIn(props.images).map((image) => image.caption);
+    case "slider":
+      return recordsIn(props.slides).map((slide) => slide.caption);
+    default:
+      return [];
+  }
+}
+
+function richTextIn(props: Record<string, unknown>, type = ""): string[] {
   const out: string[] = [];
+  // A code sample is shown as text, escaped, never as markup: `<img src=…>`
+  // written in one is a line of code on the page, not a request.
+  if (type === "code") return out;
   for (const key of TEXT_PROPS) {
     const value = props[key];
+    if (typeof value === "string" && value.includes("<")) out.push(sanitizeInlineHtml(value));
+  }
+  for (const value of nestedRichText(type, props)) {
     if (typeof value === "string" && value.includes("<")) out.push(sanitizeInlineHtml(value));
   }
   if (Array.isArray(props.items)) {
@@ -249,7 +304,7 @@ function walk(blocks: BaseBlock[], where: string, out: Finding[], depth = 0): vo
 
     // A remote resource written into a rich-text prop loads for every visitor
     // exactly like one in a Custom HTML block.
-    for (const fragment of richTextIn(props)) {
+    for (const fragment of richTextIn(props, block.type)) {
       for (const host of new Set(hostsInHtml(fragment))) {
         out.push({ kind: "remote-asset", host, where, detail: `Text in a ${block.type} block`, needsConsent: true });
       }
@@ -267,14 +322,37 @@ function walk(blocks: BaseBlock[], where: string, out: Finding[], depth = 0): vo
       });
     }
 
+    // A YouTube or Vimeo link is drawn as a frame from the privacy-preserving
+    // player, not from the address that was pasted — so the host named is
+    // the one the visitor's browser actually contacts. This branch used to
+    // read the pasted link, which was right while the block could only hand
+    // it to a `<video>` element; read that way now, it would name
+    // `www.youtube.com` in the privacy notice for a page that only ever talks
+    // to `www.youtube-nocookie.com`. A frame is an embed like one in a Custom
+    // HTML block, and its poster is never drawn, so the poster is not a
+    // request anybody makes. A block with no address, or with a YouTube or
+    // Vimeo address that has no video in it, is not drawn at all — poster
+    // included — so it is not one either.
     if (block.type === "video") {
-      const host = remoteHost(props.src);
-      if (host) {
-        out.push({ kind: "remote-video", host, where, detail: String(props.src), needsConsent: true });
-      }
-      const poster = remoteHost(props.poster);
-      if (poster) {
-        out.push({ kind: "remote-asset", host: poster, where, detail: String(props.poster), needsConsent: true });
+      const embed = videoEmbed(props.src);
+      const embedHost = embed ? remoteHost(embed.embedUrl) : null;
+      if (embed && embedHost) {
+        out.push({
+          kind: "embed",
+          host: embedHost,
+          where,
+          detail: `Video block showing a ${VIDEO_PROVIDER_NAME[embed.provider]} player (${embed.embedUrl})`,
+          needsConsent: true,
+        });
+      } else if (props.src && !videoSiteOf(props.src)) {
+        const host = remoteHost(props.src);
+        if (host) {
+          out.push({ kind: "remote-video", host, where, detail: String(props.src), needsConsent: true });
+        }
+        const poster = remoteHost(props.poster);
+        if (poster) {
+          out.push({ kind: "remote-asset", host: poster, where, detail: String(props.poster), needsConsent: true });
+        }
       }
     }
 
@@ -312,6 +390,61 @@ function walk(blocks: BaseBlock[], where: string, out: Finding[], depth = 0): vo
       if (host) out.push({ kind: "outbound-link", host, where, detail: String(props.href), needsConsent: false });
     }
 
+    // Every picture in a gallery or a slider is a request of its own, exactly
+    // as an image block's is.
+    if (block.type === "gallery" || block.type === "slider") {
+      for (const item of recordsIn(block.type === "gallery" ? props.images : props.slides)) {
+        const host = remoteHost(item.src);
+        if (host) out.push({ kind: "remote-asset", host, where, detail: String(item.src), needsConsent: true });
+      }
+    }
+
+    if (block.type === "audio") {
+      const host = remoteHost(props.src);
+      if (host) out.push({ kind: "remote-asset", host, where, detail: String(props.src), needsConsent: true });
+    }
+
+    // An embedded map is a frame from openstreetmap.org that every visitor's
+    // browser loads as the page opens, and the frame then draws the map from
+    // OpenStreetMap's tile server — a second host that is handed the
+    // visitor's IP address just the same, and one the notice has to name
+    // too. A map drawn as a card makes no request at all. Both modes carry a
+    // link to OpenStreetMap and, unless the author turned it off, one to
+    // Google Maps; a link transmits nothing until somebody follows it.
+    if (block.type === "map") {
+      if (props.mode === "embed") {
+        out.push({
+          kind: "embed",
+          host: "www.openstreetmap.org",
+          where,
+          detail: "Map block showing an OpenStreetMap frame",
+          needsConsent: true,
+        });
+        const frame = osmEmbedUrl(Number(props.lat) || 0, Number(props.lng) || 0, Number(props.zoom) || 16);
+        for (const host of osmTileHosts(frame)) {
+          out.push({ kind: "remote-asset", host, where, detail: "Map tiles drawn inside the OpenStreetMap frame", needsConsent: true });
+        }
+      }
+      out.push({ kind: "outbound-link", host: "www.openstreetmap.org", where, detail: "Map block linking to OpenStreetMap", needsConsent: false });
+      if (props.googleLink !== false) {
+        out.push({ kind: "outbound-link", host: "www.google.com", where, detail: "Map block linking to Google Maps", needsConsent: false });
+      }
+    }
+
+    if (block.type === "social") {
+      for (const link of recordsIn(props.links)) {
+        const host = remoteHost(link.href);
+        if (host) out.push({ kind: "outbound-link", host, where, detail: String(link.href), needsConsent: false });
+      }
+    }
+
+    if (block.type === "pricing") {
+      for (const plan of recordsIn(props.plans)) {
+        const host = remoteHost(plan.buttonHref);
+        if (host) out.push({ kind: "outbound-link", host, where, detail: String(plan.buttonHref), needsConsent: false });
+      }
+    }
+
     if (block.type === "html" && typeof props.html === "string") {
       // The sanitised form, because that is what a visitor's browser gets.
       const html = sanitizeHtml(props.html);
@@ -332,6 +465,12 @@ function walk(blocks: BaseBlock[], where: string, out: Finding[], depth = 0): vo
       }
       for (const host of new Set(linkHostsInHtml(html))) {
         out.push({ kind: "outbound-link", host, where, detail: "Link in custom HTML", needsConsent: false });
+      }
+      // An OpenStreetMap frame pasted from its share dialog draws its map
+      // from a tile server the frame's own address never names; the map
+      // block reports it, and so does the same frame pasted here.
+      for (const host of new Set(htmlReferences(html).loads.flatMap(osmTileHosts))) {
+        out.push({ kind: "remote-asset", host, where, detail: "Map tiles drawn inside an OpenStreetMap frame", needsConsent: true });
       }
     }
 
@@ -382,6 +521,10 @@ export function auditSite(input: AuditInput): SiteAudit {
     }
     for (const host of hosts) {
       findings.push({ kind: "chrome-remote", host, where: label, detail: host, needsConsent: true });
+    }
+    // The tile servers behind an OpenStreetMap frame, as for a Custom HTML block.
+    for (const host of new Set(htmlReferences(clean).loads.flatMap(osmTileHosts))) {
+      findings.push({ kind: "chrome-remote", host, where: label, detail: "Map tiles drawn inside an OpenStreetMap frame", needsConsent: true });
     }
     for (const host of new Set(linkHostsInHtml(clean))) {
       findings.push({ kind: "outbound-link", host, where: label, detail: host, needsConsent: false });

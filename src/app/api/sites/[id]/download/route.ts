@@ -7,7 +7,7 @@ import { createZip, ZipEntry } from "@/lib/zip";
 import { buildExportCss } from "@/lib/export-css";
 import { pageFileName, prepareExportedPage } from "@/lib/static-export";
 import { robotsTxt } from "@/lib/seo";
-import { internalOrigin } from "@/lib/self-origin";
+import { internalOrigin, publicOrigin } from "@/lib/self-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +93,9 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
         siteSlug: site.slug,
         pages: pageFiles,
         stylesheetHref: STYLESHEET_PATH,
+        // Where the page just fetched thinks it lives: the loopback address
+        // it was asked at, or PUBLIC_URL when the operator set one.
+        selfOrigins: [origin, publicOrigin()],
       }));
     } catch (err) {
       // One page the exporter cannot prepare should name itself rather than

@@ -90,6 +90,23 @@ describe("rewriteSiteLinks", () => {
     expect(rewriteSiteLinks(html, "demo", pages)).toBe(html);
   });
 
+  it("keeps a fragment or a query string on the file it points at", () => {
+    expect(rewriteSiteLinks('<a href="/sites/demo/about#team">Team</a>', "demo", pages)).toBe(
+      '<a href="about.html#team">Team</a>',
+    );
+    expect(rewriteSiteLinks('<a href="/sites/demo#top">Top</a>', "demo", pages)).toBe(
+      '<a href="index.html#top">Top</a>',
+    );
+    expect(rewriteSiteLinks('<a href="/sites/demo/about?x=1&amp;y=2#a">A</a>', "demo", pages)).toBe(
+      '<a href="about.html?x=1&amp;y=2#a">A</a>',
+    );
+  });
+
+  it("leaves a fragment link to a page that is not exported alone", () => {
+    const html = '<a href="/sites/demo/draft#x">Draft</a>';
+    expect(rewriteSiteLinks(html, "demo", pages)).toBe(html);
+  });
+
   it("leaves external links and other sites alone", () => {
     const html = '<a href="https://example.com">Out</a><a href="/sites/other/x">Other</a>';
     expect(rewriteSiteLinks(html, "demo", pages)).toBe(html);
@@ -247,3 +264,50 @@ describe("an absolute link back at this site's own pages", () => {
     expect(relativizeSiteUrls(html, "acme")).toBe(html);
   });
 });
+
+describe("the words on a page", () => {
+  it("are never rewritten, and name no file into the download", () => {
+    // A code sample showing a stylesheet, or a Markdown image, is text.
+    const html =
+      "<pre><code>body { background: url(/uploads/logo.png); }\n![Team](/stock/nature/a.jpg)</code></pre>" +
+      '<img src="/uploads/real.png"/>';
+    expect(collectLocalAssets(html)).toEqual(["uploads/real.png"]);
+    const rewritten = rewriteAssetPaths(html);
+    expect(rewritten).toContain("url(/uploads/logo.png)");
+    expect(rewritten).toContain("![Team](/stock/nature/a.jpg)");
+    expect(rewritten).toContain('<img src="uploads/real.png"/>');
+  });
+
+  it("leave a stylesheet's references to the rewrite", () => {
+    const html = "<style>.hero{background:url(/uploads/h.png)}</style><p>(/uploads/h.png)</p>";
+    expect(rewriteAssetPaths(html)).toBe("<style>.hero{background:url(uploads/h.png)}</style><p>(/uploads/h.png)</p>");
+  });
+});
+
+describe("a picture behind a section", () => {
+  it("is found and made relative as React writes it", () => {
+    // React puts the quotes of url("…") into the attribute as &quot;.
+    const html = '<div style="background-image:url(&quot;/stock/nature/a.jpg&quot;)"></div>';
+    expect(collectLocalAssets(html)).toEqual(["stock/nature/a.jpg"]);
+    expect(rewriteAssetPaths(html)).toBe('<div style="background-image:url(&quot;stock/nature/a.jpg&quot;)"></div>');
+  });
+});
+
+describe("an absolute address on somebody else's server", () => {
+  it("is left alone when the builder's own addresses are known", () => {
+    const html =
+      '<img src="https://cdn.example.com/uploads/logo.png"/>' +
+      '<img src="https://cdn.example.com/wp-content/uploads/2024/05/hero.jpg"/>' +
+      '<meta property="og:image" content="http://127.0.0.1:3939/uploads/og.png">';
+    const out = relativizeSelfUrls(html, ["http://127.0.0.1:3939"]);
+    expect(out).toContain('src="https://cdn.example.com/uploads/logo.png"');
+    expect(out).toContain('src="https://cdn.example.com/wp-content/uploads/2024/05/hero.jpg"');
+    expect(out).toContain('content="/uploads/og.png"');
+  });
+
+  it("is never taken for the builder's own because of a path further along", () => {
+    const html = '<img src="https://cdn.example.com/wp-content/uploads/hero.jpg"/>';
+    expect(relativizeSelfUrls(html)).toBe(html);
+  });
+});
+

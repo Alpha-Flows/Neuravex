@@ -101,7 +101,8 @@ test.describe("Linking selected text", () => {
     for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowRight");
     await page.keyboard.up("Shift");
 
-    await page.getByTitle("Link").click();
+    // Exact: the palette describes three blocks as links too.
+    await page.getByTitle("Link", { exact: true }).click();
     await page.getByRole("textbox", { name: "Link URL" }).fill("https://example.com");
     await page.getByRole("button", { name: "Link", exact: true }).click();
 

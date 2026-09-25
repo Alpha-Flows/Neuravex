@@ -31,6 +31,17 @@ const LINK_PROPS: Partial<Record<BaseBlock["type"], string[]>> = {
 };
 
 /**
+ * Links a block keeps inside a list, as `[list prop, field]` — each pricing
+ * plan's button, each social profile. `LINK_PROPS` only reaches a block's own
+ * props, so a plan's "Choose Pro" pointing at the Contact page would have
+ * been left behind by a rename that moved every button beside it.
+ */
+const NESTED_LINK_PROPS: Partial<Record<BaseBlock["type"], [string, string][]>> = {
+  pricing: [["plans", "buttonHref"]],
+  social: [["links", "href"]],
+};
+
+/**
  * How a link should be rewritten: the new path for this one, or null to leave
  * it alone. It is given the bare path — no query string, no fragment — and
  * those are put back afterwards, so a link to `/sites/x/about#team` keeps its
@@ -106,6 +117,20 @@ export function retargetLinks(blocks: BaseBlock[], map: LinkMapper): { blocks: B
           props = { ...props, [key]: next };
           changed += 1;
         }
+      }
+      for (const [listKey, field] of NESTED_LINK_PROPS[block.type] ?? []) {
+        const list = props?.[listKey];
+        if (!Array.isArray(list)) continue;
+        let moved = false;
+        const nextList = list.map((entry) => {
+          if (!entry || typeof entry !== "object") return entry;
+          const next = remap((entry as Record<string, unknown>)[field] as string, map);
+          if (next === null) return entry;
+          moved = true;
+          changed += 1;
+          return { ...entry, [field]: next };
+        });
+        if (moved) props = { ...props, [listKey]: nextList };
       }
       if (block.type === "html" && typeof props?.html === "string") {
         const next = retargetHtmlLinks(props.html, map);

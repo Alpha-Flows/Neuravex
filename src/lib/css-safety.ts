@@ -232,6 +232,64 @@ const CONTENT_STYLE_BANNED = new Set([
   "-webkit-user-select", "user-select",
 ]);
 
+/**
+ * The class names content may not carry, for the same reason.
+ *
+ * `CONTENT_STYLE_BANNED` stopped `style="position:fixed;inset:0"` and left the
+ * same sheet one attribute away: the sanitiser keeps `class`, and the
+ * builder's own stylesheet is Tailwind, so `class="fixed inset-0 z-50
+ * bg-white"` in a table cell or a paragraph drew a blank box over the whole
+ * window — over the published page, over the downloaded copy (whose
+ * stylesheet is compiled from the exported HTML, arbitrary values included),
+ * and over the editor the owner would need to remove it with. The app's own
+ * component classes are borrowed the same way: `nvx-gallery-lightbox` is a
+ * fixed overlay by design.
+ *
+ * So a class is judged by the utility it names — after any `md:` or
+ * `hover:` variant, and without the `!` or `-` Tailwind allows in front —
+ * against the same families of property the style filter refuses, and an
+ * arbitrary property in square brackets is refused outright, since it can
+ * set any of them. Everything else a class can do stays: colour, size,
+ * spacing, type, and the template animations.
+ */
+const CONTENT_CLASS_BANNED = [
+  /^(?:fixed|absolute|sticky)$/,
+  /^inset(?:-|$)/,
+  /^(?:top|right|bottom|left|start|end)-/,
+  /^z-/,
+  /^pointer-events-/,
+  /^(?:transform|transform-gpu|transform-cpu)$/,
+  /^(?:translate|rotate|scale|skew)-/,
+  /^mix-blend-/,
+  /^isolat(?:e|ion-auto)$/,
+  /^select-/,
+  /^\[.*\]$/,
+  /^(?:nvx|editor)-/,
+];
+
+/** A `class` attribute out of somebody's content, filtered. */
+export function sanitizeClassAttribute(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter((token) => {
+      if (!token) return false;
+      // The utility is what follows the last variant separator that is not
+      // inside an arbitrary value: `md:hover:fixed` is `fixed`, and
+      // `[&:hover]:fixed` is too.
+      let depth = 0;
+      let cut = -1;
+      for (let i = 0; i < token.length; i++) {
+        const c = token[i];
+        if (c === "[") depth++;
+        else if (c === "]") depth = Math.max(0, depth - 1);
+        else if (c === ":" && depth === 0) cut = i;
+      }
+      const utility = token.slice(cut + 1).replace(/^[!-]+/, "").toLowerCase();
+      return !CONTENT_CLASS_BANNED.some((banned) => banned.test(utility));
+    })
+    .join(" ");
+}
+
 /** Whether a property is one content may set at all. */
 function contentStyleAllows(prop: string): boolean {
   const name = decodeCssEscapes(prop).trim().toLowerCase();

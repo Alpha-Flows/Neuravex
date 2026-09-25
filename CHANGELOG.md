@@ -6,8 +6,8 @@ All notable changes to Neuravex are recorded here. The format follows
 
 ## [Unreleased]
 
-Everything in this entry answers a finding in `docs/SECURITY_REVIEW.md`; the
-identifier in brackets is the finding it closes.
+Where an entry answers a finding in `docs/SECURITY_REVIEW.md`, the identifier
+in brackets is the finding it closes.
 
 ### Security
 
@@ -87,6 +87,28 @@ identifier in brackets is the finding it closes.
   [NVX-S003, NVX-053]
 
 ### Added
+
+- Ten blocks: **Gallery**, **Slider**, **Audio**, **Map**, **Accordion**,
+  **Icon**, **Social links**, **Table**, **Pricing** and **Code**. A published
+  page runs no script of a block's own and a downloaded one runs none at all,
+  so everything a visitor opens, closes or steps through is HTML and CSS: a
+  gallery picture opens by `:target` and steps to its neighbours by anchor
+  links, a slider snaps between slides and moves by links to them, an
+  accordion is `<details>` with a shared `name` so opening one closes the
+  others. Each block has a panel of its own under
+  `src/components/editor/inspectors/`, built from shared controls in
+  `inspector-fields.tsx` — including a list editor whose rows can be
+  reordered — and each is described in the validator, the privacy audit and,
+  where it links anywhere, the page-rename sweep.
+- The Video block plays a pasted **YouTube or Vimeo** link, from
+  `youtube-nocookie.com` or from Vimeo with `dnt=1`, and the privacy notice
+  names the provider. Any other address is still played as a file.
+- The picture library lists sounds for the Audio block, and a picture picker
+  no longer shows a PDF or a font as a broken thumbnail; those are listed
+  under "Other files", where they can still be deleted.
+- The MCP server's block reference lists the values a block accepts where
+  there is a fixed set — the icon names, the social networks — since a value
+  outside it is repaired to a default without a word.
 
 - A floating block can be moved to another container without being put back in
   the flow first. A float is placed rather than ordered, so its handle already
@@ -185,6 +207,29 @@ identifier in brackets is the finding it closes.
   different stale numbers.
 
 ### Fixed
+
+- A `class` in text or custom HTML could lift content out of the page the way
+  a `style` attribute no longer can — `fixed inset-0 z-50` drew a sheet over
+  the published page, the download and the editor. Positioning, stacking and
+  the app's own component classes are filtered out of content now.
+- Sanitising was not idempotent: an in-page link gained another `c-` on every
+  save and pointed at nothing, and text was cut to its limit before it was
+  escaped, so every read cut a long answer again. A plain-text prop that was
+  one character too long was emptied rather than cut.
+- Two blocks could share an id, and a link inside a button's label nested one
+  anchor in another, which rebuilt the published page in the browser and
+  split the button in the download.
+- The download dropped a `#fragment` or `?query` link to another page, left
+  every section and column background out of the zip (React writes the
+  quotes of `url("…")` as `&quot;`, which the rewrite did not match), and
+  rewrote text that only looked like a path.
+- Uploaded sound and video could not be seeked on the published page: the
+  uploads route ignored `Range`. It answers with the part asked for now.
+- The privacy audit read `/\host` and `\\host` as paths on this site.
+- With the focus on a button in the inspector, Backspace deleted the block
+  being edited.
+- A published page inherited the builder's dark `color-scheme`, so the
+  browser's own controls were dark there and light in the download.
 
 - A stale `node_modules` says so. `git pull` brings new source and not new
   dependencies, so a pull across a major leaves the code and the framework it

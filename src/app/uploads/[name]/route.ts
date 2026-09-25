@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import { existingUploadPath, CONTENT_TYPES, servesInline } from "@/lib/uploads";
 import { validateUploadFile } from "@/lib/security";
+import { parseByteRange } from "@/lib/byte-range";
 
 /**
  * Serving an uploaded file.
@@ -26,6 +27,14 @@ import { validateUploadFile } from "@/lib/security";
  *     `image/png` after a restart.
  *   - The content type comes from the extension and nothing else, with
  *     `nosniff`, and anything that is not a picture is sent as an attachment.
+ *
+ * And it answers a `Range` request with the part asked for. It sent the whole
+ * file with a 200 every time, which is all a picture needs and not what a
+ * player needs: told nothing about ranges, Chrome reported an uploaded
+ * recording as seekable from 0 to 0 and put the playhead back at the start
+ * whenever somebody dragged it, and Safari will not play a sound or a video
+ * from a server that ignores ranges at all. See `parseByteRange` for which
+ * requests are answered in part.
  */
 
 export const dynamic = "force-dynamic";
@@ -33,7 +42,7 @@ export const dynamic = "force-dynamic";
 /** Long enough to be worth it; short enough that a replaced file shows up. */
 const CACHE = "private, max-age=3600, must-revalidate";
 
-export async function GET(_req: NextRequest, props: { params: Promise<{ name: string }> }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ name: string }> }) {
   const params = await props.params;
   const name = decodeURIComponentSafe(params.name);
   if (!name) return notFound();
@@ -55,19 +64,34 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ name: st
   }
 
   const type = CONTENT_TYPES[check.ext] ?? "application/octet-stream";
-  return new NextResponse(new Uint8Array(bytes), {
-    headers: {
-      "Content-Type": type,
-      "Content-Length": String(bytes.length),
-      "X-Content-Type-Options": "nosniff",
-      "Cache-Control": CACHE,
-      // A PDF, a font or a video is a file somebody is fetching, not a
-      // document this origin should render.
-      "Content-Disposition": servesInline(check.ext)
-        ? "inline"
-        : `attachment; filename="${name.replace(/["\\]/g, "")}"`,
-    },
-  });
+  const headers = {
+    "Content-Type": type,
+    "Accept-Ranges": "bytes",
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": CACHE,
+    // A PDF, a font or a video is a file somebody is fetching, not a
+    // document this origin should render.
+    "Content-Disposition": servesInline(check.ext)
+      ? "inline"
+      : `attachment; filename="${name.replace(/["\\]/g, "")}"`,
+  };
+
+  const range = parseByteRange(req.headers.get("range"), bytes.length);
+  if (range === "unsatisfiable") {
+    return new NextResponse(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${bytes.length}` } });
+  }
+  if (range) {
+    const part = bytes.subarray(range.start, range.end + 1);
+    return new NextResponse(new Uint8Array(part), {
+      status: 206,
+      headers: {
+        ...headers,
+        "Content-Length": String(part.length),
+        "Content-Range": `bytes ${range.start}-${range.end}/${bytes.length}`,
+      },
+    });
+  }
+  return new NextResponse(new Uint8Array(bytes), { headers: { ...headers, "Content-Length": String(bytes.length) } });
 }
 
 function decodeURIComponentSafe(value: string): string | null {

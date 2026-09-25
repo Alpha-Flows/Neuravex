@@ -62,6 +62,14 @@ export function injectStylesheet(html: string, href: string): string {
  * as the bare site URL. A link to a page that is not in this export (a draft,
  * when drafts are excluded) is left alone rather than pointed at a file that
  * will not be there.
+ *
+ * A fragment or a query string is carried across to the file. It used to be
+ * read as part of the slug, so `/sites/acme/about#team` looked for a page
+ * called `about#team`, found none, and was left pointing at a server that a
+ * folder opened from disk does not have — while the plain link to the same
+ * page beside it worked. The link picker keeps fragments on purpose, and a
+ * pricing plan's button pointing at `#contact` on another page is exactly
+ * what one looks like.
  */
 export function rewriteSiteLinks(
   html: string,
@@ -71,16 +79,49 @@ export function rewriteSiteLinks(
 ): string {
   const base = `/sites/${siteSlug}`;
   return html.replace(/href="([^"]*)"/g, (match, href: string) => {
-    if (href === base || href === `${base}/`) return `href="${homeFile}"`;
-    if (!href.startsWith(`${base}/`)) return match;
-    const slug = href.slice(base.length + 1).replace(/\/$/, "");
+    const cut = href.search(/[?#]/);
+    const path = cut < 0 ? href : href.slice(0, cut);
+    const tail = cut < 0 ? "" : href.slice(cut);
+    if (path === base || path === `${base}/`) return `href="${homeFile}${tail}"`;
+    if (!path.startsWith(`${base}/`)) return match;
+    const slug = path.slice(base.length + 1).replace(/\/$/, "");
     const file = pages.get(slug);
-    return file ? `href="${file}"` : match;
+    return file ? `href="${file}${tail}"` : match;
   });
 }
 
 const ASSET_DIRS = ["uploads", "stock"] as const;
-const ASSET_REFERENCE = /(["'(])\/(uploads|stock)\/([^"')\s]+)/g;
+/**
+ * A reference to one of this site's files: a path after a quote or a bracket.
+ *
+ * Or after `&quot;`, which is how the quote arrives when it is inside an
+ * attribute. A section's background is written `url("/uploads/x.png")`, so
+ * that a file name with a bracket in it cannot end the declaration early, and
+ * React writes that into the `style` attribute as `url(&quot;/uploads/…)` —
+ * which this pattern did not match. Every section and column with a picture
+ * behind it came out of the download pointing at `/uploads/…` on a server the
+ * folder does not have, with the picture itself left out of the zip. An
+ * ampersand ends the file name for the same reason.
+ */
+const ASSET_REFERENCE = /(["'(]|&quot;|&#x27;|&#39;)\/(uploads|stock)\/([^"')\s&]+)/g;
+
+/**
+ * `edit` applied to the page's markup — every tag, and the body of every
+ * `<style>` — and never to the words between tags.
+ *
+ * The rewrites below match a path after a quote or a bracket, and ran over
+ * the whole document. A quote in text is written as `&quot;`, so that held
+ * until there was a block whose text is full of brackets: a code sample
+ * showing `url(/uploads/logo.png)` or a Markdown image came out of the
+ * download changed, a file it merely named was copied into the zip, and one
+ * match ran on through the markup after it and listed half a tag as a missing
+ * file. React escapes `<` and `>` in text and in attribute values alike, so a
+ * reference the page actually makes is always inside a tag or a stylesheet,
+ * and words on the page never are.
+ */
+function inMarkup(html: string, edit: (markup: string) => string): string {
+  return html.replace(/<style\b[^>]*>[\s\S]*?<\/style>|<[^>]*>/gi, edit);
+}
 
 /**
  * An absolute reference back at the builder, made relative first.
@@ -91,10 +132,21 @@ const ASSET_REFERENCE = /(["'(])\/(uploads|stock)\/([^"')\s]+)/g;
  * the file was neither rewritten nor bundled, and the exported page advertised
  * a picture at an address that only exists on the machine that built it.
  */
-const ABSOLUTE_SELF = /(["'(])https?:\/\/[^"')\s]*?\/(uploads|stock)\//gi;
+const ABSOLUTE_SELF = /(["'(])(https?:\/\/[^"')\s/]*)\/(uploads|stock)\//gi;
 
-export function relativizeSelfUrls(html: string): string {
-  return html.replace(ABSOLUTE_SELF, (_match, quote: string, dir: string) => `${quote}/${dir}/`);
+/**
+ * Only the builder's own addresses, when they are known. Without the list any
+ * server's `/uploads/` counted as this one's, so a picture an author took
+ * from `https://cdn.example.com/wp-content/uploads/hero.jpg` came out of the
+ * download pointing at a `uploads/hero.jpg` nobody had copied.
+ */
+export function relativizeSelfUrls(html: string, selfOrigins?: string[]): string {
+  const own = selfOrigins?.map((o) => o.replace(/\/+$/, "").toLowerCase());
+  return inMarkup(html, (markup) =>
+    markup.replace(ABSOLUTE_SELF, (match, quote: string, origin: string, dir: string) =>
+      own && !own.includes(origin.toLowerCase()) ? match : `${quote}/${dir}/`,
+    ),
+  );
 }
 
 /**
@@ -110,16 +162,19 @@ export function relativizeSelfUrls(html: string): string {
  */
 export function relativizeSiteUrls(html: string, siteSlug: string): string {
   const escaped = siteSlug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return html.replace(
-    new RegExp(`(["'(])https?://[^"')\\s]*?(/sites/${escaped})(?=[/"')\\s]|$)`, "gi"),
-    (_match, quote: string, path: string) => `${quote}${path}`,
-  );
+  const pattern = new RegExp(`(["'(])https?://[^"')\\s]*?(/sites/${escaped})(?=[/"')\\s]|$)`, "gi");
+  return inMarkup(html, (markup) => markup.replace(pattern, (_match, quote: string, path: string) => `${quote}${path}`));
 }
 
 /** Every bundled upload or stock photo the page points at. */
 export function collectLocalAssets(html: string): string[] {
   const found = new Set<string>();
-  for (const match of html.matchAll(ASSET_REFERENCE)) {
+  const markup: string[] = [];
+  inMarkup(html, (part) => {
+    markup.push(part);
+    return part;
+  });
+  for (const match of markup.join("\n").matchAll(ASSET_REFERENCE)) {
     const [, , dir, file] = match;
     // A malformed percent escape used to throw here, and the whole download
     // became a 500 with no hint which block was responsible. One bad
@@ -142,9 +197,9 @@ export function collectLocalAssets(html: string): string[] {
  * opened from disk — becomes `uploads/x.png`.
  */
 export function rewriteAssetPaths(html: string): string {
-  return html.replace(ASSET_REFERENCE, (_match, quote: string, dir: string, file: string) => {
-    return `${quote}${dir}/${file}`;
-  });
+  return inMarkup(html, (markup) =>
+    markup.replace(ASSET_REFERENCE, (_match, quote: string, dir: string, file: string) => `${quote}${dir}/${file}`),
+  );
 }
 
 /**
@@ -208,16 +263,18 @@ export interface PreparePageOptions {
   /** Page slug to file name, for every page included in this export. */
   pages: Map<string, string>;
   stylesheetHref: string;
+  /** The addresses the builder itself is reached at, for `relativizeSelfUrls`. */
+  selfOrigins?: string[];
 }
 
 /** Everything above, in the order a page needs it. */
 export function prepareExportedPage(
   html: string,
-  { siteSlug, pages, stylesheetHref }: PreparePageOptions,
+  { siteSlug, pages, stylesheetHref, selfOrigins }: PreparePageOptions,
 ): { html: string; assets: string[] } {
   let out = stripAppRuntime(html);
   out = cleanBodyClasses(out);
-  out = relativizeSelfUrls(out);
+  out = relativizeSelfUrls(out, selfOrigins);
   out = relativizeSiteUrls(out, siteSlug);
   out = rewriteSiteLinks(out, siteSlug, pages);
   const assets = collectLocalAssets(out);

@@ -228,6 +228,18 @@ export function buildDatenschutz(profile: LegalProfile, audit: SiteAudit, look: 
     );
     body.push(space(12));
     body.push(bullets(audit.remoteHosts));
+    // A bare host name says where the data goes and not to whom. For the
+    // services a Neuravex block embeds by itself — a video pasted as a
+    // YouTube or Vimeo link, a map shown as an OpenStreetMap frame — the
+    // provider is known, so the notice names it and what the visitor's
+    // browser does there, rather than leaving a reader to look up
+    // `www.youtube-nocookie.com`.
+    for (const provider of KNOWN_PROVIDERS) {
+      if (provider.hosts.some((host) => audit.remoteHosts.includes(host))) {
+        body.push(space(12));
+        body.push(p(look, provider.text));
+      }
+    }
     body.push(space(12));
     body.push(
       p(
@@ -333,3 +345,40 @@ function formHandling(fate: string): string {
       );
   }
 }
+
+/**
+ * Who is behind the hosts the builder's own blocks embed, in the notice's
+ * words. Only services a block produces by itself are here: a host found in
+ * somebody's custom HTML is still listed, by name, in the bullets above.
+ * Providers' addresses as published in their own privacy notices; they are
+ * facts about the provider, not claims about this site, and they are part of
+ * what the qualified review in `docs/LAUNCH_CHECKLIST.md` §7 has to read.
+ */
+const KNOWN_PROVIDERS: { hosts: string[]; text: string }[] = [
+  {
+    hosts: ["www.youtube-nocookie.com", "youtube-nocookie.com"],
+    text:
+      "YouTube: Videos werden im erweiterten Datenschutzmodus von YouTube eingebunden. Anbieter ist " +
+      "die Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland. In diesem Modus " +
+      "speichert YouTube nach eigenen Angaben erst dann Informationen auf Ihrem Endgerät, wenn Sie " +
+      "das Video abspielen; eine Übermittlung von Daten an die Google LLC in den USA ist dabei nicht " +
+      "auszuschließen. Weitere Informationen: https://policies.google.com/privacy",
+  },
+  {
+    hosts: ["player.vimeo.com"],
+    text:
+      "Vimeo: Videos werden über den Player von Vimeo eingebunden, mit der Einstellung, die Vimeo " +
+      "anweist, Ihr Nutzungsverhalten nicht zu verfolgen („Do Not Track“). Anbieter ist die " +
+      "Vimeo.com, Inc., 330 West 34th Street, 5th Floor, New York, NY 10001, USA; Ihre Daten werden " +
+      "dabei in die USA übermittelt. Weitere Informationen: https://vimeo.com/privacy",
+  },
+  {
+    hosts: ["www.openstreetmap.org", "tile.openstreetmap.org"],
+    text:
+      "OpenStreetMap: Karten werden vom Dienst OpenStreetMap eingebunden. Anbieter ist die " +
+      "OpenStreetMap Foundation, St John’s Innovation Centre, Cowley Road, Cambridge, CB4 0WS, " +
+      "Vereinigtes Königreich. Ihr Browser lädt die Karte und ihre Kartenausschnitte von dort; für " +
+      "das Vereinigte Königreich besteht ein Angemessenheitsbeschluss der Europäischen Kommission. " +
+      "Weitere Informationen: https://osmfoundation.org/wiki/Privacy_Policy",
+  },
+];

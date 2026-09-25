@@ -596,18 +596,28 @@ server.tool(
   {},
   async () => {
     const blocks = await import("./src/lib/blocks").then((m) => m.BLOCKS);
+    const { ICON_NAMES } = await import("./src/lib/icon-names");
+    const { SOCIAL_NETWORKS } = await import("./src/lib/block-tree");
+    // A prop that has to be one of a fixed set is repaired silently when it
+    // is not — an icon named "bell" is saved as a star, and nothing tells the
+    // agent. An example shows one value; the agent needs the whole list.
+    const allowed: Record<string, Record<string, readonly string[]>> = {
+      icon: { icon: ICON_NAMES },
+      social: { "links[].network": SOCIAL_NETWORKS },
+    };
     const ref = blocks.map((b) => ({
       type: b.type,
       label: b.label,
       description: b.description,
       category: b.category,
       exampleProps: b.defaultProps,
+      ...(allowed[b.type] ? { allowedValues: allowed[b.type] } : {}),
     }));
     return {
       content: [{
         type: "text",
         text: JSON.stringify({
-          intro: "Each block has `id` (unique string), `type` (one of the types below), `props` (type-specific), and optional `children` (for section/columns only).",
+          intro: "Each block has `id` (unique string), `type` (one of the types below), `props` (type-specific), and optional `children` (for section/columns only). A prop outside what a block accepts is repaired to a default rather than refused, so use the values in `allowedValues` where a block lists them.",
           blocks: ref,
         }, null, 2),
       }],

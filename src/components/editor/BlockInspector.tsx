@@ -1,13 +1,24 @@
 "use client";
 import { useState } from "react";
-import { BaseBlock, BlockLayer, HeadingProps, TextProps, ImageProps, ButtonProps, DividerProps, SpacerProps, SectionProps, ColumnsProps, ColumnStyle, VideoProps, QuoteProps, ListProps, FormProps, HtmlProps } from "@/types";
+import { BaseBlock, BlockLayer, HeadingProps, TextProps, ImageProps, ButtonProps, DividerProps, SpacerProps, SectionProps, ColumnsProps, ColumnStyle, QuoteProps, ListProps, FormProps, HtmlProps } from "@/types";
 import { clampColumnCount } from "@/lib/tree-utils";
 import { clampLevel, layerOf, MAX_LEVEL, MIN_LEVEL, withLayer } from "@/lib/block-layer";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { MediaPicker } from "./MediaPicker";
 import { getBlockDefinition } from "@/lib/blocks";
-import { isInternalLink, pagePath, targetOf, type LinkTarget } from "@/lib/page-links";
+import type { LinkTarget } from "@/lib/page-links";
+import { BackgroundImageField, ColorInput, Field, LinkField, OVERLAY_PRESETS, SegBtns, Select } from "./inspector-fields";
+import { GalleryPanel } from "./inspectors/GalleryPanel";
+import { AccordionPanel } from "./inspectors/AccordionPanel";
+import { SliderPanel } from "./inspectors/SliderPanel";
+import { AudioPanel } from "./inspectors/AudioPanel";
+import { IconPanel } from "./inspectors/IconPanel";
+import { SocialPanel } from "./inspectors/SocialPanel";
+import { TablePanel } from "./inspectors/TablePanel";
+import { PricingPanel } from "./inspectors/PricingPanel";
+import { MapPanel } from "./inspectors/MapPanel";
+import { CodePanel } from "./inspectors/CodePanel";
+import { VideoPanel } from "./inspectors/VideoPanel";
 import type { ContainerChoice } from "@/lib/containers";
 
 interface Placement {
@@ -574,18 +585,8 @@ function InspectorBody({
         </>
       );
     }
-    case "video": {
-      const p = block.props as VideoProps;
-      return (
-        <>
-          <Field label="Video URL"><Input value={p.src} onChange={(e) => set("src", e.target.value)} /></Field>
-          <Field label="Poster image URL"><Input value={p.poster} onChange={(e) => set("poster", e.target.value)} /></Field>
-          <Field label="Aspect ratio">
-            <SegBtns value={p.ratio} options={["16/9", "4/3", "1/1", "9/16"]} onChange={(v) => set("ratio", v)} />
-          </Field>
-        </>
-      );
-    }
+    case "video":
+      return <VideoPanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
     case "quote": {
       const p = block.props as QuoteProps;
       return (
@@ -668,6 +669,28 @@ function InspectorBody({
       const p = block.props as HtmlProps;
       return <Field label="HTML"><Textarea rows={8} value={p.html} onChange={(e) => set("html", e.target.value)} /></Field>;
     }
+    // The blocks with a panel of any size keep it in a file of their own, so
+    // this switch stays a list of what exists rather than all of it at once.
+    case "gallery":
+      return <GalleryPanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
+    case "accordion":
+      return <AccordionPanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
+    case "slider":
+      return <SliderPanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
+    case "audio":
+      return <AudioPanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
+    case "icon":
+      return <IconPanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
+    case "social":
+      return <SocialPanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
+    case "table":
+      return <TablePanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
+    case "pricing":
+      return <PricingPanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
+    case "map":
+      return <MapPanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
+    case "code":
+      return <CodePanel block={block} onChange={onChange} linkTargets={linkTargets} siteSlug={siteSlug} />;
     default:
       return <div className="text-xs text-fg-muted">No inspector for this block type.</div>;
   }
@@ -753,214 +776,3 @@ function ColumnBackground({ props, onChange }: { props: ColumnsProps; onChange: 
   );
 }
 
-const OVERLAY_PRESETS = [
-  { value: "", label: "None" },
-  { value: "rgba(0,0,0,0.25)", label: "Dark — light" },
-  { value: "rgba(0,0,0,0.45)", label: "Dark — medium" },
-  { value: "rgba(0,0,0,0.65)", label: "Dark — heavy" },
-  { value: "rgba(255,255,255,0.5)", label: "Light tint" },
-];
-
-function BackgroundImageField({ value, onChange }: { value?: string; onChange: (v: string | undefined) => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      {value ? (
-        <div className="space-y-2">
-          <div className="rounded-md overflow-hidden border border-bg-border h-20">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={value} alt="" className="w-full h-full object-cover" />
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => setOpen(true)} className="flex-1">Change</Button>
-            <Button size="sm" variant="ghost" onClick={() => onChange(undefined)}>Remove</Button>
-          </div>
-        </div>
-      ) : (
-        <Button size="sm" variant="outline" onClick={() => setOpen(true)} className="w-full">Choose image</Button>
-      )}
-      <MediaPicker open={open} onClose={() => setOpen(false)} onSelect={(url) => { onChange(url); setOpen(false); }} />
-    </>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <Label>{label}</Label>
-      {children}
-    </div>
-  );
-}
-
-function Select({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-9 w-full px-2 rounded-md bg-bg border border-bg-border text-fg text-sm focus:outline-none focus:border-brand/60"
-    >
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
-  );
-}
-
-function SegBtns<T extends string>({
-  value,
-  options,
-  onChange,
-  nameFor,
-}: {
-  value: T;
-  options: readonly T[];
-  onChange: (v: T) => void;
-  /**
-   * What the button is called when the label alone does not say — a bare "2"
-   * means nothing read out on its own, and there is more than one row of
-   * numbers in the columns inspector.
-   */
-  nameFor?: (v: T) => string;
-}) {
-  return (
-    <div className="inline-flex rounded-md border border-bg-border overflow-hidden w-full">
-      {options.map((o) => (
-        <button
-          key={o}
-          onClick={() => onChange(o)}
-          aria-label={nameFor ? nameFor(o) : undefined}
-          aria-pressed={value === o}
-          className={`flex-1 h-8 text-xs capitalize ${value === o ? "bg-brand text-white" : "text-fg-muted hover:text-fg hover:bg-bg-card"}`}
-        >
-          {o.replace("/", " / ")}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ColorInput({
-  value,
-  onChange,
-  allowTransparent,
-  inherit,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  allowTransparent?: boolean;
-  /**
-   * What an empty value means — "Site accent", say. Shown as a button that
-   * hands the colour back to the site's branding. Without this there is no way
-   * back: pick a colour once and the block is pinned to that hex forever, which
-   * is how a brand colour ends up needing a visit to every button on every page.
-   */
-  inherit?: string;
-}) {
-  const isTransparent = value === "transparent" || value === "rgba(0,0,0,0)";
-  const inheriting = inherit != null && value === "";
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={isTransparent || inheriting ? "#ffffff" : value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-9 h-9 rounded-md bg-transparent border border-bg-border"
-        />
-        <Input
-          value={value}
-          placeholder={inherit}
-          onChange={(e) => onChange(e.target.value)}
-          className="flex-1 font-mono text-xs"
-        />
-        {allowTransparent ? (
-          <button
-            onClick={() => onChange("transparent")}
-            className={`h-9 px-2 rounded-md text-xs border ${isTransparent ? "bg-brand text-white border-brand" : "border-bg-border text-fg-muted hover:text-fg"}`}
-          >
-            None
-          </button>
-        ) : null}
-      </div>
-      {inherit ? (
-        <button
-          onClick={() => onChange("")}
-          aria-pressed={inheriting}
-          className={`h-7 w-full rounded-md text-xs border ${
-            inheriting
-              ? "bg-brand/15 text-brand border-brand/40"
-              : "border-bg-border text-fg-muted hover:text-fg hover:bg-bg-card"
-          }`}
-        >
-          {inheriting ? `Using ${inherit.toLowerCase()}` : `Use ${inherit.toLowerCase()}`}
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * Where a link goes.
- *
- * This was a bare text box, and the only way to link to your own Contact page
- * was to remember that it lives at `/sites/<site>/contact` and type it without
- * a slip — in a field that would not have told you either way. The pages of
- * the site are listed now, drafts included, and picking one writes the address
- * the server actually stores. An address typed by hand still works, and a path
- * into this site that matches no page says so instead of waiting to be found
- * by a visitor.
- */
-function LinkField({
-  value,
-  onChange,
-  pages,
-  siteSlug,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-  pages?: LinkTarget[];
-  siteSlug?: string;
-}) {
-  const href = value ?? "";
-  const target = pages && siteSlug ? targetOf(href, siteSlug, pages) : null;
-  const internal = siteSlug ? isInternalLink(href, siteSlug) : false;
-  const broken = internal && !target;
-
-  return (
-    <div className="space-y-1.5">
-      <Input
-        value={href}
-        placeholder="https://example.com, /sites/…, #anchor or mailto:"
-        onChange={(e) => onChange(e.target.value)}
-      />
-      {pages && siteSlug && pages.length > 0 ? (
-        <select
-          // The value is never the current href when the link points outside
-          // the site, so the select shows its own first option rather than
-          // claiming the link goes to a page it does not.
-          value={target ? target.slug : ""}
-          onChange={(e) => {
-            const page = pages.find((p) => p.slug === e.target.value);
-            if (page) onChange(pagePath(siteSlug, page.slug, page.isHome));
-          }}
-          className="h-9 w-full px-2 rounded-md bg-bg border border-bg-border text-fg text-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
-        >
-          <option value="">Link to a page in this site…</option>
-          {pages.map((p) => (
-            <option key={p.slug} value={p.slug}>
-              {p.title}
-              {p.isHome ? " (home)" : ""}
-              {p.published ? "" : " — draft"}
-            </option>
-          ))}
-        </select>
-      ) : null}
-      {broken ? (
-        <p className="text-xs text-amber-400">No page of this site is at that address — this link will 404.</p>
-      ) : target && !target.published ? (
-        <p className="text-xs text-fg-subtle">{target.title} is a draft, so visitors get a 404 until it is published.</p>
-      ) : null}
-    </div>
-  );
-}

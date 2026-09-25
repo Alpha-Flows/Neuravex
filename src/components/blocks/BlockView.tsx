@@ -13,6 +13,16 @@ import { Quote } from "./Quote";
 import { List } from "./List";
 import { Form } from "./Form";
 import { CustomHtml } from "./CustomHtml";
+import { Gallery } from "./Gallery";
+import { Accordion } from "./Accordion";
+import { Slider } from "./Slider";
+import { AudioBlock } from "./AudioBlock";
+import { IconBlock } from "./IconBlock";
+import { SocialLinks } from "./SocialLinks";
+import { TableBlock } from "./TableBlock";
+import { Pricing } from "./Pricing";
+import { MapBlock } from "./MapBlock";
+import { CodeBlock } from "./CodeBlock";
 import { BlockBoundary } from "./BlockBoundary";
 import { safeProps } from "@/lib/block-tree";
 
@@ -88,6 +98,26 @@ function BlockBody({ block: raw, onChange, disabled, onSelect, onChildDelete, on
       return <Form props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} pageId={pageId} />;
     case "html":
       return <CustomHtml props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+    case "gallery":
+      return <Gallery blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+    case "accordion":
+      return <Accordion blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+    case "slider":
+      return <Slider blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+    case "audio":
+      return <AudioBlock blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+    case "icon":
+      return <IconBlock blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+    case "social":
+      return <SocialLinks blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+    case "table":
+      return <TableBlock blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+    case "pricing":
+      return <Pricing blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+    case "map":
+      return <MapBlock blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
+    case "code":
+      return <CodeBlock blockId={block.id} props={block.props} onChange={onChange ? (p) => onChange({ ...block, props: p }) : undefined} disabled={disabled} />;
     default:
       return <div className="text-red-500 text-sm">Unknown block: {String(block.type)}</div>;
   }

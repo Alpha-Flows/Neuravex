@@ -13,7 +13,17 @@ export type BlockType =
   | "quote"
   | "list"
   | "form"
-  | "html";
+  | "html"
+  | "gallery"
+  | "accordion"
+  | "slider"
+  | "audio"
+  | "icon"
+  | "social"
+  | "table"
+  | "pricing"
+  | "map"
+  | "code";
 
 export interface BaseBlock {
   id: string;
@@ -147,9 +157,20 @@ export interface SpacerProps {
 }
 
 export interface VideoProps {
+  /**
+   * A YouTube or Vimeo link, which is drawn as that site's privacy-preserving
+   * player (see `src/lib/video-embed.ts`), or the address of a video file,
+   * which is drawn as a `<video>` element.
+   */
   src: string;
+  /** Shown before a video file starts. A YouTube or Vimeo player draws its own. */
   poster: string;
   ratio: "16/9" | "4/3" | "1/1" | "9/16";
+  /**
+   * What a screen reader calls the player. Empty means "YouTube video" or
+   * "Vimeo video" for an embed, and no name of its own for a file.
+   */
+  title?: string;
 }
 
 export interface QuoteProps {
@@ -178,6 +199,191 @@ export interface FormProps {
 
 export interface HtmlProps {
   html: string;
+}
+
+/**
+ * One picture in a gallery or a slider.
+ *
+ * It keeps what an image block keeps about its picture, for the same reasons:
+ * a description a screen reader can read, the file's own size so the page
+ * holds its space while it loads, and whether that description was borrowed
+ * from the library — in which case choosing another picture replaces it,
+ * because it described the one being swapped out.
+ */
+export interface MediaItem {
+  src: string;
+  alt: string;
+  caption?: string;
+  naturalWidth?: number;
+  naturalHeight?: number;
+  altFromLibrary?: boolean;
+}
+
+export interface GalleryProps {
+  images: MediaItem[];
+  columns: 2 | 3 | 4;
+  gap: number; // px
+  /** How each tile is cropped. "natural" keeps every picture's own shape. */
+  aspect: "square" | "landscape" | "portrait" | "natural";
+  rounded: "none" | "md" | "xl";
+  /** Whether a picture opens large over the page when it is clicked. */
+  lightbox: boolean;
+}
+
+export interface AccordionItem {
+  /** The line that is always showing. Inline HTML. */
+  title: string;
+  /** What opens beneath it. Inline HTML. */
+  body: string;
+}
+
+export interface AccordionProps {
+  items: AccordionItem[];
+  /** Opening one item closes whichever other one was open. */
+  exclusive: boolean;
+  /** The first item starts open rather than closed. */
+  openFirst: boolean;
+  style: "bordered" | "separated" | "minimal";
+}
+
+export interface SliderProps {
+  slides: MediaItem[];
+  ratio: "16/9" | "4/3" | "1/1" | "21/9";
+  rounded: "none" | "md" | "xl";
+  showArrows: boolean;
+  showDots: boolean;
+}
+
+export interface AudioProps {
+  /**
+   * A file from the library (`/uploads/…`), which the download carries with
+   * it, or an https address somebody typed, which it does not. Empty draws
+   * nothing on the published page.
+   */
+  src: string;
+  /** What is playing — "Episode 4 — The long winter". Inline HTML. */
+  title: string;
+  /** A line or two under the title. Optional, inline HTML. */
+  description: string;
+}
+
+export interface IconProps {
+  /** A name from the bundled set in `src/lib/icon-names.ts`. */
+  icon: string;
+  size: "sm" | "md" | "lg" | "xl";
+  /** Empty means the site's accent. */
+  color: string;
+  shape: "none" | "circle" | "square";
+  /**
+   * Both optional. With either one set, the icon is the head of a small
+   * feature card rather than a picture on its own.
+   */
+  title: string;
+  text: string;
+  align: "left" | "center" | "right";
+}
+
+export type SocialNetwork =
+  | "instagram"
+  | "facebook"
+  | "x"
+  | "linkedin"
+  | "youtube"
+  | "tiktok"
+  | "github"
+  | "mastodon"
+  | "bluesky"
+  | "pinterest"
+  | "threads"
+  | "whatsapp"
+  | "email"
+  | "website";
+
+export interface SocialLink {
+  network: SocialNetwork;
+  href: string;
+}
+
+export interface SocialProps {
+  links: SocialLink[];
+  size: "sm" | "md" | "lg";
+  shape: "none" | "circle" | "square";
+  /** Empty means the page's text colour. */
+  color: string;
+  align: "left" | "center" | "right";
+}
+
+export interface TableProps {
+  /**
+   * The cells, a row at a time, as inline HTML. Rows may differ in length in
+   * storage; the widest row decides how many columns are drawn.
+   */
+  rows: string[][];
+  /** The first row is headings rather than data. */
+  headerRow: boolean;
+  /** The first cell of every row labels that row. */
+  headerColumn: boolean;
+  striped: boolean;
+  caption: string;
+}
+
+export interface PricingPlan {
+  name: string;
+  price: string;
+  period: string;
+  description: string;
+  features: string[];
+  buttonLabel: string;
+  buttonHref: string;
+  /** Drawn raised and in the accent, as the plan most people should pick. */
+  highlighted: boolean;
+  /** A short tag above a plan — "Most popular". Empty draws none. */
+  badge: string;
+}
+
+export interface PricingProps {
+  plans: PricingPlan[];
+  /** The highlighted plan's colour. Empty means the site's accent. */
+  color: string;
+}
+
+export interface MapProps {
+  /** What a visitor reads: a street address or the name of a place. */
+  address: string;
+  lat: number;
+  lng: number;
+  zoom: number;
+  /**
+   * "card" draws the address with a link that opens it on a map, and asks
+   * nothing of anybody else's server. "embed" shows an OpenStreetMap frame,
+   * which every visitor's browser fetches from openstreetmap.org as the page
+   * opens — something the privacy notice then has to say.
+   */
+  mode: "card" | "embed";
+  /** How tall the embedded map is drawn, in px. */
+  height: number;
+  /**
+   * The words on the link to OpenStreetMap. A prop rather than a fixed
+   * English phrase because the page it sits on may be written in German;
+   * empty reads as the default for the mode ("Open in OpenStreetMap", "Open
+   * larger map").
+   */
+  linkLabel: string;
+  /** Whether a second link opens the same place on Google Maps. */
+  googleLink: boolean;
+  /** The words on that link; empty reads as "Open in Google Maps". */
+  googleLabel: string;
+}
+
+export interface CodeProps {
+  /** Plain text, never HTML: it is shown exactly as written. */
+  code: string;
+  language: string;
+  filename: string;
+  theme: "dark" | "light";
+  /** Long lines wrap rather than scroll sideways. */
+  wrap: boolean;
+  lineNumbers: boolean;
 }
 
 /**

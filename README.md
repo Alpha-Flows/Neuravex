@@ -9,7 +9,10 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 22 or
 - **Visual editor** with live preview of your changes
 - **Drag & drop** blocks from the palette onto the page, or reorder existing blocks
 - **Inline text editing** — click any text on the page to edit it directly
-- **13 block types** out of the box: Heading, Text, Image, Button, Video, Quote, List, Divider, Spacer, Section, Columns, Form, and Custom HTML
+- **23 block types** out of the box: Heading, Text, Image, Button, Video, Quote, List, Divider, Spacer, Section, Columns, Form, Custom HTML, Gallery, Slider, Audio, Map, Accordion, Icon, Social links, Table, Pricing, and Code
+- **Blocks that work without a script** — a gallery whose pictures open large, a slider with arrows and dots, and questions that open one at a time are plain HTML and CSS, so they work the same in the downloaded site, which carries no JavaScript
+- **YouTube and Vimeo** — paste a link into a Video block and it plays from `youtube-nocookie.com`, or from Vimeo with "do not track" set; the privacy notice names whichever one the site uses
+- **Maps that ask nothing of anyone** — a Map block draws a card with a link to OpenStreetMap by default, and embeds a live map only if you choose to
 - **Container blocks** (Section, Columns) with their own drag-and-droppable child lists
 - **Responsive columns** — published pages stack columns on phones and halve 3/4-column
   layouts on tablets, and each block stays in the column you put it in
@@ -153,13 +156,25 @@ copy keeps serving the database it started with.
 
 ## Adding a new block type
 
-1. Add the block props interface in `src/types/index.ts`.
-2. Register the block in `src/lib/blocks.ts` (label, icon, default props).
-3. Create a component in `src/components/blocks/` that accepts `{ props, onChange, disabled }`.
-4. Wire it into `src/components/blocks/BlockView.tsx`.
-5. Add inspector controls in `src/components/editor/BlockInspector.tsx`.
+1. Add the block type to `BlockType` and its props interface in `src/types/index.ts`.
+2. Describe its props in `PROPS` in `src/lib/block-tree.ts`. Every save, import, paste and
+   MCP write goes through this, and so do both read paths, so it is where a link is checked
+   with `isSafeHref`, a picture with `safeMediaSrc` and text with `inlineText`. A type with
+   no entry here is dropped from every page it is saved on.
+3. Register the block in `src/lib/blocks.ts` (label, icon, default props — bundled files only;
+   `blocks.test.ts` fails on a default that points off the machine).
+4. Create a component in `src/components/blocks/` that accepts `{ props, onChange, disabled }`
+   (and `blockId`, if it draws ids or anchors — make them with `domId`).
+5. Wire it into `src/components/blocks/BlockView.tsx`.
+6. Add its panel: a small one as a case in `src/components/editor/BlockInspector.tsx`, a larger
+   one as a file in `src/components/editor/inspectors/` built from the shared controls in
+   `inspector-fields.tsx`.
+7. If it loads anything or links anywhere, teach `src/lib/legal/audit.ts` to see it, and
+   `src/lib/page-links.ts` to move its links when a page is renamed.
 
-That's it — the palette, drag-and-drop, save, and public render all pick it up automatically.
+The palette, drag-and-drop, save, the published page and the download pick up the rest. A
+published or downloaded page runs no script of the block's own, so anything a visitor can
+open, close or step through has to be plain HTML and CSS.
 
 ## Downloading a site
 
@@ -214,6 +229,14 @@ Neuravex has no sign-in and no access control — it's meant to run locally on y
 - Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) are set on all responses
 
 ## Known limitations (V1)
+
+- A downloaded site carries no JavaScript, so the gallery's lightbox and the slider move by
+  following links: each picture opened and each slide shown is an entry in the browser's
+  history, Escape does not close a picture, and the gallery cannot trap focus in an open
+  picture beyond hiding the page behind it.
+- A Map block cannot look an address up — Neuravex makes no network calls of its own — so a
+  map is placed by pasting a map link or coordinates, and a shortened link such as
+  `maps.app.goo.gl` cannot be read.
 
 - No custom domains — sites served by the builder live under `/sites/:slug`. Use **Download files** to put a site on a host of your own.
 - Page history keeps the newest 50 revisions per page; older ones are dropped.

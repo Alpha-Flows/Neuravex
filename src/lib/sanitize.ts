@@ -3,7 +3,7 @@ import { isAllowedEmbed, normalizeEmbed, EMBED_ALLOW } from "./embed-hosts";
 // Not `./security`: that module needs postcss, and this one runs in the
 // editor as well as on the server.
 import { isSafeHref } from "./url-safety";
-import { sanitizeStyleAttribute } from "./css-safety";
+import { sanitizeClassAttribute, sanitizeStyleAttribute } from "./css-safety";
 
 /**
  * Sanitize HTML using sanitize-html — a full HTML parser that cannot be
@@ -65,6 +65,20 @@ function keepDimensions(attribs: Record<string, string>): Record<string, string>
 }
 
 /**
+ * An id — or the fragment of a link to one — in the content's own namespace.
+ *
+ * Only once. Every write path and both read paths run the sanitiser, so an id
+ * went through it again on every save and every view: a link to `#top` in an
+ * FAQ answer was stored as `#c-top`, then `#c-c-top`, and was drawn as
+ * `#c-c-c-c-c-top` on the published page, pointing at nothing. An id that
+ * already carries the prefix is already in the namespace, which is all the
+ * prefix is for.
+ */
+function withIdPrefix(id: string): string {
+  return id.startsWith(ID_PREFIX) ? id : `${ID_PREFIX}${id}`;
+}
+
+/**
  * The transform every element goes through, whatever its tag.
  *
  * `transformTags` is the only hook that sees an attribute before it is written
@@ -80,9 +94,17 @@ function transformAny(tagName: string, attribs: Record<string, string>) {
     else delete out.style;
   }
 
+  // A class can take content out of the flow just as a style can; see
+  // `sanitizeClassAttribute`.
+  if (out.class !== undefined) {
+    const filtered = sanitizeClassAttribute(out.class);
+    if (filtered) out.class = filtered;
+    else delete out.class;
+  }
+
   if (out.id !== undefined) {
     const id = out.id.trim();
-    if (id) out.id = `${ID_PREFIX}${id}`;
+    if (id) out.id = withIdPrefix(id);
     else delete out.id;
   }
 
@@ -138,7 +160,7 @@ export function sanitizeHtml(dirty: string): string {
         const { attribs: base } = transformAny(tagName, attribs);
         const href = isSafeHref(base.href);
         if (href === undefined) delete base.href;
-        else base.href = base.href?.startsWith("#") ? `#${ID_PREFIX}${href.slice(1)}` : href;
+        else base.href = base.href?.startsWith("#") ? `#${withIdPrefix(href.slice(1))}` : href;
 
         // A new tab used to be handed a live reference to the page that
         // opened it. Current browsers imply this; saying it costs one token
@@ -194,7 +216,7 @@ export function sanitizeInlineHtml(dirty: string): string {
         const { attribs: base } = transformAny(tagName, attribs);
         const href = isSafeHref(base.href);
         if (href === undefined) delete base.href;
-        else base.href = base.href?.startsWith("#") ? `#${ID_PREFIX}${href.slice(1)}` : href;
+        else base.href = base.href?.startsWith("#") ? `#${withIdPrefix(href.slice(1))}` : href;
         if (base.target === "_blank") base.rel = "noopener noreferrer";
         return { tagName, attribs: base };
       },
