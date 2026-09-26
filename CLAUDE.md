@@ -19,6 +19,8 @@ npm run test:e2e       # Playwright — needs a current `npm run build` first
 npm run db:reset       # rebuild the database beside the live one, swap only on success
 npm run backup
 npm run mcp            # the MCP server over stdio
+npm run check          # everything CI runs, in order, stopping at the first failure (--quick: no build/e2e)
+npm run smoke          # start the launcher from nothing, the way a customer does; see RELEASING.md
 node scripts/run-local.js typescript --noEmit    # typecheck
 node scripts/audit-gate.js                       # the advisory check CI fails on
 ```

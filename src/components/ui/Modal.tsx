@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useDialog } from "./use-dialog";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
@@ -14,14 +14,8 @@ interface Props {
 }
 
 export function Modal({ open, onClose, title, subtitle, children, footer, className }: Props) {
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  // Escape, Tab kept inside, and focus handed back on closing; see `use-dialog`.
+  const ref = useDialog(open, onClose);
 
   if (!open || typeof document === "undefined") return null;
 
@@ -29,9 +23,11 @@ export function Modal({ open, onClose, title, subtitle, children, footer, classN
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
+        ref={ref}
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
         className={cn(
           "relative z-10 w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl border border-bg-border bg-bg shadow-2xl",
           className,

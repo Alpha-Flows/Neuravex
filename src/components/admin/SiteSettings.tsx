@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
+import { useDialog } from "@/components/ui/use-dialog";
 import { ConfirmDelete } from "./ConfirmDelete";
 import { CONTENT_WIDTHS, THEME_FALLBACK } from "@/lib/site-theme";
 import { familyOf, normalizeCustomFonts, type CustomFont } from "@/lib/fonts";
@@ -49,6 +50,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 export function SiteSettings({ site }: { site: SiteInfo }) {
   const [open, setOpen] = useState(false);
+  const dialogRef = useDialog(open, () => setOpen(false));
   const [tab, setTab] = useState<Tab>("general");
   // General
   const [name, setName] = useState(site.name);
@@ -219,7 +221,15 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
       <Button variant="outline" onClick={openModal}>Settings</Button>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setOpen(false)}>
-          <div className="w-full max-w-xl rounded-xl border border-bg-border bg-bg-soft shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Site settings"
+            tabIndex={-1}
+            className="w-full max-w-xl rounded-xl border border-bg-border bg-bg-soft shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Tabs */}
             <div className="flex border-b border-bg-border px-4">
               {TABS.map((t) => (
@@ -431,15 +441,27 @@ export function SiteSettings({ site }: { site: SiteInfo }) {
                   <div className="flex gap-2">
                     <a href={`/api/sites/${site.id}/export`} className="text-xs text-fg-muted hover:text-fg underline">Export site as JSON</a>
                   </div>
+                  {/*
+                    Deleting the site sat in the footer beside Save, the same
+                    size and one button to the left of it, on every tab; the
+                    confirmation behind it was the only thing between a
+                    slipped click and the whole site in the trash. It lives
+                    here now, on the tab nobody opens by accident, set apart.
+                  */}
+                  <section aria-labelledby="danger-zone" className="mt-6 rounded-lg border border-red-500/40 p-4 space-y-2" data-danger-zone="">
+                    <h3 id="danger-zone" className="text-sm font-semibold text-red-300">Danger zone</h3>
+                    <p className="text-xs text-fg-muted">
+                      Deleting the site moves it, with every page, its history and the form submissions it has received, to the
+                      trash on the dashboard. It can be put back from there until the trash is emptied.
+                    </p>
+                    <Button variant="danger" onClick={() => setAsking(true)}>Delete site</Button>
+                  </section>
                 </div>
               )}
             </div>
-            <div className="px-5 pb-5 flex items-center justify-between">
-              <Button variant="danger" onClick={() => setAsking(true)}>Delete site</Button>
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={save} loading={saving}>Save</Button>
-              </div>
+            <div className="px-5 pb-5 flex items-center justify-end gap-2">
+              <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button onClick={save} loading={saving}>Save</Button>
             </div>
           </div>
         </div>

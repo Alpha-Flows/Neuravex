@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
+import { useDialog } from "@/components/ui/use-dialog";
 import { slugify } from "@/lib/utils";
 
 /**
@@ -12,6 +13,7 @@ import { slugify } from "@/lib/utils";
  */
 export function NewPostButton({ siteId }: { siteId: string }) {
   const [open, setOpen] = useState(false);
+  const dialogRef = useDialog(open, () => setOpen(false));
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const router = useRouter();
@@ -37,7 +39,15 @@ export function NewPostButton({ siteId }: { siteId: string }) {
       <Button variant="outline" onClick={() => setOpen(true)}>+ New post</Button>
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setOpen(false)}>
-          <div className="w-full max-w-md rounded-xl border border-bg-border bg-bg-soft p-6" onClick={(e) => e.stopPropagation()}>
+          <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="New post"
+            tabIndex={-1}
+            className="w-full max-w-md rounded-xl border border-bg-border bg-bg-soft p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-lg font-semibold">New post</h2>
             <div className="mt-4">
               <Label htmlFor="post-title">Title</Label>

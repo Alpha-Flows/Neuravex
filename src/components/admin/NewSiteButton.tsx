@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
+import { useDialog } from "@/components/ui/use-dialog";
 import { useRouter } from "next/navigation";
 import { TEMPLATES, Template } from "@/lib/templates";
 import { TemplatePreview } from "./TemplatePreview";
@@ -18,6 +19,7 @@ const CATEGORIES = [
 
 export function NewSiteButton({ large }: { large?: boolean }) {
   const [open, setOpen] = useState(false);
+  const dialogRef = useDialog(open, reset);
   const [step, setStep] = useState<"meta" | "template">("meta");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -87,6 +89,11 @@ export function NewSiteButton({ large }: { large?: boolean }) {
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={reset}>
           <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="New site"
+            tabIndex={-1}
             className="w-full max-w-4xl rounded-xl border border-bg-border bg-bg-soft shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >

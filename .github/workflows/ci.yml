@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The release workflow runs all of this against the tag before it builds
+  # anything from it; see release.yml.
+  workflow_call:
 
 # A workflow that only reads a checkout and runs tests needs nothing else. The
 # default token is read-only on this repository today, but that is a repository
@@ -17,6 +20,8 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # A hung step used to hold a runner for the six-hour default.
+    timeout-minutes: 20
     steps:
       # Actions are pinned by commit, with the tag in the comment. A mutable
       # tag is a promise from whoever can still move it.
@@ -54,6 +59,7 @@ jobs:
   # not the dev server's looser one.
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -91,6 +97,7 @@ jobs:
   # list is empty today, which is the point of keeping it visible.
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -112,3 +119,27 @@ jobs:
       # refuses an exception whose advisory has gone, so the list cannot rot.
       - name: Fail on a high or critical one in what ships
         run: node scripts/audit-gate.js
+
+  # The path a customer takes, which no other job does: a checkout with no
+  # .env, no database and no build, started with the launcher. It has to set
+  # itself up, come up, find a copy of itself already running, refuse a port
+  # another program holds, stop when asked and say so when its server dies;
+  # see scripts/smoke.js.
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start it the way a customer does
+        run: npm run smoke
