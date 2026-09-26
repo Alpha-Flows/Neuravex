@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { trashPage, pageDeletionCost } from "@/lib/trash";
 import { afterRename, freePageSlug } from "@/lib/page-rename";
+import { versionOf } from "@/lib/page-version";
 import { normalizeBlockTreeJson, clampSortOrder } from "@/lib/block-tree";
 import { readJsonObject } from "@/lib/request-body";
 
@@ -19,7 +20,12 @@ export async function GET(req: NextRequest, props: Params) {
   if (new URL(req.url).searchParams.get("cost") === "1") {
     return NextResponse.json({ title: page.title, ...(await pageDeletionCost(params.id)) });
   }
-  return NextResponse.json(page);
+  // ?version=1 — only which version the page is at, which an open editor
+  // asks when it comes back into view; see `lib/page-version`.
+  if (new URL(req.url).searchParams.get("version") === "1") {
+    return NextResponse.json({ version: versionOf(page) });
+  }
+  return NextResponse.json({ ...page, version: versionOf(page) });
 }
 
 export async function PATCH(req: NextRequest, props: Params) {

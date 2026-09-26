@@ -9,6 +9,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
+import { cleanVersionName } from "@/lib/revisions";
 import { freePageSlug, freeSiteSlug } from "@/lib/restore";
 import {
   serializeSite,
@@ -168,6 +169,7 @@ async function restorePage(siteId: string, archive: PageArchive) {
         title: r.title,
         content: r.content,
         manual: r.manual,
+        name: cleanVersionName(r.name),
         createdAt: new Date(r.createdAt),
       })),
     });

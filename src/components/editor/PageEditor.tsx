@@ -39,6 +39,8 @@ import { BlockInspector } from "./BlockInspector";
 import { movePath, pagePath, retargetLinks, type LinkTarget } from "@/lib/page-links";
 import { RevisionsPanel } from "./RevisionsPanel";
 import { PageSettingsPanel, PageSeo, type PageDetails } from "./PageSettingsPanel";
+import { SelectionPanel } from "./SelectionPanel";
+import { moveManyTo, moveWithinContainer, removeMany, selectionInOrder, sharedContainer, wrapInSection } from "@/lib/multi-select";
 import { SortableContainer } from "../blocks/Sortable";
 import { PublicBlocks } from "../public/PublicBlocks";
 import { Button } from "@/components/ui/Button";
@@ -84,6 +86,10 @@ interface Props {
     translations: TranslationState | null;
     /** A block to open selected, as the check before publishing asks. */
     selectedId?: string | null;
+    /** The version of the page this editor starts from; see `lib/page-version`. */
+    version: string;
+    /** Just after a restore: the version kept of the page before it, to undo it with. */
+    undoRevision?: { id: string; name: string } | null;
   };
 }
 
@@ -109,6 +115,16 @@ const VIEWPORTS = [
 ] as const;
 
 type ViewportKey = (typeof VIEWPORTS)[number]["key"];
+
+/** The rule that rings the blocks chosen beside the selected one, by their ids. */
+function chosenRingCss(ids: string[]): string {
+  if (ids.length === 0) return "";
+  // Ids come from the page, so anything but the plain characters an id is
+  // made of is escaped before it goes into a selector.
+  const escape = (id: string) => id.replace(/[^A-Za-z0-9_-]/g, (c) => `\\${c.charCodeAt(0).toString(16)} `);
+  const selectors = ids.map((id) => `.editor-block[data-block-id="${escape(id)}"] > .editor-outline`).join(",");
+  return `${selectors}{outline-style:solid;outline-color:rgba(99,102,241,0.55)}`;
+}
 
 /** True for anything that takes a caret: inputs, textareas, block text. */
 export function isTextEntry(el: Element | null): boolean {
@@ -160,6 +176,43 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     ogImage: initial.ogImage,
   });
   const [selectedId, setSelectedId] = useState<string | null>(initial.selectedId ?? null);
+  // Blocks chosen alongside the selected one, with Shift or ⌘/Ctrl held; see
+  // `lib/multi-select`. Empty is the ordinary case of one block at a time.
+  const [extraIds, setExtraIds] = useState<string[]>([]);
+  // Whether the pointer went down with a modifier held. Read when the block's
+  // click selects it, which every block and container reports the same way,
+  // so the choice of adding to the selection needs no word from any of them.
+  const additiveRef = useRef(false);
+  useEffect(() => {
+    const note = (e: PointerEvent) => {
+      // Not in the text the caret is in: there, Shift-click extends the text
+      // selection, which is what the person is doing. Anywhere else it adds a
+      // block — and it had to be anywhere else, not "whenever no text has
+      // the caret", because clicking a paragraph to choose it puts the caret
+      // in it, so the second block of every choice that began with text was
+      // never added.
+      const active = document.activeElement;
+      const inText = isTextEntry(active) && e.target instanceof Node && !!active?.contains(e.target);
+      additiveRef.current = (e.shiftKey || e.metaKey || e.ctrlKey) && !inText;
+    };
+    // A click that adds a block is a choice, not a place for a caret. Left
+    // to the browser, Shift-click on the canvas stretched the text selection
+    // from the paragraph chosen first to wherever the second click landed,
+    // and left the caret in text — so Delete then edited words instead of
+    // taking out the blocks the panel said were chosen.
+    const hold = (e: MouseEvent) => {
+      if (!additiveRef.current || !(e.target instanceof Element) || !e.target.closest(".public-canvas")) return;
+      e.preventDefault();
+      if (document.activeElement instanceof HTMLElement && isTextEntry(document.activeElement)) document.activeElement.blur();
+      window.getSelection()?.removeAllRanges();
+    };
+    window.addEventListener("pointerdown", note, true);
+    window.addEventListener("mousedown", hold, true);
+    return () => {
+      window.removeEventListener("pointerdown", note, true);
+      window.removeEventListener("mousedown", hold, true);
+    };
+  }, []);
   // Opened on a block the check before publishing found something in: it is
   // selected, and brought into view, since it may be far down the page.
   useEffect(() => {
@@ -170,6 +223,18 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
+  // The version of the page this editor's work is built on, and whether a
+  // newer one has turned up since — another tab, the MCP agent, a rename
+  // elsewhere moving this page's links; see `lib/page-version`.
+  const versionRef = useRef(initial.version);
+  const [conflict, setConflict] = useState(false);
+  const overwriteRef = useRef(false);
+  const savingRef = useRef(false);
+  // One save at a time, each after the last has answered. Two in flight at
+  // once named the same version, and the second was refused as though it had
+  // come from somewhere else.
+  const saveChainRef = useRef<Promise<unknown>>(Promise.resolve());
+  const [undoOffer, setUndoOffer] = useState(initial.undoRevision ?? null);
   const [preview, setPreview] = useState(false);
   const [viewport, setViewport] = useState<ViewportKey>("full");
   const [leftTab, setLeftTab] = useState<"blocks" | "outline">("blocks");
@@ -230,20 +295,52 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
   // Autosave timer
   const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!dirty) return;
+    // Not while a newer version is waiting for a decision: every autosave
+    // would be refused, and the choice is the author's.
+    if (!dirty || conflict) return;
     autosaveRef.current = setTimeout(() => save("autosave"), AUTOSAVE_MS);
     return () => { if (autosaveRef.current) clearTimeout(autosaveRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dirty, title, slug, isHome, published, blocks, seo, details]);
+  }, [dirty, conflict, title, slug, isHome, published, blocks, seo, details]);
+
+  // Coming back to the tab is when another tab's work is most likely to have
+  // happened. Asked then, rather than on a timer: nothing is sent while the
+  // editor sits unwatched.
+  useEffect(() => {
+    const check = async () => {
+      if (document.visibilityState !== "visible" || savingRef.current) return;
+      const answer = await fetch(`/api/pages/${pageId}?version=1`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      if (!savingRef.current && typeof answer?.version === "string" && answer.version !== versionRef.current) setConflict(true);
+    };
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    return () => {
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+    };
+  }, [pageId]);
 
   const slugInputRef = useRef<HTMLInputElement | null>(null);
 
-  const saveFn = useCallback(async (
+  const saveFn = useCallback((
     reason: "manual" | "autosave" = "manual",
+    override?: { published?: boolean },
+  ): Promise<boolean> => {
+    const run = saveChainRef.current.then(() => saveNow(reason, override));
+    saveChainRef.current = run.catch(() => {});
+    return run;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageId, siteSlug, title, slug, isHome, published, blocks, seo, details]);
+
+  const saveNow = async (
+    reason: "manual" | "autosave",
     override?: { published?: boolean },
   ): Promise<boolean> => {
     const willPublish = override?.published ?? published;
     setSaving(true);
+    savingRef.current = true;
     try {
       const res = await fetch(`/api/pages/${pageId}/save`, {
         method: "PUT",
@@ -257,8 +354,15 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
           // on a save somebody asked for.
           ...(reason === "manual" || document.activeElement !== slugInputRef.current ? { slug } : {}),
           syncedBase: syncedBaseRef.current,
+          baseVersion: versionRef.current,
+          ...(overwriteRef.current ? { force: true } : {}),
         }),
       });
+      // A newer version was saved somewhere else; nothing was written.
+      if (res.status === 409) {
+        setConflict(true);
+        return false;
+      }
       setSaveFailed(!res.ok);
       if (!res.ok) return false;
       setDirty(false);
@@ -269,6 +373,8 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
       // settled on, so the URL shown here is the URL that exists — but never
       // rewrite the field while it is being typed in.
       const saved = await res.json().catch(() => null);
+      overwriteRef.current = false;
+      if (typeof saved?.version === "string") versionRef.current = saved.version;
       if (saved?.slug && saved.slug !== slug && document.activeElement !== slugInputRef.current) {
         setSlug(saved.slug);
       }
@@ -306,8 +412,86 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
       return false;
     } finally {
       setSaving(false);
+      savingRef.current = false;
     }
-  }, [pageId, siteSlug, title, slug, isHome, published, blocks, seo, details]);
+  };
+
+  /**
+   * The editor going somewhere on purpose, with its work already put away:
+   * the unsaved-changes guard stays out of it. Loading the newer version and
+   * restoring one both asked "Leave site? Changes you made may not be saved"
+   * straight after the author had decided exactly that, about work that was
+   * already in the page's history.
+   */
+  const leavingRef = useRef(false);
+  function leaveFor(url: string | null) {
+    leavingRef.current = true;
+    if (url === null) window.location.reload();
+    else window.location.replace(url);
+  }
+
+  /** Keep what is on the canvas as a version of the page, without saving it over the page. */
+  async function setAside(name: string): Promise<boolean> {
+    const res = await fetch(`/api/pages/${pageId}/revisions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, title, content: blocks }),
+    }).catch(() => null);
+    return !!res?.ok;
+  }
+
+  /** Their version: this editor's work is kept as a version first, then the page is loaded again. */
+  async function loadNewerVersion() {
+    await setAside("Your changes, set aside for a newer version");
+    leaveFor(null);
+  }
+
+  /**
+   * Before a version is put back. The restore keeps the page as it was saved,
+   * so work on the canvas that had not been saved yet was in no version at
+   * all — and the autosave that was about to carry it could land after the
+   * restore and write it back over the version just chosen. The timer is
+   * stopped and the work saved first; when it cannot be (a newer version is
+   * waiting), it is kept as a version of its own instead.
+   */
+  async function settleBeforeRestore() {
+    if (autosaveRef.current) clearTimeout(autosaveRef.current);
+    if (!dirty) return;
+    if (!conflict && (await save("manual"))) return;
+    await setAside("Your changes, before a restore");
+  }
+
+  /** This editor's version, over theirs — which the server keeps as a version first. */
+  function keepMyVersion() {
+    overwriteRef.current = true;
+    setConflict(false);
+    void save("manual");
+  }
+
+  /** Save what is on the canvas, then keep it under a name. */
+  async function keepVersion(name: string): Promise<boolean> {
+    if (!(await save("manual"))) return false;
+    const res = await fetch(`/api/pages/${pageId}/revisions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).catch(() => null);
+    return !!res?.ok;
+  }
+
+  async function undoRestore() {
+    if (!undoOffer) return;
+    const res = await fetch(`/api/pages/${pageId}/revisions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ revisionId: undoOffer.id }),
+    }).catch(() => null);
+    if (res?.ok) {
+      const next = new URL(window.location.href);
+      next.search = "";
+      leaveFor(next.href);
+    }
+  }
 
   // Memo-ize save so the key event listener closure always has the latest
   const saveRef = useRef(saveFn);
@@ -392,6 +576,67 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
       `edit:${updated.id}`,
     );
   }
+
+  /**
+   * Choosing a block on the canvas or in the outline. With a modifier held it
+   * joins the blocks already chosen, or leaves them if it was one; without,
+   * it is the one block chosen.
+   */
+  const selectBlock = useCallback((id: string | null) => {
+    if (id && additiveRef.current && selectedId) {
+      additiveRef.current = false;
+      if (id === selectedId) {
+        const [next, ...rest] = extraIds;
+        setSelectedId(next ?? null);
+        setExtraIds(rest);
+      } else {
+        setExtraIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
+      }
+      return;
+    }
+    setSelectedId(id);
+    setExtraIds([]);
+  }, [selectedId, extraIds]);
+
+  /** Every chosen block that is on the page, in page order; see `selectionInOrder`. */
+  const chosen = useMemo(
+    () => (selectedId && extraIds.length > 0 ? selectionInOrder(blocks, [selectedId, ...extraIds]) : []),
+    [blocks, selectedId, extraIds],
+  );
+  const choosingSeveral = chosen.length > 1;
+
+  function clearSelection() {
+    setSelectedId(null);
+    setExtraIds([]);
+  }
+
+  function deleteChosen() {
+    const next = removeMany(blocks, chosen);
+    if (next !== blocks) pushHistory(next);
+    clearSelection();
+  }
+
+  function wrapChosen() {
+    const def = getBlockDefinition("section");
+    if (!def) return;
+    const section: BaseBlock = { id: `tmp-${uid()}`, type: "section", props: JSON.parse(JSON.stringify(def.defaultProps)) };
+    const next = wrapInSection(blocks, chosen, section);
+    if (!next) return;
+    pushHistory(next);
+    setSelectedId(section.id);
+    setExtraIds([]);
+  }
+
+  function moveChosen(target: string) {
+    const next = moveManyTo(blocks, chosen, target);
+    if (next) pushHistory(next);
+  }
+
+  /** Where the chosen blocks could all go: every container not inside one of them. */
+  const chosenTargets = useMemo(
+    () => (choosingSeveral ? containerChoices(blocks).filter((c) => moveManyTo(blocks, chosen, c.id) !== null) : []),
+    [blocks, chosen, choosingSeveral],
+  );
 
   function deleteBlock(id: string) {
     const next = removeBlock(blocks, id);
@@ -610,11 +855,24 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
       // Delete / Backspace — delete the selected block, but never while a
       // caret is in something. Block text lives in a contentEditable, whose
       // tag is H1 or P, so a tag-name check let one backspace mid-sentence
-      // delete the whole block.
+      // delete the whole block. Several chosen go together.
       if ((e.key === "Delete" || e.key === "Backspace") && selectedId && !keysBelongToFocus(document.activeElement)) {
         e.preventDefault();
-        deleteBlock(selectedId);
+        if (choosingSeveral) deleteChosen();
+        else deleteBlock(selectedId);
         return;
+      }
+      // Alt with an arrow moves the selected block up or down among its
+      // neighbours — the order, changed without a mouse. Not a floating
+      // block, which the arrows place instead.
+      if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && selectedId && !keysBelongToFocus(document.activeElement)) {
+        const selected = findBlock(blocks, selectedId);
+        if (selected && !isFloating(selected)) {
+          e.preventDefault();
+          const next = moveWithinContainer(blocks, selectedId, e.key === "ArrowUp" ? -1 : 1);
+          if (next) pushHistory(next, `move:${selectedId}`);
+          return;
+        }
       }
       // Arrow keys nudge a floating block. Only a floating one: in the flow
       // there is nowhere to nudge to, and the arrows still scroll the canvas.
@@ -628,12 +886,12 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
         }
       }
       // Escape — deselect
-      if (e.key === "Escape") { setSelectedId(null); return; }
+      if (e.key === "Escape") { clearSelection(); return; }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, blocks, preview]);
+  }, [selectedId, blocks, preview, choosingSeveral, chosen]);
 
   function undo() {
     const h = historyRef.current;
@@ -679,7 +937,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
   // Beforeunload guard
   useEffect(() => {
     function onBeforeUnload(e: BeforeUnloadEvent) {
-      if (dirty) { e.preventDefault(); e.returnValue = ""; }
+      if (dirty && !leavingRef.current) { e.preventDefault(); e.returnValue = ""; }
     }
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
@@ -839,6 +1097,11 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
     >
       <div className="h-screen flex flex-col bg-bg text-fg editor-mode">
         <style nonce={nonce} dangerouslySetInnerHTML={{ __html: themeCss }} />
+        {/* The other chosen blocks ringed as the selected one is; the ring
+            is drawn by a class only the selected block's chrome carries. */}
+        {choosingSeveral ? (
+          <style nonce={nonce} dangerouslySetInnerHTML={{ __html: chosenRingCss(chosen.filter((id) => id !== selectedId)) }} />
+        ) : null}
         {customCss ? (
           <>
             <style nonce={nonce} dangerouslySetInnerHTML={{ __html: customCss }} />
@@ -947,7 +1210,9 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
             <span className={`text-xs shrink-0 ${saveFailed ? "text-red-400" : "text-fg-muted"}`}>
               {saving
                 ? "Saving…"
-                : saveFailed
+                : conflict
+                  ? "Not saved — changed elsewhere"
+                  : saveFailed
                   ? "Couldn't save — press Save to retry"
                   : dirty
                     ? "Unsaved changes"
@@ -969,6 +1234,28 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
             )}
           </div>
         </header>
+        {conflict ? (
+          <div role="alert" data-conflict="" className="px-4 py-2.5 border-b border-amber-500/40 bg-amber-500/10 text-sm text-amber-100 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span className="flex-1 min-w-[16rem]">
+              This page was changed somewhere else after you opened it — in another tab, by the MCP agent, or by a
+              change to another page that moved its links. What you have done here is not saved yet.
+            </span>
+            <span className="flex items-center gap-2 shrink-0">
+              <Button size="sm" variant="outline" onClick={loadNewerVersion}>Load the newer version</Button>
+              <Button size="sm" onClick={keepMyVersion}>Keep mine</Button>
+            </span>
+            <span className="basis-full text-xs text-amber-200/80">
+              Either way nothing is lost: the version you do not keep is put in this page&apos;s versions.
+            </span>
+          </div>
+        ) : null}
+        {undoOffer ? (
+          <div role="status" data-undo-restore="" className="px-4 py-2 border-b border-bg-border bg-bg-soft text-sm text-fg-muted flex items-center gap-3">
+            <span className="flex-1">An earlier version was put back. The page as it was before is kept in its versions.</span>
+            <Button size="sm" variant="outline" onClick={undoRestore}>Undo the restore</Button>
+            <button type="button" aria-label="Dismiss" onClick={() => setUndoOffer(null)} className="text-fg-muted hover:text-fg">×</button>
+          </div>
+        ) : null}
 
         {/* Body: palette | canvas | inspector. Either rail can be folded away,
             in which case it renders nothing and the canvas takes the room. */}
@@ -1000,7 +1287,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
                     <SavedBlocks refreshKey={savedKey} onInsert={insertExistingBlock} />
                   </>
                 ) : (
-                  <BlockOutline blocks={blocks} selectedId={selectedId} onSelect={(id) => setSelectedId(id)} />
+                  <BlockOutline blocks={blocks} selectedId={selectedId} onSelect={selectBlock} />
                 )}
               </div>
             </aside>
@@ -1027,7 +1314,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
             scrollport, and a header holds its place there the way it does in
             a window.
           */}
-          <main className="flex-1 min-h-0 flex py-8" onClick={() => setSelectedId(null)}>
+          <main className="flex-1 min-h-0 flex py-8" onClick={clearSelection}>
             {/*
               The canvas takes the room it is given. It used to stop at 1024px
               whatever the window, so on a large screen you laid the page out
@@ -1069,7 +1356,7 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
                       containerId="page"
                       blocks={blocks}
                       onChange={(next, editKey) => pushHistory(next, editKey)}
-                      onSelect={(id) => setSelectedId(id)}
+                      onSelect={selectBlock}
                       onDelete={deleteBlock}
                       onDuplicate={duplicateBlock}
                       selectedId={selectedId}
@@ -1093,7 +1380,21 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
             only swaps the block inspector for the page's own settings, which
             apply either way.
           */}
-          {rails.right ? null : !preview && selectedBlock ? (
+          {rails.right ? null : !preview && choosingSeveral ? (
+            <SelectionPanel
+              count={chosen.length}
+              labels={chosen.map((id) => {
+                const block = findBlock(blocks, id);
+                return block ? getBlockDefinition(block.type)?.label ?? block.type : id;
+              })}
+              canWrap={sharedContainer(blocks, chosen) !== null}
+              targets={chosenTargets}
+              onWrap={wrapChosen}
+              onMove={moveChosen}
+              onDelete={deleteChosen}
+              onClear={clearSelection}
+            />
+          ) : !preview && selectedBlock ? (
             <BlockInspector
               block={selectedBlock}
               onChange={replaceBlock}
@@ -1131,9 +1432,24 @@ export function PageEditor({ pageId, siteId, siteSlug, theme, chrome, linkTarget
                 onFormerSlugsChange={setFormerSlugs}
                 siteId={siteId}
                 translations={initial.translations}
+                onPageVersion={(version) => { versionRef.current = version; }}
                 onDetailsChange={(next) => { setDetails(next); setDirty(true); }}
               />
-              <RevisionsPanel pageId={pageId} refreshKey={savedAt?.getTime() ?? 0} onRestore={() => window.location.reload()} />
+              <RevisionsPanel
+                pageId={pageId}
+                refreshKey={savedAt?.getTime() ?? 0}
+                current={{ title, blocks }}
+                onKeepVersion={keepVersion}
+                beforeRestore={settleBeforeRestore}
+                // Opened again, from the server, on the restored page and
+                // offering the way back: the canvas's state is built once,
+                // from what the page held when it was opened.
+                onRestore={(undoId) => {
+                  const next = new URL(window.location.href);
+                  next.search = undoId ? `?undo=${encodeURIComponent(undoId)}` : "";
+                  leaveFor(next.href);
+                }}
+              />
             </aside>
           )}
         </div>

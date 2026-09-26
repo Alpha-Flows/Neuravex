@@ -47,6 +47,8 @@ interface Props {
   siteId: string;
   /** Null when the page could not be read, which leaves the section out. */
   translations: TranslationState | null;
+  /** The page's version after something here wrote it; see `lib/page-version`. */
+  onPageVersion?: (version: string) => void;
 }
 
 /**
@@ -68,6 +70,7 @@ export function PageSettingsPanel({
   onFormerSlugsChange,
   siteId,
   translations,
+  onPageVersion,
 }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [coverPicking, setCoverPicking] = useState(false);
@@ -144,6 +147,7 @@ export function PageSettingsPanel({
           initial={translations}
           language={details.language}
           onLanguageChange={(language) => post("language", language)}
+          onPageVersion={onPageVersion}
         />
       ) : null}
       {isHome || details.isPost ? null : (

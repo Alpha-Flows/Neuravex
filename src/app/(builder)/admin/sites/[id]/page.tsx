@@ -15,6 +15,7 @@ import { DuplicateSiteButton } from "@/components/admin/DuplicateSiteButton";
 import { SaveAsTemplateButton } from "@/components/admin/SaveAsTemplateButton";
 import { LegalFlow } from "@/components/admin/LegalFlow";
 import { PrepublishCheck } from "@/components/admin/PrepublishCheck";
+import { FindReplaceButton } from "@/components/admin/FindReplaceButton";
 import { isLegalKind } from "@/lib/legal/pages";
 import { safeAccent } from "@/lib/site-fields";
 import { builderLanguageName, pageLanguage, siteLanguages } from "@/lib/translations";
@@ -71,7 +72,6 @@ export default async function SiteAdmin(props: {
           <div className="flex items-center gap-2">
             <SiteSettings site={{ id: site.id, name: site.name, slug: site.slug, description: site.description, accent: site.accent }} />
             <LegalFlow siteId={site.id} siteSlug={site.slug} />
-            <PrepublishCheck siteId={site.id} />
             <DownloadSiteButton siteId={site.id} disabled={!site.pages.some((p) => p.published)} />
             <DuplicateSiteButton siteId={site.id} />
             <SaveAsTemplateButton siteId={site.id} defaultName={site.name} label="Save as template" />
@@ -97,7 +97,16 @@ export default async function SiteAdmin(props: {
             <h1 className="text-2xl font-semibold">Pages</h1>
             <p className="text-fg-muted mt-1">Edit a page to open the visual editor.</p>
           </div>
-          <NewPageButton siteId={site.id} siteSlug={site.slug} />
+          {/*
+            The tools that read every page sit with the pages rather than in
+            the header, which had run out of room: at 1024 pixels wide its
+            buttons ran off the side of the window.
+          */}
+          <div className="flex items-center gap-2">
+            <PrepublishCheck siteId={site.id} />
+            <FindReplaceButton siteId={site.id} />
+            <NewPageButton siteId={site.id} siteSlug={site.slug} />
+          </div>
         </div>
 
         <Card>

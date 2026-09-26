@@ -11,6 +11,7 @@ import { headers } from "next/headers";
 import { safeAccent } from "@/lib/site-fields";
 import { formerSlugs } from "@/lib/page-rename";
 import { findBlock } from "@/lib/tree-utils";
+import { versionOf } from "@/lib/page-version";
 import { homeFor, languageSwitch, pageLanguage, sameLanguage } from "@/lib/translations";
 import { translationState } from "@/lib/translations-store";
 
@@ -19,12 +20,13 @@ export const dynamic = "force-dynamic";
 export default async function PageEditorRoute(
   props: {
     params: Promise<{ id: string; pageId: string }>;
-    searchParams: Promise<{ block?: string | string[] }>;
+    searchParams: Promise<{ block?: string | string[]; undo?: string | string[] }>;
   }
 ) {
   const params = await props.params;
-  // The block the check before publishing sent somebody here to fix.
-  const wanted = (await props.searchParams).block;
+  // The block the check before publishing sent somebody here to fix, and the
+  // version a restore just set aside, when the page was opened again after one.
+  const { block: wanted, undo } = await props.searchParams;
   const page = await prisma.page.findUnique({ where: { id: params.pageId } });
   const site = await prisma.site.findUnique({
     where: { id: params.id },
@@ -183,6 +185,11 @@ export default async function PageEditorRoute(
         blocks,
         formerSlugs: await formerSlugs(page.id),
         selectedId: typeof wanted === "string" && findBlock(blocks, wanted) ? wanted : null,
+        version: versionOf(page),
+        undoRevision:
+          typeof undo === "string"
+            ? await prisma.revision.findFirst({ where: { id: undo, pageId: page.id, name: { not: null } }, select: { id: true, name: true } }).then((r) => (r ? { id: r.id, name: r.name ?? "" } : null))
+            : null,
         translations: await translationState(page.id),
       }}
     />

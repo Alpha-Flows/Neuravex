@@ -14,6 +14,7 @@ import { normalizeBlockTree } from "./block-tree";
 import { mapBlocks } from "./tree-utils";
 import { freePageSlug } from "./page-rename";
 import { builderLanguageName, cleanLanguage, pageLanguage, sameLanguage } from "./translations";
+import { currentVersion } from "./page-version";
 import type { BaseBlock } from "@/types";
 
 export interface TranslationRow {
@@ -27,6 +28,12 @@ export interface TranslationRow {
 
 export interface TranslationState {
   siteLanguage: string;
+  /**
+   * The page's version once the change is made: linking a translation writes
+   * this page too, and the editor that asked for it must not then take its
+   * own next save for somebody else's; see `lib/page-version`.
+   */
+  version: string;
   /** The page itself and its translations, the page first. */
   group: TranslationRow[];
   /** Pages that could be linked as a translation: ones in a language the group has not got. */
@@ -88,7 +95,7 @@ export async function translationState(pageId: string): Promise<TranslationState
     .filter((p) => p.id !== page.id && !p.legalKind && !p.isNotFound && !members.some((m) => m.id === p.id))
     .map((p) => row(p, siteLanguage))
     .filter((r) => !taken.some((l) => sameLanguage(l, r.language)));
-  return { siteLanguage, group, candidates };
+  return { siteLanguage, version: (await currentVersion(page.id)) ?? "", group, candidates };
 }
 
 export type TranslationOutcome = { ok: true; state: TranslationState; createdId?: string } | { ok: false; error: string; status: number };

@@ -223,6 +223,12 @@ model Revision {
   // A save the user asked for (Cmd+S / Save) rather than an autosave.
   // Autosaves within the same window coalesce; manual saves never do.
   manual    Boolean  @default(false)
+  /// What somebody called this version — "Before the redesign" — or what
+  /// the builder called one it kept on their behalf: the page as it was
+  /// before a restore, or before a save from another editor replaced it. A
+  /// named version is never merged into the next autosave and never falls
+  /// off the end of the history.
+  name      String?
   createdAt DateTime @default(now())
 
   @@index([pageId])

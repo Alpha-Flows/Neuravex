@@ -8,6 +8,7 @@ import { BlockView } from "./BlockView";
 import { BlockFrame, LayerFrame } from "./LayerFrame";
 import { clampOffset, clampWidth, floatsOnly, layerBoxes, layerOf } from "@/lib/block-layer";
 import { cn } from "@/lib/utils";
+import { moveInList } from "@/lib/multi-select";
 
 interface BlockChromeProps {
   block: BaseBlock;
@@ -22,6 +23,9 @@ interface BlockChromeProps {
   atTop?: boolean;
   /** Held in the page's content column, as the published page holds it. */
   inPageColumn?: boolean;
+  /** One place up or down among its siblings; absent where there is nowhere to go. */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   children: ReactNode;
 }
 
@@ -43,7 +47,20 @@ interface BlockChromeProps {
  * drag handle then moves it rather than reordering it — there is no order to
  * change when a block takes no room in the list.
  */
-function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplicate, onLayerChange, atTop, inPageColumn, children }: BlockChromeProps) {
+function BlockChrome({
+  block,
+  isSelected,
+  sortable,
+  onSelect,
+  onDelete,
+  onDuplicate,
+  onLayerChange,
+  atTop,
+  inPageColumn,
+  onMoveUp,
+  onMoveDown,
+  children,
+}: BlockChromeProps) {
   const { outer, inner } = layerBoxes(block);
   const placed = layerOf(block);
   const floating = outer !== null;
@@ -128,6 +145,7 @@ function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplic
         opacity: sortable.isDragging ? 0.5 : 1,
         ...innerStyle,
       }}
+      data-block-id={block.id}
       className={cn(
         "editor-block relative group",
         !floating && inPageColumn && "nvx-site-column",
@@ -184,6 +202,32 @@ function BlockChrome({ block, isSelected, sortable, onSelect, onDelete, onDuplic
           >
             <span className="leading-none text-xs">⋮⋮</span>
           </button>
+        )}
+        {floating ? null : (
+          // The order without a mouse. Dragging was the only way to change
+          // it, and dragging is something a keyboard, a switch or a shaking
+          // hand cannot do; Alt with the arrow keys does the same from
+          // anywhere once a block is chosen.
+          <>
+            <button
+              aria-label="Move up"
+              className="w-6 h-6 rounded text-fg-muted hover:text-fg hover:bg-bg-soft flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none"
+              onClick={onMoveUp}
+              disabled={!onMoveUp}
+              title="Move up (Alt+↑)"
+            >
+              <span className="leading-none text-xs">↑</span>
+            </button>
+            <button
+              aria-label="Move down"
+              className="w-6 h-6 rounded text-fg-muted hover:text-fg hover:bg-bg-soft flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none"
+              onClick={onMoveDown}
+              disabled={!onMoveDown}
+              title="Move down (Alt+↓)"
+            >
+              <span className="leading-none text-xs">↓</span>
+            </button>
+          </>
         )}
         <button
           aria-label="Duplicate block"
@@ -252,9 +296,27 @@ interface SortableBlockProps {
   atTop?: boolean;
   /** Wraps the block in the page's content column. */
   inPageColumn?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
-export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate, selectedId, disabled, pageId, onSelectId, onChildDelete, onChildDuplicate, atTop, inPageColumn }: SortableBlockProps) {
+export function SortableBlock({
+  block,
+  onChange,
+  onSelect,
+  onDelete,
+  onDuplicate,
+  selectedId,
+  disabled,
+  pageId,
+  onSelectId,
+  onChildDelete,
+  onChildDuplicate,
+  atTop,
+  inPageColumn,
+  onMoveUp,
+  onMoveDown,
+}: SortableBlockProps) {
   const floating = block.layer?.mode === "float";
   // A floating block is placed, not ordered: dragging it to a different point
   // in a list it does not occupy would move nothing anyone can see. Its handle
@@ -287,6 +349,8 @@ export function SortableBlock({ block, onChange, onSelect, onDelete, onDuplicate
       }
       atTop={atTop}
       inPageColumn={inPageColumn}
+      onMoveUp={onMoveUp}
+      onMoveDown={onMoveDown}
     >
       <BlockView
         block={block}
@@ -354,7 +418,10 @@ export function SortableContainer({
         // class the published page puts round the same list of blocks — and
         // gives the end-of-list drop target below something to be pinned to.
         <div className="nvx-block-stack" data-floats-only={floatsOnly(blocks) ? "true" : undefined}>
-          {blocks.map((b, i) => (
+          {blocks.map((b, i) => {
+            const up = moveInList(blocks, i, -1);
+            const down = moveInList(blocks, i, 1);
+            return (
             <SortableBlock
               key={b.id}
               atTop={containerId === "page" && i === 0}
@@ -373,8 +440,11 @@ export function SortableContainer({
               selectedId={selectedId}
               disabled={disabled}
               pageId={pageId}
+              onMoveUp={up ? () => onChange(up, `move:${b.id}`) : undefined}
+              onMoveDown={down ? () => onChange(down, `move:${b.id}`) : undefined}
             />
-          ))}
+            );
+          })}
           {!disabled ? (
             // Where a block dropped at the end of this container lands. It
             // hangs off the bottom edge rather than sitting in the flow — an
