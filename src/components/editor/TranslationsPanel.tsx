@@ -22,6 +22,7 @@ export function TranslationsPanel({
   initial,
   language,
   onLanguageChange,
+  onPageVersion,
 }: {
   pageId: string;
   siteId: string;
@@ -29,6 +30,8 @@ export function TranslationsPanel({
   /** The page's own language, as the settings hold it: empty for the site's. */
   language: string;
   onLanguageChange: (next: string) => void;
+  /** The page's version after a change here, which writes this page too. */
+  onPageVersion?: (version: string) => void;
 }) {
   const [state, setState] = useState(initial);
   const [target, setTarget] = useState("");
@@ -59,7 +62,8 @@ export function TranslationsPanel({
         setMessage({ text: answer?.error ?? "That did not work. Try again." });
         return null;
       }
-      setState({ siteLanguage: answer.siteLanguage, group: answer.group, candidates: answer.candidates });
+      setState({ siteLanguage: answer.siteLanguage, version: answer.version, group: answer.group, candidates: answer.candidates });
+      if (typeof answer.version === "string") onPageVersion?.(answer.version);
       return answer as TranslationState & { createdId?: string };
     } finally {
       setBusy(false);

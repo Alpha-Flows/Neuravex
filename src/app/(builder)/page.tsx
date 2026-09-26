@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { NewSiteButton } from "@/components/admin/NewSiteButton";
 import { TrashPanel } from "@/components/admin/TrashPanel";
+import { ImportSiteButton } from "@/components/admin/ImportSiteButton";
 import { NetworkNotice } from "@/components/admin/NetworkNotice";
 import { safeAccent } from "@/lib/site-fields";
 
@@ -34,7 +35,10 @@ export default async function AdminHome() {
             <h1 className="text-2xl font-semibold">Your sites</h1>
             <p className="text-fg-muted mt-1">Create a new site or open an existing one to edit.</p>
           </div>
-          <NewSiteButton />
+          <div className="flex items-start gap-2">
+            <ImportSiteButton />
+            <NewSiteButton />
+          </div>
         </div>
 
         {sites.length === 0 ? (

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { normalizeBlockTreeJson } from "@/lib/block-tree";
 
 /**
  * Autosaves inside this window collapse into a single revision rather than
@@ -17,6 +18,8 @@ export interface LatestRevision {
   title: string;
   content: string;
   manual: boolean;
+  /** A named version is never taken over by an autosave. */
+  name?: string | null;
   createdAt: Date;
 }
 
@@ -46,7 +49,7 @@ export function decideRevisionAction(
   if (!latest) return "create";
   if (latest.content === next.content && latest.title === next.title) return "skip";
   if (next.manual) return "create";
-  if (latest.manual) return "create";
+  if (latest.manual || latest.name) return "create";
   return now - latest.createdAt.getTime() < AUTOSAVE_COALESCE_MS ? "replace" : "create";
 }
 
@@ -73,8 +76,10 @@ export async function snapshotRevision(
 
   await prisma.revision.create({ data: { pageId, ...next } });
 
+  // Named versions are kept however many there are: somebody chose to keep
+  // each of them, and the fifty-save window is for the ones nobody did.
   const stale = await prisma.revision.findMany({
-    where: { pageId },
+    where: { pageId, name: null },
     orderBy: { createdAt: "desc" },
     skip: MAX_REVISIONS_PER_PAGE,
     select: { id: true },
@@ -83,4 +88,53 @@ export async function snapshotRevision(
     await prisma.revision.deleteMany({ where: { id: { in: stale.map((r) => r.id) } } });
   }
   return action;
+}
+
+/** The longest name a version can have. */
+export const MAX_VERSION_NAME = 120;
+
+/** A version's name, tidied, or null for none. */
+export function cleanVersionName(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const name = raw.replace(/\s+/g, " ").trim().slice(0, MAX_VERSION_NAME);
+  return name || null;
+}
+
+type PageRow = { id: string; title: string; content: string };
+
+/**
+ * The page as it is saved, kept under a name. The save that stored it made
+ * a revision already, so that one is named rather than copied when it is
+ * still the newest and still unnamed; otherwise a named copy is made.
+ */
+export async function nameVersion(page: PageRow, name: string) {
+  const latest = await prisma.revision.findFirst({ where: { pageId: page.id }, orderBy: { createdAt: "desc" } });
+  if (latest && !latest.name && latest.content === page.content && latest.title === page.title) {
+    return prisma.revision.update({ where: { id: latest.id }, data: { name, manual: true } });
+  }
+  return prisma.revision.create({ data: { pageId: page.id, title: page.title, content: page.content, manual: true, name } });
+}
+
+/**
+ * A version put back, with the page as it was a moment before kept as a
+ * version of its own, so the restore can be undone by restoring that.
+ */
+export async function restoreRevision(page: PageRow, revisionId: string) {
+  const rev = await prisma.revision.findFirst({ where: { id: revisionId, pageId: page.id } });
+  if (!rev) return null;
+  const when = rev.createdAt.toISOString().slice(0, 16).replace("T", " ");
+  const before = await prisma.revision.create({
+    data: {
+      pageId: page.id,
+      title: page.title,
+      content: page.content,
+      manual: true,
+      name: `Before restoring ${rev.name ? `“${rev.name}”` : `the version of ${when}`}`.slice(0, MAX_VERSION_NAME),
+    },
+  });
+  // Through the validator, as every write is: a version kept before it
+  // existed holds whatever the page held then.
+  const tree = normalizeBlockTreeJson(rev.content);
+  const updated = await prisma.page.update({ where: { id: page.id }, data: { title: rev.title, content: tree.ok ? tree.json : "[]" } });
+  return { page: updated, undoRevisionId: before.id };
 }

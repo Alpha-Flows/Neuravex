@@ -47,6 +47,8 @@ export const SITE_FIELDS = [
   "metaTitle",
   "metaDescription",
   "ogImage",
+  "siteUrl",
+  "businessType",
   "favicon",
   "language",
   "legal",
@@ -78,7 +80,7 @@ export const PAGE_FIELDS = [
 type Row = Record<string, unknown>;
 
 export interface PageArchive extends Row {
-  revisions?: { title: string; content: string; manual: boolean; createdAt: string }[];
+  revisions?: { title: string; content: string; manual: boolean; name?: string | null; createdAt: string }[];
   submissions?: { data: string; createdAt: string }[];
 }
 
@@ -141,6 +143,10 @@ export function serializePage(page: Row, { includeHistory = false }: SerializeOp
       title: String(r.title ?? "Untitled"),
       content: String(r.content ?? "[]"),
       manual: !!r.manual,
+      // A named version is kept however many saves follow it; a page back
+      // from the trash with its names gone would have had them pruned by
+      // the fiftieth save after.
+      name: typeof r.name === "string" && r.name ? r.name : null,
       createdAt: (r.createdAt instanceof Date ? r.createdAt : new Date()).toISOString(),
     }));
     out.submissions = submissions.map((s) => ({

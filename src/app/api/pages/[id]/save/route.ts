@@ -8,6 +8,7 @@ import { readJsonObject } from "@/lib/request-body";
 import { afterRename, formerSlugs, freePageSlug } from "@/lib/page-rename";
 import { cleanLanguage } from "@/lib/translations";
 import { languageChange } from "@/lib/translations-store";
+import { currentVersion, isStale, keepAsVersion, versionOf } from "@/lib/page-version";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,10 @@ interface SaveBody {
   language?: string | null;
   /** The version of each synced block the editor started from; see `settleSyncedBlocks`. */
   syncedBase?: Record<string, string>;
+  /** The version of the page the editor started from; see `lib/page-version`. */
+  baseVersion?: string;
+  /** Write over a newer version, which is kept in the page's history first. */
+  force?: boolean;
 }
 
 // Persist the full page (title, slug, flags, and the entire block tree as JSON).
@@ -45,6 +50,26 @@ export async function PUT(req: NextRequest, props: Params) {
 
   const page = await prisma.page.findUnique({ where: { id: params.id } });
   if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Somebody else has written this page since this editor opened it. The save
+  // is refused, before anything else is touched, and the editor asks which
+  // version should stand; see `lib/page-version`.
+  if (isStale(page, body.baseVersion)) {
+    if (!body.force) {
+      return NextResponse.json(
+        {
+          error: "This page was changed somewhere else after you opened it.",
+          conflict: true,
+          version: versionOf(page),
+          title: page.title,
+        },
+        { status: 409 },
+      );
+    }
+    // Written over on purpose: what was there goes into the history first,
+    // so "keep mine" never means losing theirs.
+    await keepAsVersion(page.id, { title: page.title, content: page.content, name: "Changed elsewhere, before it was written over" });
+  }
 
   const data: Record<string, unknown> = {};
   if (typeof body.title === "string") data.title = body.title.trim();
@@ -127,9 +152,11 @@ export async function PUT(req: NextRequest, props: Params) {
   }
 
   // The synced blocks brought up to date here, so the editor can show them,
-  // and after a rename the addresses the page now answers to as well.
+  // and after a rename the addresses the page now answers to as well. The
+  // version is read last: a rename's link sweep can write this page again.
   return NextResponse.json({
     ...updated,
+    version: (await currentVersion(page.id)) ?? versionOf(updated),
     ...(synced && Object.keys(synced.refreshed).length > 0 ? { syncedRefreshed: synced.refreshed } : {}),
     ...(renamed ?? {}),
   });

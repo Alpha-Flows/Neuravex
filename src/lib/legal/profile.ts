@@ -22,7 +22,7 @@
  * never this program.
  */
 
-import { z } from "zod";
+import { z } from "../zod";
 
 /**
  * The legal forms worth telling apart.

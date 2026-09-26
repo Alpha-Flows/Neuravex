@@ -121,11 +121,11 @@ function summary(problems: number, suggestions: number): string {
   return `${parts.join(", and ")}.`;
 }
 
-/** The findings under the page each is on, published pages first, the menu and footer before them all. */
+/** The findings under the page each is on, published pages first, the site's own before them all. */
 function groupByPage(result: CheckResult) {
   const groups: { key: string; title: string; draft: boolean; findings: Finding[] }[] = [];
   const site = result.findings.filter((f) => f.pageId === null);
-  if (site.length) groups.push({ key: "site", title: "The menu and footer", draft: false, findings: site });
+  if (site.length) groups.push({ key: "site", title: "The whole site", draft: false, findings: site });
   const ordered = [...result.pages].sort((a, b) => Number(b.published) - Number(a.published));
   for (const page of ordered) {
     const findings = result.findings.filter((f) => f.pageId === page.id);

@@ -91,8 +91,9 @@ test.describe("Published forms", () => {
     });
 
     await page.goto(`/admin/sites/${site.id}/pages/${pages[0].id}`);
-    await expect(page.locator("form input").first()).toBeDisabled();
-    await expect(page.locator('form button[type="submit"]')).toBeDisabled();
+    // The canvas's form: the inspector beside it has forms of its own.
+    await expect(page.locator(".public-canvas form input").first()).toBeDisabled();
+    await expect(page.locator('.public-canvas form button[type="submit"]')).toBeDisabled();
 
     await request.delete(`/api/sites/${site.id}?permanent=1`);
   });

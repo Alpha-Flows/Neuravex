@@ -103,6 +103,61 @@ in brackets is the finding it closes.
 
 ### Added
 
+- **Named versions, what changed, and a way back from a restore.** A page's
+  history takes a name for the version on the canvas — "Before the
+  redesign" — and a named version is never pruned or folded into the
+  autosave after it, however many saves follow, and keeps its name through
+  the trash. Each version's preview says
+  what has changed since, block by block: added, taken out, changed with the
+  words either way, and moved. Restoring keeps what the page held first, and
+  the editor offers to undo the restore until it is dismissed.
+- **Find and replace across the site.** "Find and replace" on the dashboard
+  searches every page, the menu, the footer and the site's settings, lists
+  each place with the words either side of it, and replaces in the places
+  left ticked. Only words change, never the markup around them. A phone
+  number or email address is changed in the `tel:` and `mailto:` links to it
+  as well, so a "Call us" button does not go on ringing the old number. A
+  synced block is changed on every page that has it, the generated legal
+  pages are listed but left to the legal details, and each page changed is
+  kept as a version named for the search first.
+- **Several blocks at once.** Shift- or ⌘/Ctrl-click adds a block to the
+  choice, and the inspector turns into a panel that puts them in a new
+  section where the first of them was, moves them together to the end of any
+  section or column, or deletes them; so does Delete.
+- **Reordering without a mouse.** Every block's toolbar has ↑ and ↓, and
+  Alt+↑/↓ moves the chosen block among its neighbours, stepping over a
+  floating block, which takes no room in the list.
+- **A warning when two editors meet.** An editor says which version of the
+  page it started from, and a save made against one that has since been
+  replaced — by a second tab, the MCP agent, or a rename elsewhere moving
+  this page's links — is refused rather than written. The editor then offers
+  the newer version or its own over the top, and either way the one not kept
+  goes into the page's history. Only what a save would write back counts: a
+  synced block brought up to date from another page, the pages put in a new
+  order on the dashboard or a translation linked is no reason to ask. The
+  MCP server's `get_page` returns the version and `save_page` takes it as
+  `expectedVersion`.
+- **The site's address.** Settings → SEO takes the address the downloaded
+  site will be put at. With it the download writes each page's canonical
+  link, its other-language versions and its social picture as full
+  addresses, carries a `sitemap.xml` and names it in `robots.txt`, gives the
+  feed full links, and anchors `404.html` to the site's folder rather than
+  the root of the domain. The check before publishing asks for it while it is
+  missing.
+- **Structured data.** Once Settings → SEO says who runs the site — a bakery,
+  a shop, a practice, a person — the home page describes the business to
+  search engines as schema.org data, from the name, address, phone and email
+  in the legal details and the footer's profiles; a person's address is never
+  given. Every accordion item that asks a question is given with its answer
+  as an FAQ, which the block can turn off. The data goes into the download
+  too, the one kind of script it keeps, with its addresses moved into the
+  folder.
+- **Backups, and a way to import them.** "Back up this site" on the
+  dashboard is one zip holding every page, setting and upload the site uses,
+  with what the library knew about each file. "Import a site" beside "New
+  site" brings a backup or a JSON export back, sending each file through the
+  upload route one at a time, so a backup of any size goes in without a new
+  way into the server.
 - **A site in more than one language.** A page says which language it is
   written in, and pages that are translations of one another are linked from
   its settings, where a draft copy to translate is made in one step. Each page
@@ -324,6 +379,12 @@ in brackets is the finding it closes.
 
 ### Changed
 
+- "Check the site" and "Find and replace" sit beside "New page" on the
+  site's dashboard rather than in its header, which had run out of room and
+  ran off the side of a 1024-pixel window with both of them in it.
+- The page history lists every named version (up to a hundred) as well as
+  the newest fifty saves, so a named version does not drop out of sight
+  fifty saves after it was kept.
 - Uploads have a limit for each kind of file instead of 10 MB for everything:
   250 MB for a video, 50 MB for a sound, 10 MB for a picture or a document.
   The picker refuses a file over its limit before sending any of it. Scripts
@@ -379,6 +440,20 @@ in brackets is the finding it closes.
 
 ### Fixed
 
+- A downloaded page could come out with its title, canonical link and social
+  tags in a hidden element in the body instead of in the head. Next streams a
+  page's metadata after the head for any client it does not take for a
+  crawler, the download fetches pages as such a client, and the script that
+  would have moved them is removed on the way out; which pages it happened to
+  depended on how quickly the database answered. Metadata is always in the
+  head now.
+- A site imported beside the one it was exported from kept every link
+  pointing at the original's address, so its buttons led back into the other
+  site. An import moves them, as a copy of a site does.
+- Every published page reported a refused `eval` to the terminal on every
+  visit: the validator's schema library checked whether it could compile its
+  parsers, and the page's own security policy said no. It no longer asks in
+  the browser.
 - A page renamed in the editor, where nearly every page is renamed, left
   every link to it on the site's other pages pointing at its old address;
   only a rename from the dashboard moved them. Every way of renaming a page

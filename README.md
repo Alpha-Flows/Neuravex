@@ -33,10 +33,16 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 22 or
 - **Text formatting** — bold, italic, underline, strikethrough, text colour, highlight and links on selected text, and one button to clear it
 - **Fonts that go wherever the site goes** — sixteen open-licence typefaces (Inter, Roboto, Montserrat, Playfair Display, Lora, JetBrains Mono and more), each shown in itself in the picker, plus font files of your own; the files are served by the builder and copied into the download, so a visitor's screen shows the font you picked and nothing is fetched from anyone else's server
 - **Publish / unpublish** workflow — unpublished pages are drafts
-- **Download the site as files** — plain HTML, CSS and images you can open or host anywhere
+- **Download the site as files** — plain HTML, CSS and images you can open or host anywhere; give the site's address and the download also carries a sitemap and full addresses for search engines and link previews
+- **Structured data** — say what kind of business runs the site and the home page describes it to search engines from your legal details; questions in an accordion are given to them as an FAQ
+- **Backups that include the pictures** — one zip per site, imported again from the list of sites on this computer or another
 - **SQLite storage** in a single file, zero config
 - **Autosave** with `Cmd/Ctrl+S` shortcut
-- **Page history** — revisions with preview and restore; autosaves within five minutes of each other share one entry, and Cmd/Ctrl+S saves are kept separately
+- **Page history** — revisions with preview and restore; autosaves within five minutes of each other share one entry, and Cmd/Ctrl+S saves are kept separately. Keep a version under a name and it stays however many saves follow; see what has changed since any version, block by block; and undo a restore
+- **Find and replace across the site** — every page, the menu, the footer and the site's settings, with each place listed before anything changes; a phone number or email address is changed in the links to it too, and every page changed is kept as a version first
+- **Several blocks at once** — Shift- or ⌘/Ctrl-click to choose more than one, then put them in a section, move them somewhere else together, or delete them
+- **The order without a mouse** — ↑ and ↓ on every block's toolbar, and Alt+↑/↓ on the chosen block
+- **Two editors, one page** — a second tab or the MCP agent saving the page you have open no longer writes over either of you; the editor says so and asks which version should stand, and keeps the other
 - **A picture library you can search** — uploads keep the name they arrived with, can be renamed and described in place, and are found by either; the 74 bundled photographs are searchable by what they show
 - **Pictures the size of the screen** — a photograph is made lighter in your browser as it is uploaded (no wider than 2400 px, saved as WebP), with smaller copies that phones are sent instead; and any cropped picture keeps the point you choose in view
 - **A check before publishing** — pictures with no description, buttons that go nowhere, links to drafts or to pages that are gone, missing search descriptions, headings that skip a level and pictures heavier than they need to be, each one a click from the block it is in
@@ -88,7 +94,7 @@ The seed creates a "Neuravex Demo" site at **http://localhost:3000/sites/demo** 
 3. Inside a site, click **+ New page** to add a page, or **Edit** on an existing one.
 4. Inside the editor:
    - **Left rail** — the block palette. Drag a block onto the canvas, or click it to append.
-   - **Canvas** — your page. Hover a block to reveal the drag handle, duplicate, and delete buttons on the left. Click any text to edit it inline.
+   - **Canvas** — your page. Hover a block to reveal the drag handle, the move up and down, duplicate, and delete buttons. Click any text to edit it inline. Shift- or ⌘/Ctrl-click to choose several blocks, and Alt+↑/↓ to move the chosen one.
    - **Right rail** — the inspector. Click a block to see and edit every property (colors, alignment, sizes, etc.).
    - **Top bar** — change the page title and URL slug, toggle **Preview** to see the public version, **Save** with `Cmd/Ctrl+S`, and **Publish** to make the page live.
 5. To make a non-home page the site's home, click **Make home** in the top bar.
@@ -205,6 +211,7 @@ fonts/              the bundled fonts the pages use, each with its licence
 feed.xml            the blog's posts, for a feed reader (when the site has posts)
 404.html            the site's own "not found" page (when it has one)
 old-name.html       a renamed page's old address, forwarding to where it is now
+sitemap.xml         every page's full address (once the site's address is set)
 README.txt          what's inside, and how to host it
 ```
 
@@ -259,7 +266,7 @@ Neuravex has no sign-in and no access control — it's meant to run locally on y
   `maps.app.goo.gl` cannot be read.
 
 - No custom domains — sites served by the builder live under `/sites/:slug`. Use **Download files** to put a site on a host of your own.
-- Page history keeps the newest 50 revisions per page; older ones are dropped.
+- Page history keeps the newest 50 unnamed revisions per page; older ones are dropped. Named versions are kept until they are deleted with the page.
 - Drag and drop is fully supported within a single container (the page, a section, or a column) and across containers via drop, but the live "drag into another container" hover preview is a V2 item.
 - Section padding is still a fixed pixel value at every screen size — only columns and the site nav respond to width so far.
 

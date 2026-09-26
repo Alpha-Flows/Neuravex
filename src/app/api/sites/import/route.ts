@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
-import { isSiteArchive, siteCreateData, normalizeArchivePages, MAX_ARCHIVE_PAGES } from "@/lib/site-archive";
-import { freeSiteSlug } from "@/lib/restore";
+import { isSiteArchive, MAX_ARCHIVE_PAGES } from "@/lib/site-archive";
+import { createSiteFromArchive } from "@/lib/site-copy";
 import { readJsonObject, IMPORT_BODY_LIMIT } from "@/lib/request-body";
 
 export const dynamic = "force-dynamic";
@@ -31,15 +30,16 @@ export async function POST(req: NextRequest) {
     typeof body.site.slug === "string" && body.site.slug ? body.site.slug : String(body.site.name ?? "site");
 
   try {
-    const site = await prisma.site.create({
-      data: {
-        ...siteCreateData(body),
-        slug: await freeSiteSlug(slugify(wanted) || "site"),
-        // Slugs de-duplicated, one home page, one page per legal kind. None of
-        // that used to be checked across the archive, so an import could
-        // produce two pages that both exported as index.html.
-        pages: { create: normalizeArchivePages(body.pages) },
-      },
+    // Slugs de-duplicated, one home page, one page per legal kind (see
+    // `normalizeArchivePages`), and — through `createSiteFromArchive` — every
+    // link moved when the address it came from is already taken. An import
+    // used to keep the links as they were, so a site imported beside the one
+    // it was exported from sent every button back into the original.
+    const site = await createSiteFromArchive(body, {
+      name: String(body.site.name ?? "Imported site").slice(0, 300) || "Imported site",
+      fromSlug: typeof body.site.slug === "string" ? body.site.slug : undefined,
+      slug: slugify(wanted) || "site",
+      keepAddress: true,
     });
     return NextResponse.json(site, { status: 201 });
   } catch {

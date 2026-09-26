@@ -8,6 +8,8 @@ import { normalizeTextStyles } from "./text-styles";
 import { normalizeLogo } from "./site-logo";
 import { normalizeMenu } from "./menu";
 import { normalizeFooter } from "./footer";
+import { cleanSiteUrl } from "./site-address";
+import { cleanBusinessType } from "./business-types";
 
 /**
  * What a site's settings are allowed to be, in one place.
@@ -186,6 +188,11 @@ export function normalizeSiteFields(
   for (const key of ["ogImage", "favicon"] as const) {
     if (has(key) || complete) out[key] = safeAssetUrl(input[key]);
   }
+
+  // Where the downloaded site will live, and what runs it: both go into the
+  // head of every exported page, so neither is kept as it was typed.
+  if (has("siteUrl") || complete) out.siteUrl = cleanSiteUrl(input.siteUrl);
+  if (has("businessType") || complete) out.businessType = cleanBusinessType(input.businessType);
 
   if (typeof input.language === "string" && LANGUAGE.test(input.language.trim())) {
     out.language = input.language.trim();

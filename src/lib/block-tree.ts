@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod";
 import {
   FORM_FIELD_TYPES,
   MAX_FORM_FIELDS,
@@ -463,6 +463,7 @@ const PROPS: Record<string, z.ZodType> = {
     exclusive: flag(false),
     openFirst: flag(false),
     style: z.enum(["bordered", "separated", "minimal"]).catch("bordered"),
+    faq: z.boolean().optional().catch(undefined),
   }),
 
   slider: z.object({

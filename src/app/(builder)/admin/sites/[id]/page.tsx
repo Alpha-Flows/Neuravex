@@ -15,14 +15,21 @@ import { DuplicateSiteButton } from "@/components/admin/DuplicateSiteButton";
 import { SaveAsTemplateButton } from "@/components/admin/SaveAsTemplateButton";
 import { LegalFlow } from "@/components/admin/LegalFlow";
 import { PrepublishCheck } from "@/components/admin/PrepublishCheck";
+import { FindReplaceButton } from "@/components/admin/FindReplaceButton";
 import { isLegalKind } from "@/lib/legal/pages";
 import { safeAccent } from "@/lib/site-fields";
 import { builderLanguageName, pageLanguage, siteLanguages } from "@/lib/translations";
 
 export const dynamic = "force-dynamic";
 
-export default async function SiteAdmin(props: { params: Promise<{ id: string }> }) {
+export default async function SiteAdmin(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ missing?: string | string[] }>;
+}) {
   const params = await props.params;
+  // Files an import could not bring back, named where the gaps they leave are.
+  const missingParam = (await props.searchParams).missing;
+  const missing = typeof missingParam === "string" ? missingParam.split("\n").filter(Boolean).slice(0, 20) : [];
   const site = await prisma.site.findUnique({
     where: { id: params.id },
     include: { pages: { orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }] } },
@@ -65,7 +72,6 @@ export default async function SiteAdmin(props: { params: Promise<{ id: string }>
           <div className="flex items-center gap-2">
             <SiteSettings site={{ id: site.id, name: site.name, slug: site.slug, description: site.description, accent: site.accent }} />
             <LegalFlow siteId={site.id} siteSlug={site.slug} />
-            <PrepublishCheck siteId={site.id} />
             <DownloadSiteButton siteId={site.id} disabled={!site.pages.some((p) => p.published)} />
             <DuplicateSiteButton siteId={site.id} />
             <SaveAsTemplateButton siteId={site.id} defaultName={site.name} label="Save as template" />
@@ -79,12 +85,28 @@ export default async function SiteAdmin(props: { params: Promise<{ id: string }>
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-10">
+        {missing.length > 0 ? (
+          <div role="alert" className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            The site was imported, but {missing.length === 1 ? "one file" : `${missing.length} files`} in the backup could not be
+            brought back, and the pages using {missing.length === 1 ? "it show" : "them show"} a gap:{" "}
+            {missing.join(", ")}.
+          </div>
+        ) : null}
         <div className="flex items-end justify-between mb-6">
           <div>
             <h1 className="text-2xl font-semibold">Pages</h1>
             <p className="text-fg-muted mt-1">Edit a page to open the visual editor.</p>
           </div>
-          <NewPageButton siteId={site.id} siteSlug={site.slug} />
+          {/*
+            The tools that read every page sit with the pages rather than in
+            the header, which had run out of room: at 1024 pixels wide its
+            buttons ran off the side of the window.
+          */}
+          <div className="flex items-center gap-2">
+            <PrepublishCheck siteId={site.id} />
+            <FindReplaceButton siteId={site.id} />
+            <NewPageButton siteId={site.id} siteSlug={site.slug} />
+          </div>
         </div>
 
         <Card>
@@ -234,7 +256,11 @@ export default async function SiteAdmin(props: { params: Promise<{ id: string }>
         <div className="mt-10">
           <div className="flex items-center gap-4 mb-4">
             <h2 className="text-lg font-semibold">Submissions</h2>
-            <a href={`/api/sites/${site.id}/export`} className="text-xs text-fg-muted hover:text-fg underline ml-auto">Export site JSON (for re-importing into Neuravex)</a>
+            <span className="ml-auto text-xs text-fg-muted">
+              <a href={`/api/sites/${site.id}/backup`} className="hover:text-fg underline">Back up this site</a>
+              {" "}— every page, setting and picture in one .zip, to import again here or on another computer (
+              <a href={`/api/sites/${site.id}/export`} className="hover:text-fg underline">pages and settings alone, as JSON</a>)
+            </span>
           </div>
           <Card className="p-5">
             <SubmissionsViewer siteId={site.id} />

@@ -78,6 +78,8 @@ const site = {
   metaDescription: "Things",
   ogImage: "/uploads/og.png",
   favicon: "/uploads/icon.png",
+  siteUrl: "https://acme.example",
+  businessType: "Store",
   language: "pt-BR",
   legal: '{"version":1,"companyName":"Acme GmbH"}',
   createdAt: new Date(),
@@ -102,7 +104,10 @@ const site = {
       metaDescription: null,
       ogImage: null,
       legalKind: null,
-      revisions: [{ title: "Home", content: "[]", manual: true, createdAt: new Date("2026-01-02T03:04:05Z") }],
+      revisions: [
+        { title: "Home", content: "[]", manual: true, createdAt: new Date("2026-01-02T03:04:05Z") },
+        { title: "Home", content: "[]", manual: true, name: "Before the redesign", createdAt: new Date("2026-01-01T03:04:05Z") },
+      ],
       submissions: [{ data: '{"field-0":"hi"}', createdAt: new Date("2026-01-02T03:04:05Z") }],
     },
   ],
@@ -145,7 +150,9 @@ describe("serializeSite", () => {
     expect(serializeSite(site).pages[0].revisions).toBeUndefined();
 
     const kept = serializeSite(site, { includeHistory: true });
-    expect(kept.pages[0].revisions).toHaveLength(1);
+    expect(kept.pages[0].revisions).toHaveLength(2);
+    // Named versions keep their names through the trash, or the pruning would take them.
+    expect(kept.pages[0].revisions!.map((r) => r.name)).toEqual([null, "Before the redesign"]);
     expect(kept.pages[0].submissions?.[0].data).toBe('{"field-0":"hi"}');
   });
 
