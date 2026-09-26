@@ -1,0 +1,78 @@
+name: Release
+
+# A tag is a promise to everyone who installs from it. Nothing is built from
+# one until it agrees with package.json and CHANGELOG.md and has passed all
+# of CI; nothing is attached until the archive itself has been unpacked into
+# an empty folder, installed and started the way a customer starts it. The
+# release is left as a draft, because publishing it is a person's decision.
+# RELEASING.md has the steps around it.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      # The tag name is read from the environment, never pasted into the
+      # script, so a tag cannot write shell.
+      - name: The tag, package.json and CHANGELOG.md agree
+        run: node scripts/release.js verify "$GITHUB_REF_NAME"
+
+  ci:
+    needs: verify
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Pack the archive
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          git archive --format=tar.gz --prefix="neuravex-${VERSION}/" -o "dist/neuravex-${VERSION}.tar.gz" HEAD
+          git archive --format=zip --prefix="neuravex-${VERSION}/" -o "dist/neuravex-${VERSION}.zip" HEAD
+          (cd dist && sha256sum -- * > SHA256SUMS)
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+      - name: Unpack it into an empty folder and start it the way a customer does
+        run: |
+          mkdir -p "$RUNNER_TEMP/unpacked"
+          tar -xzf "dist/neuravex-${VERSION}.tar.gz" -C "$RUNNER_TEMP/unpacked"
+          cd "$RUNNER_TEMP/unpacked/neuravex-${VERSION}"
+          npm ci
+          node scripts/smoke.js
+
+      - name: Release notes from the changelog
+        run: node scripts/release.js notes "$VERSION" > "$RUNNER_TEMP/notes.md"
+
+      - name: Draft the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --draft --verify-tag --title "Neuravex $VERSION" --notes-file "$RUNNER_TEMP/notes.md"

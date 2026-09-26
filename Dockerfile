@@ -81,8 +81,11 @@ USER node
 VOLUME ["/data"]
 EXPOSE 3000
 
+# /api/health answers from one query and says 503 when the database or the
+# uploads volume cannot be used; the check used to fetch the list of sites,
+# which read every site and passed whatever the volume's state.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "require('http').get('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/sites',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"
+  CMD node -e "require('http').get('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 
 # The schema is applied on the way up, so a fresh volume is a working install
 # rather than "the table main.Site does not exist" on every page.

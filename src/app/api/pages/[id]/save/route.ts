@@ -9,6 +9,7 @@ import { afterRename, formerSlugs, freePageSlug } from "@/lib/page-rename";
 import { cleanLanguage } from "@/lib/translations";
 import { languageChange } from "@/lib/translations-store";
 import { currentVersion, isStale, keepAsVersion, versionOf } from "@/lib/page-version";
+import { BUSY_MESSAGE, isDatabaseBusy } from "@/lib/db-busy";
 
 export const dynamic = "force-dynamic";
 
@@ -39,8 +40,24 @@ interface SaveBody {
   force?: boolean;
 }
 
-// Persist the full page (title, slug, flags, and the entire block tree as JSON).
+/**
+ * PUT /api/pages/[id]/save — the whole page, as the editor holds it.
+ *
+ * A database another program kept busy past the retries in `lib/prisma` is
+ * answered in words with a 503, not a bare 500: the save did not happen, and
+ * the editor's next one will very likely land; see `lib/db-busy`.
+ */
 export async function PUT(req: NextRequest, props: Params) {
+  try {
+    return await save(req, props);
+  } catch (err) {
+    if (isDatabaseBusy(err)) return NextResponse.json({ error: BUSY_MESSAGE }, { status: 503 });
+    throw err;
+  }
+}
+
+// Persist the full page (title, slug, flags, and the entire block tree as JSON).
+async function save(req: NextRequest, props: Params) {
   const params = await props.params;
   // Size-checked before it is parsed, not after: the previous shape read the
   // whole body into memory and then decided whether it was too big.

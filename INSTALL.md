@@ -7,7 +7,7 @@ Step-by-step instructions for setting up Neuravex on your machine. Covers local 
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
-- [1. Clone the Repository](#1-clone-the-repository)
+- [1. Get Neuravex](#1-get-neuravex)
 - [2. Install Dependencies](#2-install-dependencies)
 - [3. Configure Environment Variables](#3-configure-environment-variables)
 - [4. Set Up the Database](#4-set-up-the-database)
@@ -16,6 +16,7 @@ Step-by-step instructions for setting up Neuravex on your machine. Covers local 
   - [Environment variables](#environment-variables)
   - [Reaching Neuravex over a network](#reaching-neuravex-over-a-network)
   - [Backups](#backups)
+  - [Keeping it running](#keeping-it-running)
   - [Running with Docker](#running-with-docker)
 - [Desktop Mode](#desktop-mode)
 - [MCP Server (AI Integration)](#mcp-server-ai-integration)
@@ -66,14 +67,32 @@ No other system dependencies are needed. Neuravex uses SQLite (bundled via Prism
 
 ---
 
-## 1. Clone the Repository
+## 1. Get Neuravex
+
+**To use it,** download a release from
+[github.com/Alpha-Flows/Neuravex/releases](https://github.com/Alpha-Flows/Neuravex/releases)
+— the `.zip` or the `.tar.gz`, whichever your system opens — and unpack it
+where you want Neuravex to live. That folder is also where your sites are
+kept unless you say otherwise (see [Backups](#backups)), so put it somewhere
+your own backups reach.
+
+`SHA256SUMS` beside the archives says what each download should hash to:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/neuravex.git
-cd neuravex
+sha256sum -c SHA256SUMS --ignore-missing     # Linux
+shasum -a 256 -c SHA256SUMS --ignore-missing # macOS
 ```
 
-> Replace `YOUR_USERNAME/neuravex` with your actual repository URL.
+**To work on Neuravex itself,** clone the repository instead:
+
+```bash
+git clone https://github.com/Alpha-Flows/Neuravex.git
+cd Neuravex
+```
+
+A clone follows `main`, which moves every day; a release is a fixed version
+that has been installed and started from an empty folder before it was
+published.
 
 ---
 
@@ -347,6 +366,57 @@ a live database, and copies the uploads alongside it. To restore: quit
 Neuravex, put the database file back at `prisma/` and the `uploads` folder
 back at `data/uploads`.
 
+### Keeping it running
+
+**Is it up?** `GET /api/health` answers in a few milliseconds from one query:
+
+```bash
+curl -s http://127.0.0.1:3939/api/health
+# {"app":"neuravex","version":"0.1.0","ok":true,"database":"ok","uploads":"writable","journal":"wal"}
+```
+
+It answers 503, with the same fields, when the database cannot be reached or
+the uploads folder cannot be written to. The launcher waits on it, the
+Docker image's health check calls it, and it is the address to give a
+reverse proxy's or a monitor's health check.
+
+**As a service on Linux.** Run the launcher under systemd, which restarts it
+when it fails. The launcher exits with a failure whenever the server stops
+on its own, so `Restart=on-failure` catches a crash; on `systemctl stop` it
+stops the server, waits for it and exits cleanly.
+
+```ini
+# /etc/systemd/system/neuravex.service
+[Unit]
+Description=Neuravex website builder
+After=network.target
+
+[Service]
+Type=simple
+User=neuravex
+WorkingDirectory=/opt/neuravex
+Environment=NEURAVEX_NO_BROWSER=1
+ExecStart=/usr/bin/node electron/server.js 3939
+Restart=on-failure
+RestartSec=5
+# SIGTERM to the launcher alone: it stops the server and waits for it.
+KillMode=mixed
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now neuravex
+journalctl -u neuravex -f     # what it says, kept after the window is gone
+```
+
+The first start after an update rebuilds, which takes a minute or two; the
+unit does not need to know. With Docker, `--restart unless-stopped` on the
+run line does the same job (see below).
+
 ### Multiple people
 
 Neuravex is single-tenant. Behind one shared proxy credential everybody is an
@@ -365,6 +435,7 @@ baked your `.env`, your database and every upload into the image if it had.
 ```bash
 docker build -t neuravex .
 docker run -d --name neuravex \
+  --restart unless-stopped \
   -p 127.0.0.1:3000:3000 \
   -v neuravex-data:/data \
   neuravex
@@ -372,7 +443,9 @@ docker run -d --name neuravex \
 
 One volume holds both the database and the uploads. The schema is applied on
 the way up, so a fresh volume is a working install rather than 500s on every
-page.
+page. The image's health check calls `/api/health`, so `docker ps` shows
+`unhealthy` when the volume cannot be written to, and `--restart
+unless-stopped` brings the container back after a crash or a reboot.
 
 `-p 127.0.0.1:3000:3000` and not `-p 3000:3000`: the second publishes the
 builder, which has no sign-in, on every interface of the host. Put the reverse
@@ -408,12 +481,23 @@ Or specify a custom port:
 node electron/server.js 4000
 ```
 
+With `--no-browser`, or `NEURAVEX_NO_BROWSER=1`, it starts the server and
+opens nothing — for a machine with nobody at the screen, or a service
+manager (see [Keeping it running](#keeping-it-running)).
+
 The launcher will:
 1. Set up `.env` and the database if this is a fresh copy
 2. Rebuild if the source has changed since the last build, or build if there is none
 3. Start the server on `127.0.0.1` at the given port
 4. Wait for the server to be ready
 5. Open your default browser
+
+Before it builds anything it checks the port. If Neuravex is already running
+there — the launcher double-clicked twice — it opens that one and leaves. If
+another program has the port, it says so and names the command that avoids
+it (`npm run desktop 4000`), rather than starting a server that cannot bind.
+If the server stops on its own later, the launcher says so and exits with a
+failure, instead of leaving quietly as if it had been closed.
 
 It listens on loopback only. Setting `HOST` to anything else opens the builder
 to the network, where there is no password in front of it — the launcher
@@ -532,6 +616,22 @@ connected machine and copy `node_modules` across.
 
 ## Updating
 
+### From a release
+
+1. Quit Neuravex, then take a backup in the old folder: `npm run backup`
+   (see [Backups](#backups)).
+2. Unpack the new release next to the old one — not over it.
+3. Copy your data into the new folder: `.env`, `prisma/dev.db` with
+   `dev.db-wal` and `dev.db-shm` if they are there, and `data/uploads/`. If
+   `DATABASE_URL` or `NEURAVEX_UPLOAD_DIR` point outside the folder, there is
+   nothing to copy but `.env`.
+4. In the new folder: `npm install`, then `npm run desktop`. It applies any
+   database changes and builds on the way up.
+
+Keep the old folder until you have looked at your sites in the new one.
+
+### From a clone
+
 To update to the latest version:
 
 ```bash
@@ -620,6 +720,19 @@ npm run db:reset
 ---
 
 ### Port Already in Use
+
+The launcher checks before it starts:
+
+```
+[neuravex] Port 3939 is in use by another program, so Neuravex cannot start on it.
+[neuravex] Start it on another port instead: npm run desktop 4000
+```
+
+Either stop whatever has the port, or do what it says. If it says
+`Neuravex … is already running` instead, it has found your first copy and
+opened it; there is nothing to fix.
+
+The dev server and `npm start` do not check first, and say it Node's way:
 
 ```
 Error: listen EADDRINUSE: address already in use :::3000

@@ -24,6 +24,8 @@ export function TrashPanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The row whose "Delete forever" has been pressed once, and is asking.
+  const [confirming, setConfirming] = useState<string | null>(null);
   const router = useRouter();
 
   const load = useCallback(() => {
@@ -53,9 +55,15 @@ export function TrashPanel() {
 
   async function forget(id: string) {
     setBusy(id);
+    setError(null);
     try {
-      await fetch(`/api/trash/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/trash/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setError("That could not be deleted. It is still here.");
+        return;
+      }
       setItems((rows) => rows.filter((r) => r.id !== id));
+      setConfirming(null);
     } finally {
       setBusy(null);
     }
@@ -88,18 +96,41 @@ export function TrashPanel() {
                   deleted {new Date(item.deletedAt).toLocaleString()}
                 </div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => restore(item.id)} loading={busy === item.id}>
-                Put back
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => forget(item.id)}
-                disabled={busy === item.id}
-                className="text-red-400 hover:text-red-300"
-              >
-                Delete forever
-              </Button>
+              {confirming === item.id ? (
+                /*
+                  One click used to be enough. An entry here is the last copy
+                  of what was deleted — a site's every page, its history and
+                  the submissions visitors sent it — so the second click is
+                  the one that means it, and says what it means.
+                */
+                <div role="group" aria-label={`Delete ${item.label} forever?`} className="flex items-center gap-2 shrink-0" data-confirm-forget="">
+                  <span className="text-xs text-red-300 max-w-[16rem]">
+                    This is the last copy{item.kind === "site" ? ", with every page, its history and its form submissions" : ""}. There is no
+                    way back.
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => setConfirming(null)} disabled={busy === item.id}>
+                    Keep it
+                  </Button>
+                  <Button size="sm" variant="danger" onClick={() => forget(item.id)} loading={busy === item.id} autoFocus>
+                    Delete for good
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => restore(item.id)} loading={busy === item.id}>
+                    Put back
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setConfirming(item.id)}
+                    disabled={busy === item.id}
+                    className="text-red-400 hover:text-red-300"
+                  >
+                    Delete forever
+                  </Button>
+                </>
+              )}
             </div>
           ))}
           <div className="px-4 py-2.5 text-xs text-fg-subtle">

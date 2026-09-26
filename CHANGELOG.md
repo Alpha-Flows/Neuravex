@@ -6,11 +6,20 @@ All notable changes to Neuravex are recorded here. The format follows
 
 ## [Unreleased]
 
-Where an entry answers a finding in `docs/SECURITY_REVIEW.md`, the identifier
-in brackets is the finding it closes.
+## [0.1.0] - 2026-09-26
+
+The first release. Where an entry answers a finding in
+`docs/SECURITY_REVIEW.md`, the identifier in brackets is the finding it closes.
 
 ### Security
 
+- Two commits before the audit laid the ground the rest of this section
+  builds on. `42e842f` replaced the regular-expression HTML sanitiser with
+  `sanitize-html`, put SQLite into WAL mode with a busy timeout so the MCP
+  server and the web app can share one database, stripped scripts, foreign
+  objects and inline styles out of uploaded SVGs, and validated the block
+  trees the MCP server saves. `6e2b7e9` added the CI workflow and the first
+  security tests.
 - The upload route is the one route the proxy does not run on, because Next
   copies every body the proxy sees into memory and cuts it off at 10 MB. It
   runs the proxy's Host allowlist and Origin check itself, before it reads a
@@ -103,6 +112,26 @@ in brackets is the finding it closes.
 
 ### Added
 
+- **Releases.** A `v*` tag runs `.github/workflows/release.yml`: it stops
+  unless the tag agrees with `package.json` and a dated changelog section,
+  runs all of CI, packs the tag as `.tar.gz` and `.zip` with a `SHA256SUMS`,
+  unpacks the archive into an empty folder, installs it and starts it the way
+  a customer would, and only then drafts a GitHub release with the changelog
+  section as its notes. `RELEASING.md` has the steps around it; `npm run
+  check` runs everything CI runs, in order, and `npm run smoke` starts the
+  launcher from nothing and checks it answers, stops, refuses a port another
+  program holds, finds a copy of itself already running, and says so when
+  its server dies. CI runs the smoke test on every change. `INSTALL.md` now
+  starts from a release, and says how to update one.
+- **`GET /api/health`**, which says it is Neuravex, which version, and
+  whether the database can be reached and the uploads folder written to,
+  answering 503 when either cannot. The launcher waits on it, the Docker
+  image's health check calls it, and it is the address for a proxy's or a
+  monitor's check.
+- **Running as a service.** `--no-browser` (or `NEURAVEX_NO_BROWSER=1`)
+  starts the launcher without opening a tab, and `INSTALL.md` has a systemd
+  unit that restarts it on failure and `--restart unless-stopped` for Docker.
+- The version is on the dashboard, beside where the data is kept.
 - **Named versions, what changed, and a way back from a restore.** A page's
   history takes a name for the version on the canvas — "Before the
   redesign" — and a named version is never pruned or folded into the
@@ -379,6 +408,14 @@ in brackets is the finding it closes.
 
 ### Changed
 
+- The package is called `neuravex`, and names its repository.
+- "Delete site" is on the Advanced tab of the site's settings, in a danger
+  zone of its own, instead of in the footer one button from Save.
+- "Delete forever" in the trash asks first, in the row, saying it is the last
+  copy.
+- The double-click launchers look for Node where Homebrew and nvm put it,
+  and say so plainly when it is not there, instead of adding one machine's
+  own Node folder to the path.
 - "Check the site" and "Find and replace" sit beside "New page" on the
   site's dashboard rather than in its header, which had run out of room and
   ran off the side of a 1024-pixel window with both of them in it.
@@ -439,6 +476,23 @@ in brackets is the finding it closes.
   different stale numbers.
 
 ### Fixed
+
+- The launcher took any answer below 500 on its port as its own server
+  being ready. With another program on the port it printed "Ready!", opened a
+  tab on that program and exited 0. It now checks the port before it builds:
+  a copy of Neuravex already there is opened, anything else is named with the
+  command that avoids it, and only Neuravex's own health answer counts as
+  ready. When its server stopped on its own later, the launcher left quietly
+  with it, exit 0; it now says so and exits with a failure a service manager
+  restarts on. An older Node or a port that is not a number is said in words.
+- A database another program held for longer than SQLite's five-second wait
+  — the MCP agent saving, a backup, an import — turned whatever the editor
+  was saving into a bare 500. Every query now waits it out, twice more, and a
+  save that still cannot answers 503 with a sentence saying why.
+- Dialogs let Tab walk out into the page behind them and dropped focus at
+  the top of the document when they closed; five of the six drawn by hand
+  did not say they were dialogs at all. Every one now keeps Tab inside,
+  closes on Escape and gives focus back to what opened it.
 
 - A downloaded page could come out with its title, canonical link and social
   tags in a hidden element in the body instead of in the head. Next streams a
@@ -619,6 +673,5 @@ in brackets is the finding it closes.
 - The upload route answers 400 on a malformed request instead of 500.
   [NVX-047]
 
-## [0.1.0]
-
-First release.
+[Unreleased]: https://github.com/Alpha-Flows/Neuravex/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Alpha-Flows/Neuravex/releases/tag/v0.1.0

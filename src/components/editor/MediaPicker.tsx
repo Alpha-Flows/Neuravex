@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { matchesQuery } from "@/lib/media";
 import { ACCEPT, extensionList, libraryFor, mediaKindOf, type PickableKind } from "@/lib/media-kind";
 import { Overlay } from "@/components/ui/Overlay";
+import { useDialog } from "@/components/ui/use-dialog";
 import { optimisingPictures, sendPicture, sendUpload, setOptimisingPictures } from "@/lib/send-upload";
 
 export interface PickedImage {
@@ -166,6 +167,8 @@ export function MediaPicker({ open, ...rest }: Props) {
 
 function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "open">) {
   const words = WORDS[kind];
+  // Mounted only while open; see `use-dialog`.
+  const dialogRef = useDialog(true, onClose);
   const listed = kind === "image" ? null : LISTED[kind];
   const [tab, setTab] = useState<"uploads" | "stock">("uploads");
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -369,9 +372,11 @@ function MediaPickerBody({ onClose, onSelect, kind = "image" }: Omit<Props, "ope
             test — has on this, now that it is drawn on the body rather than
             inside the block whose picture it is choosing. */}
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-label={words.dialog}
+          tabIndex={-1}
           className="w-full max-w-lg rounded-xl border border-bg-border bg-bg-soft p-6"
           onClick={(e) => e.stopPropagation()}
         >

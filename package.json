@@ -1,8 +1,17 @@
 {
-  "name": "website-builder",
+  "name": "neuravex",
   "version": "0.1.0",
+  "description": "A visual website builder you run on your own computer. Sites leave as plain HTML.",
   "private": true,
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alpha-Flows/Neuravex.git"
+  },
+  "homepage": "https://github.com/Alpha-Flows/Neuravex#readme",
+  "bugs": {
+    "url": "https://github.com/Alpha-Flows/Neuravex/issues"
+  },
   "engines": {
     "node": ">=22.12.0"
   },
@@ -16,6 +25,8 @@
     "test:watch": "node scripts/run-local.js vitest",
     "test:e2e": "node scripts/e2e.js",
     "test:all": "npm run test && npm run test:e2e",
+    "check": "node scripts/check.js",
+    "smoke": "node scripts/smoke.js",
     "db:push": "node scripts/run-local.js prisma db push",
     "db:seed": "node scripts/run-local.js tsx prisma/seed.ts",
     "db:reset": "node scripts/db-reset.js",

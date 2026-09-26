@@ -64,7 +64,9 @@ Works on **macOS**, **Linux**, and **Windows** (anything that can run Node 22 or
 
 ## Quick start
 
-You need **Node.js 22.12 LTS or newer** installed. From the project root:
+You need **Node.js 22.12 LTS or newer** installed. Download a release from
+[github.com/Alpha-Flows/Neuravex/releases](https://github.com/Alpha-Flows/Neuravex/releases),
+unpack it, and from that folder:
 
 ```bash
 npm install
@@ -151,6 +153,8 @@ npm run db:push    # Apply schema to dev.db (creates tables)
 npm run db:seed    # Insert the demo site (idempotent)
 npm run db:reset   # Drop the database, recreate, and re-seed
 npm run lint       # Lint
+npm run check      # Everything CI runs, in order, stopping at the first failure
+npm run smoke      # Start the launcher from nothing and check it answers and stops
 npm test           # Unit tests
 npm run test:e2e   # Browser tests (needs a build first: npm run build)
 ```

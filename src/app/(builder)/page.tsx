@@ -7,6 +7,7 @@ import { TrashPanel } from "@/components/admin/TrashPanel";
 import { ImportSiteButton } from "@/components/admin/ImportSiteButton";
 import { NetworkNotice } from "@/components/admin/NetworkNotice";
 import { safeAccent } from "@/lib/site-fields";
+import { APP_VERSION } from "@/lib/app-version";
 
 export const dynamic = "force-dynamic";
 
@@ -86,8 +87,10 @@ export default async function AdminHome() {
         <TrashPanel />
       </main>
 
+      {/* The version, so "which one are you running?" has an answer on screen. */}
       <footer className="max-w-6xl mx-auto px-6 py-10 text-xs text-fg-subtle">
-        Neuravex runs locally on your machine. Data is stored in <code className="text-fg-muted">prisma/dev.db</code>.
+        <span data-app-version="">Neuravex {APP_VERSION}</span> runs locally on your machine. Data is stored in{" "}
+        <code className="text-fg-muted">prisma/dev.db</code>.
       </footer>
     </div>
   );

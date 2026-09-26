@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
+import { useDialog } from "@/components/ui/use-dialog";
 import {
   DISPUTE_STANCES,
   DPA_ANSWERS,
@@ -55,6 +56,7 @@ interface LegalState {
 
 export function LegalFlow({ siteId, siteSlug }: { siteId: string; siteSlug: string }) {
   const [open, setOpen] = useState(false);
+  const dialogRef = useDialog(open, () => setOpen(false));
   const [state, setState] = useState<LegalState | null>(null);
   const [profile, setProfile] = useState<LegalProfile>(emptyProfile());
   const [stepIndex, setStepIndex] = useState(0);
@@ -166,6 +168,11 @@ export function LegalFlow({ siteId, siteSlug }: { siteId: string; siteSlug: stri
       {!open ? null : (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setOpen(false)}>
           <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="German legal pages"
+            tabIndex={-1}
             className="w-full max-w-2xl rounded-xl border border-bg-border bg-bg-soft shadow-2xl flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
           >

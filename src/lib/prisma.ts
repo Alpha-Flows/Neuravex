@@ -1,5 +1,6 @@
 import { chmod } from "fs/promises";
 import { PrismaClient } from "@prisma/client";
+import { retryWhileBusy } from "./db-busy";
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient | undefined };
 
@@ -95,7 +96,9 @@ const prismaClientSingleton = () => {
     query: {
       async $allOperations({ args, query }) {
         await ready;
-        return query(args);
+        // Another program holding the database is waited out rather than
+        // reported as a failure; see `lib/db-busy`.
+        return retryWhileBusy(() => query(args));
       },
     },
   }) as unknown as PrismaClient;
