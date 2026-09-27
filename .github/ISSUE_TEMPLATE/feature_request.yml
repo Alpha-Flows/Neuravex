@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest something Neuravex could do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Neuravex is a local, single-user website builder: no hosting, no accounts, and sites leave as plain HTML.
+        Ideas that fit that shape have the best chance.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The problem, in terms of the site you are building, before any solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: How you imagine it working. Screenshots or examples from other tools are welcome.
+  - type: textarea
+    id: meanwhile
+    attributes:
+      label: What you do today instead
+      description: Any workaround you use now.

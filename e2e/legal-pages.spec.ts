@@ -225,6 +225,10 @@ test.describe("The flow", () => {
     await page.getByRole("button", { name: /Impressum & Datenschutz/ }).click();
     const modal = page.locator("div.max-w-2xl");
 
+    // Until a lawyer has read what it writes, it says so where it is used.
+    await expect(modal.locator("[data-legal-beta]")).toHaveText("Beta");
+    await expect(modal).toContainText("not yet been reviewed by a lawyer");
+
     // A sole trader is never asked for representatives.
     await expect(modal.getByLabel(/Authorised representatives/)).toHaveCount(0);
     await modal.getByLabel(/Legal form/).selectOption("gmbh");

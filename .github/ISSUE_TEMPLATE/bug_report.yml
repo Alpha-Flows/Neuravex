@@ -1,0 +1,59 @@
+name: Bug report
+description: Something in Neuravex does not work the way it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time. Please do **not** report security problems here — see
+        [SECURITY.md](https://github.com/Alpha-Flows/Neuravex/blob/main/SECURITY.md) for how to report them privately.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        1. Opened a page in the editor
+        2. Dragged a Gallery block into a column
+        3. The block disappeared after saving
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Neuravex version
+      description: Shown at the bottom of the dashboard, or `version` in package.json.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: started
+    attributes:
+      label: How you started it
+      options:
+        - npm run desktop (the launcher)
+        - start-desktop.sh / start-desktop.bat
+        - npm run dev
+        - npm start
+        - Docker
+        - Behind a reverse proxy
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Operating system and Node version
+      description: For example "macOS 15.4, Node 22.14" — `node -v` prints the version.
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      placeholder: "Chrome 140"
+  - type: textarea
+    id: logs
+    attributes:
+      label: What the terminal said
+      description: Any lines starting with `[neuravex]`, and any error around the time it happened.
+      render: text

@@ -318,7 +318,7 @@ export const BLOCKS: BlockDefinition[] = [
     category: "content",
     icon: "@",
     description:
-      "A row of icons linking to your profiles elsewhere, in a page's footer say. Each link is a network and its address — https://www.instagram.com/yourname, mailto:you@yourdomain.com or a page of this site — and one with no address is not shown.",
+      "A row of icons linking to your profiles elsewhere, in a page's footer say. Each link is a network and its address — https://www.instagram.com/yourname, mailto:you@example.com or a page of this site — and one with no address is not shown.",
     defaultProps: {
       // Empty until somebody names their own profile. A network's home page
       // would be a guess at an address, and a default that names somewhere

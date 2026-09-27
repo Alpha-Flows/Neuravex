@@ -9,14 +9,16 @@
 > written — they are the record of what the code did, and several of them
 > explain *why* a defence is shaped the way it is.
 >
-> Two of them are not closed by code and are stated rather than fixed.
-> **NVX-004** (the Next.js 14 line is out of support) needs a major migration
-> to 15.5.x or 16.x; until that lands, the mitigations it names are in place —
-> loopback binding, the image optimizer off, `sharp` not installed, and a note
-> in `INSTALL.md` that Windows hosts must stay loopback-only. **NVX-052** (one
-> instance, one tenant, no audit trail) is a property of the design; it is now
-> written down in `SECURITY.md` and `INSTALL.md` instead of being left for an
-> operator to discover.
+> One is not closed by code, because it is the design: **NVX-052** (one
+> instance, one tenant, no audit trail) is written down in `SECURITY.md` and
+> `INSTALL.md` instead of being left for an operator to discover.
+>
+> **NVX-004** (the Next.js 14 line is out of support) was the other one stated
+> rather than fixed when this note was first written. It has since been closed
+> by the migration to Next.js 16 and React 19; `npm audit --omit=dev` reports
+> nothing against what ships, and `scripts/audit-gate.js` fails CI if that
+> changes. Files the findings name have moved in places as a result — most
+> visibly `src/middleware.ts`, which Next.js 16 renamed `src/proxy.ts`.
 
 An in-depth security scan of the Neuravex website builder as it stands on `main` at commit
 `8e56c06` (20 September 2026). It covers the builder, its JSON API, the public renderer, the

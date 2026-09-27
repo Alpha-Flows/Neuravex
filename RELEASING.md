@@ -4,7 +4,7 @@ A release is a tag, `vX.Y.Z`, pushed to GitHub. From the push on, the release
 workflow (`.github/workflows/release.yml`) does the checking and the packing,
 and stops at a draft. This is what a maintainer does around it.
 
-Neuravex had no release at all for its first months, and the first list of
+Before its first release, Neuravex had no release process at all: the first list of
 what one needed found the version written in three places that disagreed, a
 clone URL that said `YOUR_USERNAME`, and a launcher that had never been
 started from an empty folder by anyone but its author. Each step below is

@@ -42,6 +42,11 @@ export default defineConfig({
   timeout: 60000,
   workers: 1,
   retries: 1,
+  // CI uploads `playwright-report/` when the suite fails, and until now there
+  // was nothing to upload: no reporter here wrote one, so every failed run's
+  // artefact step found an empty path. The HTML report is written on CI only,
+  // where somebody needs it after the runner has gone.
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: BASE_URL,
     headless: true,

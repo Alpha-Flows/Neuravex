@@ -1,6 +1,8 @@
 #!/bin/bash
 # Neuravex Desktop Launcher (macOS / Linux)
-# Double-click this file to start the website builder.
+# Starts the website builder: run `./start-desktop.sh` in a terminal. Most
+# Linux file managers will also run it on a double-click; macOS Finder opens a
+# .sh file in an editor instead, so on a Mac use Terminal.
 cd "$(dirname "$0")" || exit
 
 # Opened from a file manager, the window closes the moment this ends, and any

@@ -62,8 +62,8 @@ export const SOCIAL_PLACEHOLDERS: Record<SocialNetwork, string> = {
   pinterest: "yourname or pinterest.com/yourname",
   threads: "@yourname or threads.com/@yourname",
   whatsapp: "+49 170 1234567",
-  email: "you@yourdomain.com",
-  website: "https://yourdomain.com",
+  email: "you@example.com",
+  website: "https://example.com",
 };
 
 /**
