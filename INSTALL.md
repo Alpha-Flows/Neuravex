@@ -60,10 +60,10 @@ No other system dependencies are needed. Neuravex uses SQLite (bundled via Prism
 
 | Platform | Status |
 |----------|--------|
-| macOS (Intel & Apple Silicon) | ✅ Fully supported |
-| Linux (x64, arm64) | ✅ Fully supported |
-| Windows 10/11 | ✅ Fully supported — loopback only, see below |
-| WSL2 | ✅ Fully supported |
+| macOS (Intel & Apple Silicon) | ✅ Supported |
+| Linux (x64, arm64) | ✅ Supported — CI runs every test here |
+| Windows 10/11 | ⚠️ Expected to work, but not yet tried on a Windows machine by the maintainers. Reports, good or bad, are welcome. |
+| WSL2 | ✅ Supported (it is Linux) |
 
 ---
 
@@ -146,7 +146,7 @@ install; the variables that matter for a server are listed under
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | Yes | `file:./dev.db` | SQLite database path (relative to `prisma/`) |
 | `NEURAVEX_UPLOAD_DIR` | No | `data/uploads` | Where uploaded pictures are kept |
-| `HOST` | No | `127.0.0.1` | Which interfaces to answer on. See the warning under Production Deployment before changing it. |
+| `HOST` | No | `127.0.0.1` | Which interfaces to answer on. Read from the command's environment, not from `.env`. See the warning under Production Deployment before changing it. |
 
 > **⚠️ Never commit your `.env` file.** It is already listed in `.gitignore`.
 
@@ -160,7 +160,7 @@ Create the SQLite database and apply the schema:
 npm run db:push
 ```
 
-This creates `prisma/dev.db` with all tables (Site, Page, Revision, Submission).
+This creates `prisma/dev.db` with every table Neuravex uses.
 
 ### Optional: Seed Demo Data
 
@@ -180,7 +180,9 @@ This creates a "Neuravex Demo" site with sample pages using the SaaS landing tem
 npm run dev
 ```
 
-The app starts at **http://localhost:3000** with hot-reloading enabled.
+The app starts at **http://localhost:3000** with hot-reloading enabled. Like
+`npm start` and the launcher, it answers on `127.0.0.1` only; `HOST` widens
+that, with the same warning.
 
 ### What You'll See
 
@@ -237,8 +239,8 @@ PORT=8080 npm run start
 | Variable | What it does |
 |----------|--------------|
 | `DATABASE_URL` | Where the sites live. `file:./dev.db` is relative to `prisma/`. |
-| `PORT` | The port to listen on. Default 3000; the desktop launcher uses 3939. |
-| `HOST` | Which interfaces to answer on. Default `127.0.0.1`. **Anything else removes the only access control there is**, and the launcher says so in capitals when you set it. |
+| `PORT` | The port to listen on. Default 3000; the desktop launcher uses 3939. Like `HOST`, read from the command's environment rather than `.env`. |
+| `HOST` | Which interfaces to answer on. Default `127.0.0.1`. **Anything else removes the only access control there is**, and the launcher says so in capitals when you set it. It is decided before the server starts, so set it in the command's environment — `HOST=… npm start`, a systemd `Environment=` line, a container's `ENV` — not in `.env`. |
 | `NEURAVEX_ALLOWED_HOSTS` | Comma-separated hostnames this server may be addressed by, on top of `localhost` and IP literals. A reverse proxy deployment needs its public name here. |
 | `NEURAVEX_TRUST_PROXY` | Set to `1` when something in front sets `X-Forwarded-Host`, `X-Forwarded-Proto` and `X-Forwarded-For`. Without it those headers are ignored, because without a proxy they are whatever the client typed. |
 | `PUBLIC_URL` | The address visitors reach the site at. Used for `sitemap.xml`, `robots.txt` and social images. |
@@ -259,9 +261,22 @@ mistake this section exists to prevent.
    PUBLIC_URL=https://neuravex.example.com
    ```
 
-2. Put authentication in front of it. The block below is safe as pasted.
+2. Put authentication in front of it. The block below goes in a file of its
+   own under `/etc/nginx/conf.d/`, which nginx reads inside its `http` block;
+   check it with `nginx -t` before reloading.
 
 ```nginx
+# Where Neuravex listens: 3000 for `npm start` and the Docker image, 3939
+# for the launcher run as a service (see "Keeping it running").
+upstream neuravex {
+    server 127.0.0.1:3000;
+}
+
+# A submitted form is the one thing a visitor is allowed to POST, and it is
+# rate-limited here as well as in the app. The zone is declared at `http`
+# level, outside any `server`, because that is the only place nginx accepts it.
+limit_req_zone $binary_remote_addr zone=neuravex_forms:10m rate=10r/m;
+
 # Port 80 exists to send people to port 443 and for nothing else.
 server {
     listen 80;
@@ -289,12 +304,8 @@ server {
     auth_basic           "Neuravex";
     auth_basic_user_file /etc/nginx/neuravex.htpasswd;
 
-    # A submitted form is the one thing a visitor is allowed to POST.
-    # It is rate-limited here as well as in the app.
-    limit_req_zone $binary_remote_addr zone=neuravex_forms:10m rate=10r/m;
-
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://neuravex;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -312,7 +323,7 @@ server {
     # people into exempting `/api/` wholesale — and `/api/` is the admin API.
     location /sites/ {
         auth_basic off;
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://neuravex;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -320,10 +331,20 @@ server {
         proxy_set_header X-Forwarded-Host  $host;
     }
 
-    # Pictures on those pages.
+    # What those pages load: the pictures you uploaded, the stylesheet and
+    # scripts Next.js serves every page with, and the bundled fonts and stock
+    # photographs. Left behind the password, a visitor is asked to sign in
+    # halfway through loading a published page and then sees it unstyled.
     location /uploads/ {
         auth_basic off;
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://neuravex;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+    }
+    location ~ ^/(_next/static|fonts|stock)/ {
+        auth_basic off;
+        proxy_pass http://neuravex;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host  $host;
@@ -334,7 +355,7 @@ server {
         limit_except POST { deny all; }
         limit_req zone=neuravex_forms burst=5 nodelay;
         auth_basic off;
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://neuravex;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -363,8 +384,10 @@ sites back with all the images broken.
 
 `npm run backup` uses SQLite's own `VACUUM INTO`, which is consistent against
 a live database, and copies the uploads alongside it. To restore: quit
-Neuravex, put the database file back at `prisma/` and the `uploads` folder
-back at `data/uploads`.
+Neuravex, delete any `dev.db-wal` and `dev.db-shm` beside the database (they
+belong to the copy you are replacing, and SQLite would replay them into the
+restored one), put the backed-up database file back at `prisma/dev.db` and
+the `uploads` folder back at `data/uploads`, then start Neuravex again.
 
 ### Keeping it running
 
@@ -468,12 +491,11 @@ docker cp neuravex:/data/backup ./neuravex-backup
 Neuravex includes a lightweight desktop launcher that starts the production server and opens your default browser. No Electron binary is required.
 
 ```bash
-# First, build the production bundle (one-time)
-npm run build
-
-# Then launch
 npm run desktop
 ```
+
+There is nothing to build first: the launcher builds on its first start, and
+again whenever the source has changed since the last build.
 
 Or specify a custom port:
 
@@ -522,13 +544,20 @@ Neuravex includes a [Model Context Protocol](https://modelcontextprotocol.io/) s
 
 ### Quick Setup
 
-Run the interactive setup script:
+Run `npm run setup` first if Neuravex has never been started in this folder —
+the MCP server will not run against a database that does not exist yet — and
+then:
 
 ```bash
 bash setup-mcp.sh
 ```
 
-This configures your MCP client (Claude Desktop, Cursor, etc.) to connect to Neuravex's MCP server.
+It asks nothing. If Claude Desktop is installed, it adds a `neuravex` entry to
+Claude Desktop's config, keeping a backup of the file and every other server
+already in it. For any other client — Cursor, Windsurf, Claude Code — it prints
+the block to paste into that client's MCP settings. opencode needs nothing:
+started in this folder, it reads the `opencode.json` that comes with
+Neuravex.
 
 ### Manual Setup
 
@@ -550,15 +579,15 @@ path into your own Neuravex directory:
 }
 ```
 
-> **Not `npx tsx`, and not without `cwd`.** When the local `tsx` is not on the
-> path — which is every launch from a client that starts the server in its own
-> working directory — `npx` downloads `tsx` from the registry and runs it, with
-> only an `npm warn` line to say so. The command above names the copy this
-> repository installed. `cwd` is what lets the server find `.env` and the
-> database; without it, a `DATABASE_URL` pointing somewhere stale makes SQLite
-> create an empty file, and every tool then reports that you have no sites.
-> The server refuses to start in that state rather than answering from an
-> empty database.
+> **Not `npx tsx`.** When the local `tsx` is not on the path — which is every
+> launch from a client that starts the server in its own working directory —
+> `npx` downloads `tsx` from the registry and runs it, with only an `npm warn`
+> line to say so. The command above names the copy this repository installed.
+> The server reads the `.env` beside `mcp-server.ts` whatever directory it is
+> started in, so the database it opens is the builder's. Do not put a
+> `DATABASE_URL` in the client's config unless you mean a different database:
+> a stale path there makes SQLite create an empty file, and the server refuses
+> to start rather than report that you have no sites.
 
 ### What an agent can do here
 
@@ -685,7 +714,7 @@ npm install
 ```
 
 If that refuses with `EBADENGINE`, your Node is older than Neuravex needs — see
-[Requirements](#requirements). The version is enforced rather than suggested, because an install
+[Prerequisites](#prerequisites). The version is enforced rather than suggested, because an install
 on the wrong Node fails later and less clearly.
 
 ### "Cannot find module '@prisma/client'"
@@ -695,10 +724,13 @@ The Prisma client wasn't generated.
 **Fix:**
 
 ```bash
-npx prisma generate
+npm install
 ```
 
-This should happen automatically during `npm install` (via the `postinstall` script), but you may need to run it manually if the install was interrupted.
+The client is generated by the `postinstall` step of `npm install`, so an
+install that was interrupted is the usual cause, and running it again is the
+fix. Not `npx prisma generate`: `npx` may fetch whatever version of Prisma the
+registry calls latest rather than the one Neuravex was built against.
 
 ---
 
@@ -735,7 +767,7 @@ opened it; there is nothing to fix.
 The dev server and `npm start` do not check first, and say it Node's way:
 
 ```
-Error: listen EADDRINUSE: address already in use :::3000
+Error: listen EADDRINUSE: address already in use 127.0.0.1:3000
 ```
 
 **Fix:** Either stop the other process using port 3000, or start on a different port:
@@ -748,13 +780,10 @@ PORT=3001 npm run dev
 
 ### Uploads Not Working
 
-Make sure the `public/uploads/` directory exists and is writable:
-
-```bash
-mkdir -p public/uploads
-```
-
-The upload API creates this directory automatically, but it may fail if the parent directory has restrictive permissions.
+Uploads are kept in `data/uploads/`, or wherever `NEURAVEX_UPLOAD_DIR` points.
+Neuravex creates the folder on the first upload, so a failure there is almost
+always permissions: the account running Neuravex has to be able to write to
+it. `/api/health` says `"uploads":"not writable"` when it cannot.
 
 ---
 
@@ -772,9 +801,11 @@ still running and holding the file — nothing is replaced and your sites surviv
 untouched. Quit Neuravex before running it, and start it again afterwards: a
 running copy keeps serving the database it opened at launch.
 
-To also clear uploaded files:
+To also clear uploaded files, once the reset has finished:
 
 ```bash
-rm -rf public/uploads/*
-npm run db:reset
+npm run db:reset && rm -rf data/uploads/*
 ```
+
+In that order, so a reset that fails leaves the pictures with the sites that
+use them.

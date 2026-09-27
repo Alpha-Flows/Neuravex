@@ -177,10 +177,22 @@ export function LegalFlow({ siteId, siteSlug }: { siteId: string; siteSlug: stri
             onClick={(e) => e.stopPropagation()}
           >
             <header className="px-5 pt-5 pb-3 border-b border-bg-border">
-              <h2 className="text-lg font-semibold">German legal pages</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold">German legal pages</h2>
+                {/* No lawyer has read what this writes yet. Until one has, the
+                    feature says so where it is used, not only in the README
+                    somebody may never open. */}
+                <span
+                  data-legal-beta
+                  className="text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 border border-amber-500/40 text-amber-300 bg-amber-500/10"
+                >
+                  Beta
+                </span>
+              </div>
               <p className="text-xs text-fg-subtle mt-1">
                 An Impressum (§ 5 DDG) and a Datenschutzerklärung (Art. 13 DSGVO), written from your details and
-                linked in the footer of every page.
+                linked in the footer of every page. The texts have not yet been reviewed by a lawyer — read them
+                before you publish.
               </p>
               <nav className="flex flex-wrap gap-1 mt-3">
                 {steps.map((s, i) => {
@@ -627,10 +639,10 @@ function Privacy({
         label="Who hosts the finished site (Hosting-Anbieter)"
         hint="Whoever serves the files once you have downloaded the site. Their server writes the access logs the notice has to describe."
       >
-        <Input value={profile.hostingProvider} onChange={(e) => set("hostingProvider", e.target.value)} placeholder="Hetzner Online GmbH" />
+        <Input value={profile.hostingProvider} onChange={(e) => set("hostingProvider", e.target.value)} placeholder="Example Hosting GmbH" />
       </Field>
       <Field label="Their address">
-        <Input value={profile.hostingAddress} onChange={(e) => set("hostingAddress", e.target.value)} placeholder="Industriestr. 25, 91710 Gunzenhausen" />
+        <Input value={profile.hostingAddress} onChange={(e) => set("hostingAddress", e.target.value)} placeholder="Musterstraße 1, 12345 Musterstadt" />
       </Field>
       <Field
         label="Is there a data processing agreement with them? (AV-Vertrag, Art. 28 DSGVO)"

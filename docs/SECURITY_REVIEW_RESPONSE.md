@@ -4,8 +4,16 @@ Every finding in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md), what was done
 about it, and where. Read alongside `CHANGELOG.md`, which groups the same work
 by release.
 
-Two findings are **stated rather than closed**, and both say so in their row.
-Everything else is fixed.
+Two findings were **stated rather than closed** when this was written, and
+both say so in their row. Everything else is fixed.
+
+**Since then:** NVX-004 and NVX-010 are closed by the move to Next.js 16 and
+React 19, and `npm audit --omit=dev` reports nothing against what ships.
+Next.js 16 renamed `middleware` to `proxy`, so where a row below names
+`src/middleware.ts` or `src/middleware.test.ts`, the code is now in
+`src/proxy.ts` and `src/proxy.test.ts`. The rows are otherwise left as they
+were written. NVX-052, one tenant with no audit trail, is the design and
+stays stated.
 
 ---
 

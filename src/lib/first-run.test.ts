@@ -66,8 +66,9 @@ describe("a downloaded copy can start itself", () => {
 describe("the documented way in", () => {
   it("is the two commands the launcher actually supports", () => {
     const readme = readFileSync(join(ROOT, "README.md"), "utf8");
-    const quickStart = readme.slice(readme.indexOf("## Quick start"), readme.indexOf("## Using the editor"));
-    expect(quickStart).toContain("npm install");
+    const from = readme.indexOf("## Quick start");
+    const quickStart = readme.slice(from, readme.indexOf("\n## ", from + 1));
+    expect(quickStart).toMatch(/npm (ci|install)\n/);
     expect(quickStart).toContain("npm run desktop");
     // The steps the launcher now does itself should not be asked of a reader.
     expect(quickStart).not.toContain("cp .env.example .env");

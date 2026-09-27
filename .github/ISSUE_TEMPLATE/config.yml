@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/Alpha-Flows/Neuravex/security/advisories/new
+    about: Please report vulnerabilities privately, not in a public issue.
+  - name: Installation help
+    url: https://github.com/Alpha-Flows/Neuravex/blob/main/INSTALL.md#troubleshooting
+    about: The troubleshooting section covers the messages people meet most often.

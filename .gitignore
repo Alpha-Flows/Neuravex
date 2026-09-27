@@ -23,3 +23,6 @@ tsconfig.tsbuildinfo
 
 # Local backups taken with `npm run backup`
 backups/
+
+# The browser suite's HTML report, written on CI
+playwright-report/

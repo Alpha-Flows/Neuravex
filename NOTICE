@@ -1,0 +1,20 @@
+Neuravex
+Copyright 2026 Alpha Flows
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It also includes files by other authors that are distributed under their own
+licences, not under the Apache License:
+
+- Fonts in public/fonts/ — sixteen typefaces from the Google Fonts
+  collection, as repackaged by Fontsource, each under the SIL Open Font
+  License 1.1. Each font's folder holds its licence as OFL.txt;
+  public/fonts/README.md lists the families and versions.
+
+- Photographs in public/stock/ — from Unsplash, under the Unsplash License
+  (https://unsplash.com/license). The photographer and source page of every
+  picture are recorded in public/stock/manifest.json and shown in the
+  builder's picture library.
+
+Dependencies installed by npm are not part of this repository; each carries
+its own licence in node_modules/.

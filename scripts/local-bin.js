@@ -34,14 +34,16 @@ const ROOT = path.resolve(__dirname, "..");
 /**
  * Which interfaces the server answers on, and whether that is a safe answer.
  *
- * Shared by the launcher and `npm start` so the two cannot disagree. Loopback
- * unless HOST says otherwise; there is no sign-in behind this port, so opening
- * it up is something the operator has to ask for in as many words.
+ * Shared by the launcher, `npm start` and `npm run dev` so the three cannot
+ * disagree. Loopback unless HOST says otherwise; there is no sign-in behind
+ * this port, so opening it up is something the operator has to ask for in as
+ * many words. A host passed in — the dev server's own `-H` — is judged by the
+ * same list, so it earns the same warning.
  */
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
-function serverHost() {
-  const host = process.env.HOST || "127.0.0.1";
+function serverHost(given) {
+  const host = given || process.env.HOST || "127.0.0.1";
   return { host, loopback: LOOPBACK.has(host) };
 }
 

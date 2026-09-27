@@ -6,7 +6,7 @@ All notable changes to Neuravex are recorded here. The format follows
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-09-26
+## [0.1.0] - 2026-09-27
 
 The first release. Where an entry answers a finding in
 `docs/SECURITY_REVIEW.md`, the identifier in brackets is the finding it closes.
@@ -109,9 +109,21 @@ The first release. Where an entry answers a finding in
 - The MCP server frames every result as site data, requires `confirm: true` to
   delete, and refuses to start against a database with no tables.
   [NVX-S003, NVX-053]
+- `npm run dev` binds `127.0.0.1` as well. It was the one way of starting
+  Neuravex left as a bare `next dev`, which listens on every interface, and
+  the install guide ended with it: anyone on the same network could open the
+  builder by IP address. It now takes its host from the same place as the
+  launcher and `npm start`, and a wider `HOST` or `-H` prints the same
+  warning.
 
 ### Added
 
+- `CONTRIBUTING.md`, issue forms for bugs and feature requests, a pull request
+  template, and a `NOTICE` naming the bundled fonts and photographs and the
+  licences they come under. The README has screenshots, and says what
+  Neuravex does not do.
+- The German legal pages are marked **Beta** where they are made, with a line
+  saying the texts have not yet been reviewed by a lawyer, until one has.
 - **Releases.** A `v*` tag runs `.github/workflows/release.yml`: it stops
   unless the tag agrees with `package.json` and a dated changelog section,
   runs all of CI, packs the tag as `.tar.gz` and `.zip` with a `SHA256SUMS`,
@@ -408,6 +420,21 @@ The first release. Where an entry answers a finding in
 
 ### Changed
 
+- The templates no longer name real companies, people or publications. Client
+  logos read Stripe, Nike and Airbnb; testimonials came from The New York
+  Times and a Michelin inspector; a law firm was ranked by real legal
+  directories and a résumé worked at Stripe, GitHub and Palantir. A site
+  published from a template without every line rewritten would have claimed
+  all of it. Invented names stand in their place.
+- `setup-mcp.sh` adds its entry to Claude Desktop's config instead of
+  replacing the file, so other MCP servers survive it, and prints the block to
+  paste for every other client. It no longer writes a ChatGPT Desktop file no
+  release was shown to read, or announces opencode as configured whether or
+  not it is installed.
+- Placeholders that were somebody's real address — a hosting company's
+  street, `yourdomain.com`, `the.studio` — are reserved example addresses.
+- The internal product review is gone from `docs/`; what it found and what
+  was done about it is in this file, and the review stays in the history.
 - The package is called `neuravex`, and names its repository.
 - "Delete site" is on the Advanced tab of the site's settings, in a danger
   zone of its own, instead of in the footer one button from Save.
@@ -471,12 +498,24 @@ The first release. Where an entry answers a finding in
   made. Each state has been re-verified against the source and carries the
   `file:line` that proves it; the items that are genuinely half-done now say
   which half is missing rather than describing the whole thing as untouched.
-  The counts in it and in `docs/PRODUCT_REVIEW.md` come from a real run
+  The counts in it come from a real run
   (574 unit tests in 32 files, 169 browser tests in 24 files) instead of three
   different stale numbers.
 
 ### Fixed
 
+- Six templates set their opening heading in the centre above left-aligned
+  text, and the Restaurant template began with an empty section that the
+  editor showed as a drop zone above the photograph.
+- `INSTALL.md`'s nginx recipe did not load — `limit_req_zone` is only allowed
+  at `http` level — and once loaded would have asked visitors of a published
+  site for the password on its stylesheet, fonts and stock photographs. The
+  upload troubleshooting pointed at `public/uploads`, which uploads left long
+  ago, and the reset recipe deleted the pictures before knowing the reset had
+  worked. Restoring a backup now says to remove the old `-wal` and `-shm`
+  files first.
+- When the browser suite failed on CI, the report it uploaded was empty,
+  because nothing wrote one. It is written on CI now.
 - The launcher took any answer below 500 on its port as its own server
   being ready. With another program on the port it printed "Ready!", opened a
   tab on that program and exited 0. It now checks the port before it builds:
@@ -493,7 +532,6 @@ The first release. Where an entry answers a finding in
   the top of the document when they closed; five of the six drawn by hand
   did not say they were dialogs at all. Every one now keeps Tab inside,
   closes on Escape and gives focus back to what opened it.
-
 - A downloaded page could come out with its title, canonical link and social
   tags in a hidden element in the body instead of in the head. Next streams a
   page's metadata after the head for any client it does not take for a
