@@ -40,7 +40,7 @@
     "@dnd-kit/sortable": "^8.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@prisma/client": "^5.20.0",
+    "@prisma/client": "^7.10.0",
     "autoprefixer": "^10.4.20",
     "clsx": "^2.1.1",
     "lucide-react": "^1.47.0",
